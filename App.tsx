@@ -8,11 +8,12 @@ import { Icons } from './components/Icons';
 import { generateCreativeDescription, generateImage, generateVideo } from './services/geminiService';
 import { storageService } from './services/storageService';
 import { ThemeSwitcher } from './components/ThemeSwitcher';
-import { SettingsModal } from './components/Settings/SettingsModal';
 import { StorageModal } from './components/Settings/StorageModal';
 import { ExportImportModal } from './components/Settings/ExportImportModal';
 import { WelcomeModal, hasShownWelcome } from './components/Settings/WelcomeModal';
 import { CropModal } from './components/CropModal';
+import { LoginScreen } from './components/LoginScreen';
+import { authService } from './services/authService';
 
 const DEFAULT_NODE_WIDTH = 320;
 const DEFAULT_NODE_HEIGHT = 240; 
@@ -72,6 +73,8 @@ const App: React.FC = () => {
 };
 
 const CanvasWithSidebar: React.FC = () => {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [nodes, setNodes] = useState<NodeData[]>([]);
   const [connections, setConnections] = useState<Connection[]>([]);
   const [transform, setTransform] = useState<CanvasTransform>({ x: 0, y: 0, k: 1 });
@@ -86,8 +89,6 @@ const CanvasWithSidebar: React.FC = () => {
   const [projectName, setProjectName] = useState('KC画布 MVP 试用项目');
   const [isEditingProjectName, setIsEditingProjectName] = useState(false);
   
-  // Settings Modal State
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isStorageOpen, setIsStorageOpen] = useState(false);
   const [isExportImportOpen, setIsExportImportOpen] = useState(false);
   const [isWelcomeOpen, setIsWelcomeOpen] = useState(() => !hasShownWelcome());
@@ -99,6 +100,13 @@ const CanvasWithSidebar: React.FC = () => {
   useEffect(() => {
       dragModeRef.current = dragMode;
   }, [dragMode]);
+
+  useEffect(() => {
+      authService.verify().then(setIsAuthenticated).finally(() => setIsCheckingAuth(false));
+      const handleExpired = () => setIsAuthenticated(false);
+      window.addEventListener('kc-auth-expired', handleExpired);
+      return () => window.removeEventListener('kc-auth-expired', handleExpired);
+  }, []);
 
   // 清除旧版本原型遗留的 Sora 2 配置，避免影响 KC 默认模型。
   useEffect(() => {
@@ -568,7 +576,6 @@ const CanvasWithSidebar: React.FC = () => {
             if (contextMenu) setContextMenu(null);
             if (quickAddMenu) setQuickAddMenu(null);
             if (showNewWorkflowDialog) setShowNewWorkflowDialog(false);
-            if (isSettingsOpen) setIsSettingsOpen(false);
             if (isStorageOpen) setIsStorageOpen(false);
             if (isExportImportOpen) setIsExportImportOpen(false);
         }
@@ -581,7 +588,7 @@ const CanvasWithSidebar: React.FC = () => {
         window.removeEventListener('keydown', handleKeyDown);
         window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [selectedNodeIds, selectedConnectionId, previewMedia, contextMenu, nodes, connections, quickAddMenu, showNewWorkflowDialog, isSettingsOpen, isStorageOpen, isExportImportOpen, handleAlign]);
+  }, [selectedNodeIds, selectedConnectionId, previewMedia, contextMenu, nodes, connections, quickAddMenu, showNewWorkflowDialog, isStorageOpen, isExportImportOpen, handleAlign]);
 
   useEffect(() => {
     // Load storage directory name for the top-right indicator
@@ -1268,17 +1275,25 @@ const CanvasWithSidebar: React.FC = () => {
       setCanvasBg(dark ? '#0B0C0E' : '#F5F7FA');
   };
 
+  if (isCheckingAuth) {
+      return (
+          <div className="w-full h-screen flex items-center justify-center bg-[#0b0c0e] text-zinc-300">
+              <Icons.Loader2 size={24} className="animate-spin mr-2" />
+              加载中...
+          </div>
+      );
+  }
+
+  if (!isAuthenticated) {
+      return <LoginScreen onLogin={() => setIsAuthenticated(true)} />;
+  }
+
   return (
     <div className="w-full h-screen overflow-hidden flex relative font-sans text-gray-800">
         <WelcomeModal
             isOpen={isWelcomeOpen}
             onClose={() => setIsWelcomeOpen(false)}
             isDark={isDark}
-        />
-        <SettingsModal 
-            isOpen={isSettingsOpen} 
-            onClose={() => setIsSettingsOpen(false)} 
-            isDark={isDark} 
         />
         <StorageModal
             isOpen={isStorageOpen}
@@ -1663,16 +1678,6 @@ const CanvasWithSidebar: React.FC = () => {
                         <span>存储</span>
                     </button>
                     
-                    {/* API Settings */}
-                    <button
-                        onClick={() => setIsSettingsOpen(true)}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-all ${
-                            isDark ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                        }`}
-                    >
-                        <Icons.Settings size={15} />
-                        <span>API 设置</span>
-                    </button>
                 </div>
             </div>
             {renderContextMenu()}

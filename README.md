@@ -32,9 +32,30 @@ http://127.0.0.1:5173/
 start-dev.cmd
 ```
 
+## 后端代理与登录
+
+线上接真实模型时不要在前端配置 API Key。复制 `.env.example` 为 `.env`，在服务端配置：
+
+```bash
+LOGIN_PASSWORD=kc8888
+AUTH_SECRET=replace-with-a-long-random-string
+SEEDREAM_BASE_URL=https://api.example.com
+SEEDREAM_API_KEY=your-seedream-key
+SEEDANCE_BASE_URL=https://api.example.com
+SEEDANCE_API_KEY=your-seedance-key
+```
+
+生产运行：
+
+```bash
+npm run build
+npm start
+```
+
+后端会服务 `dist` 前端页面，并提供 `/api/auth/login`、`/api/generate/image`、`/api/generate/video` 等接口。前端只保存登录 token，不保存模型 API Key。
+
 ## 构建验证
 
 ```bash
 npm run build
 ```
-
