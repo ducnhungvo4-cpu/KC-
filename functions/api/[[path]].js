@@ -206,16 +206,32 @@ const handleVideoGeneration = async (request, env) => {
   return json({ error: 'SEEDANCE_API_NOT_CONFIGURED' }, 501);
 };
 
+const handleHealth = async (request, env) => {
+  if (!(await requireAuth(request, env))) return json({ error: 'UNAUTHORIZED' }, 401);
+  return json({
+    ok: true,
+    seedream: {
+      hasBaseUrl: Boolean(env.SEEDREAM_BASE_URL),
+      hasApiKey: Boolean(env.SEEDREAM_API_KEY),
+      modelId: env.SEEDREAM_MODEL_ID || '',
+      endpoint: env.SEEDREAM_IMAGE_ENDPOINT || '/images/generations',
+      size: env.SEEDREAM_SIZE || '2K',
+      watermark: env.SEEDREAM_WATERMARK !== 'false',
+    },
+  });
+};
+
 export async function onRequest(context) {
   const { request, env } = context;
   const { pathname } = new URL(request.url);
 
   try {
-    if (pathname === '/api/auth/login') return handleLogin(request, env);
-    if (pathname === '/api/auth/me') return handleMe(request, env);
-    if (pathname === '/api/generate/image') return handleImageGeneration(request, env);
-    if (pathname === '/api/generate/text') return handleTextGeneration(request, env);
-    if (pathname === '/api/generate/video') return handleVideoGeneration(request, env);
+    if (pathname === '/api/auth/login') return await handleLogin(request, env);
+    if (pathname === '/api/auth/me') return await handleMe(request, env);
+    if (pathname === '/api/generate/image') return await handleImageGeneration(request, env);
+    if (pathname === '/api/generate/text') return await handleTextGeneration(request, env);
+    if (pathname === '/api/generate/video') return await handleVideoGeneration(request, env);
+    if (pathname === '/api/health') return await handleHealth(request, env);
     return json({ error: 'NOT_FOUND' }, 404);
   } catch (error) {
     console.error(error);

@@ -5,7 +5,7 @@ export default {
     const { pathname } = new URL(request.url);
 
     if (pathname.startsWith('/api/')) {
-      return handleApiRequest({ request, env, context });
+      return await handleApiRequest({ request, env, context });
     }
 
     return env.ASSETS.fetch(request);
