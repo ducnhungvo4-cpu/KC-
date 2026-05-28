@@ -50,6 +50,14 @@ export const Jimeng45Handler = {
     }
 };
 
+export const Seedream5Handler = {
+    rules: { resolutions: ['1k', '2k', '4k'], ratios: BASE_RATIOS, hasPromptExtend: true },
+    generate: async (cfg: ModelConfig, prompt: string, params: any) => {
+        const size = calculateImageSize(params.aspectRatio, params.resolution, 'Seedream 5.0');
+        return await generateStandardImage(cfg, { id: 'doubao-seedream-5-0', name: 'Seedream 5.0', type: 'IMAGE_GEN' } as any, prompt, params.aspectRatio, params.resolution, size, params.inputImages, params.count, params.promptOptimize);
+    }
+};
+
 export const Jimeng4Handler = {
     rules: { resolutions: ['1k'], ratios: BASE_RATIOS },
     generate: async (cfg: ModelConfig, prompt: string, params: any) => {
@@ -83,6 +91,7 @@ export const QwenEditHandler = {
 };
 
 export const IMAGE_HANDLERS: Record<string, any> = {
+    'Seedream 5.0': Seedream5Handler,
     'BananaPro': BananaProHandler,
     'Banana Pro Edit': BananaProEditHandler,
     'Banana': BananaHandler,

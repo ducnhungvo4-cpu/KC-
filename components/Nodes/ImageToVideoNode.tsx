@@ -33,7 +33,7 @@ export const ImageToVideoNode: React.FC<ImageToVideoNodeProps> = ({
     const hasInputImage = inputs.length > 0;
 
     const checkConfig = useCallback(() => {
-         const mName = data.model || 'Sora 2';
+         const mName = data.model || 'Seedance 1.5 Pro';
          const cfg = getModelConfig(mName);
          setIsConfigured(!!cfg.key);
     }, [data.model]);
@@ -110,8 +110,8 @@ export const ImageToVideoNode: React.FC<ImageToVideoNodeProps> = ({
         updateData(data.id, { aspectRatio: ratio, width: Math.round(newW), height: Math.round(newH) });
     };
 
-    const currentModel = data.model || 'Sora 2';
-    const handler = VIDEO_HANDLERS[currentModel] || VIDEO_HANDLERS['Sora 2'];
+    const currentModel = data.model || 'Seedance 1.5 Pro';
+    const handler = VIDEO_HANDLERS[currentModel] || VIDEO_HANDLERS['Seedance 1.5 Pro'];
     const rules = handler.rules;
 
     const resOptions = rules.resolutions || ['720p'];
@@ -189,7 +189,7 @@ export const ImageToVideoNode: React.FC<ImageToVideoNodeProps> = ({
               <div className={`${controlPanelBg} rounded-2xl p-3 shadow-2xl flex flex-col gap-3 border`}>
                   <textarea className={`w-full border rounded-xl p-3 text-[11px] leading-relaxed resize-none focus:outline-none min-h-[70px] no-scrollbar ${inputBg}`} placeholder="描述视频运动效果..." value={data.prompt || ''} onChange={(e) => updateData(data.id, { prompt: e.target.value })} onWheel={(e) => e.stopPropagation()} />
                   <div className="flex items-center justify-between gap-2 h-7">
-                       <LocalCustomDropdown options={groupedVideoModels} value={data.model || 'Sora 2'} onChange={(val: any) => updateData(data.id, { model: val })} isOpen={activeDropdown === 'model'} onToggle={() => setActiveDropdown(activeDropdown === 'model' ? null : 'model')} onClose={() => setActiveDropdown(null)} align="left" width="w-[130px]" isDark={isDark} />
+                       <LocalCustomDropdown options={groupedVideoModels} value={data.model || 'Seedance 1.5 Pro'} onChange={(val: any) => updateData(data.id, { model: val })} isOpen={activeDropdown === 'model'} onToggle={() => setActiveDropdown(activeDropdown === 'model' ? null : 'model')} onClose={() => setActiveDropdown(null)} align="left" width="w-[130px]" isDark={isDark} />
                        <div className={`w-px h-3 ${dividerColor}`}></div>
                        <div className="flex items-center gap-1">
                           <LocalCustomDropdown icon={Icons.Crop} options={ratioOptions} value={data.aspectRatio || '16:9'} onChange={handleRatioChange} isOpen={activeDropdown === 'ratio'} onToggle={() => setActiveDropdown(activeDropdown === 'ratio' ? null : 'ratio')} onClose={() => setActiveDropdown(null)} disabledOptions={constraints.disabledRatios} isDark={isDark} />

@@ -12,10 +12,37 @@ import { SettingsModal } from './components/Settings/SettingsModal';
 import { StorageModal } from './components/Settings/StorageModal';
 import { ExportImportModal } from './components/Settings/ExportImportModal';
 import { WelcomeModal, hasShownWelcome } from './components/Settings/WelcomeModal';
+import { CropModal } from './components/CropModal';
 
 const DEFAULT_NODE_WIDTH = 320;
 const DEFAULT_NODE_HEIGHT = 240; 
 const EMPTY_ARRAY: string[] = [];
+const IMAGE_NODE_BASE_SIZE = 400;
+const VIDEO_NODE_BASE_HEIGHT = 400;
+const IMAGE_ASPECT_RATIOS = ['1:1', '3:4', '4:3', '9:16', '16:9'];
+const VIDEO_ASPECT_RATIOS = ['1:1', '3:4', '4:3', '9:16', '16:9', '21:9', '9:21'];
+
+const getNodeSizeForAspectRatio = (aspectRatio = '1:1', baseSize = IMAGE_NODE_BASE_SIZE) => {
+    const [wRaw, hRaw] = aspectRatio.split(':').map(Number);
+    const wRatio = Number.isFinite(wRaw) && wRaw > 0 ? wRaw : 1;
+    const hRatio = Number.isFinite(hRaw) && hRaw > 0 ? hRaw : 1;
+    const ratio = wRatio / hRatio;
+
+    if (ratio >= 1) {
+        return { width: Math.round(baseSize * ratio), height: baseSize };
+    }
+
+    return { width: baseSize, height: Math.round(baseSize / ratio) };
+};
+
+const getClosestAspectRatio = (width: number, height: number, options = IMAGE_ASPECT_RATIOS) => {
+    const sourceRatio = width / height;
+    return options.reduce((best, candidate) => {
+        const [w, h] = candidate.split(':').map(Number);
+        const [bestW, bestH] = best.split(':').map(Number);
+        return Math.abs(w / h - sourceRatio) < Math.abs(bestW / bestH - sourceRatio) ? candidate : best;
+    }, options[0]);
+};
 
 // Helper for resizing imported media constraints
 const calculateImportDimensions = (naturalWidth: number, naturalHeight: number) => {
@@ -56,7 +83,7 @@ const CanvasWithSidebar: React.FC = () => {
   const [showNewWorkflowDialog, setShowNewWorkflowDialog] = useState(false);
   
   // Project Name State
-  const [projectName, setProjectName] = useState('未命名项目');
+  const [projectName, setProjectName] = useState('KC画布 MVP 试用项目');
   const [isEditingProjectName, setIsEditingProjectName] = useState(false);
   
   // Settings Modal State
@@ -73,7 +100,7 @@ const CanvasWithSidebar: React.FC = () => {
       dragModeRef.current = dragMode;
   }, [dragMode]);
 
-  // 清除 Sora 2 的旧配置（修复 endpoint 问题）
+  // 清除旧版本原型遗留的 Sora 2 配置，避免影响 KC 默认模型。
   useEffect(() => {
       if (typeof window !== 'undefined') {
           try {
@@ -110,6 +137,7 @@ const CanvasWithSidebar: React.FC = () => {
   const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null);
   const [suggestedNodes, setSuggestedNodes] = useState<NodeData[]>([]);
   const [previewMedia, setPreviewMedia] = useState<{ url: string, type: 'image' | 'video' } | null>(null);
+  const [cropTarget, setCropTarget] = useState<{ nodeId: string; imageSrc: string; title: string; aspectRatio: string } | null>(null);
   
   // Quick Add Menu State
   const [quickAddMenu, setQuickAddMenu] = useState<{ sourceId: string, x: number, y: number, worldX: number, worldY: number } | null>(null);
@@ -341,9 +369,9 @@ const CanvasWithSidebar: React.FC = () => {
     const getDefaultModel = (t: NodeType) => {
         switch (t) {
             case NodeType.TEXT_TO_IMAGE:
-                return 'BananaPro';
+                return 'Seedream 5.0';
             case NodeType.TEXT_TO_VIDEO:
-                return 'Sora 2';
+                return 'Seedance 1.5 Pro';
             default:
                 return '';
         }
@@ -404,9 +432,9 @@ const CanvasWithSidebar: React.FC = () => {
       const getDefaultModel = (t: NodeType) => {
           switch (t) {
               case NodeType.TEXT_TO_IMAGE:
-                  return 'BananaPro';
+                  return 'Seedream 5.0';
               case NodeType.TEXT_TO_VIDEO:
-                  return 'Sora 2';
+                  return 'Seedance 1.5 Pro';
               default:
                   return '';
           }
@@ -455,10 +483,11 @@ const CanvasWithSidebar: React.FC = () => {
                     reader.onload = (event) => {
                         const img = new Image();
                         img.onload = () => {
-                            const { width, height, ratio } = calculateImportDimensions(img.width, img.height);
+                            const aspectRatio = getClosestAspectRatio(img.width, img.height, IMAGE_ASPECT_RATIOS);
+                            const { width, height } = getNodeSizeForAspectRatio(aspectRatio);
                             const src = event.target?.result as string;
-                            addNode(NodeType.ORIGINAL_IMAGE, worldPos.x, worldPos.y, {
-                                width, height, imageSrc: src, aspectRatio: `${ratio}:1`, outputArtifacts: [src]
+                            addNode(NodeType.TEXT_TO_IMAGE, worldPos.x, worldPos.y, {
+                                width, height, imageSrc: src, title: `图片_${new Date().toLocaleTimeString()}`, aspectRatio, model: 'Seedream 5.0', resolution: '1k', outputArtifacts: [src]
                             });
                         };
                         img.src = event.target?.result as string;
@@ -473,9 +502,10 @@ const CanvasWithSidebar: React.FC = () => {
                     const video = document.createElement('video');
                     video.preload = 'metadata';
                     video.onloadedmetadata = () => {
-                         const { width, height, ratio } = calculateImportDimensions(video.videoWidth, video.videoHeight);
-                         addNode(NodeType.ORIGINAL_IMAGE, worldPos.x, worldPos.y, {
-                             width, height, videoSrc: url, title: file.name, aspectRatio: `${ratio}:1`, outputArtifacts: [url]
+                         const aspectRatio = getClosestAspectRatio(video.videoWidth, video.videoHeight, VIDEO_ASPECT_RATIOS);
+                         const { width, height } = getNodeSizeForAspectRatio(aspectRatio, VIDEO_NODE_BASE_HEIGHT);
+                         addNode(NodeType.TEXT_TO_VIDEO, worldPos.x, worldPos.y, {
+                             width, height, videoSrc: url, title: file.name, aspectRatio, model: 'Seedance 1.5 Pro', resolution: '720p', duration: '5s', outputArtifacts: [url]
                          });
                     };
                     video.src = url;
@@ -622,7 +652,7 @@ const CanvasWithSidebar: React.FC = () => {
           // Start-End Frame to Video generation (首尾帧模式)
           else if (node.type === NodeType.START_END_TO_VIDEO) {
             // 添加 _FL 后缀来标识首尾帧模式
-            const modelWithFL = (node.model || 'Sora 2') + '_FL';
+            const modelWithFL = (node.model || 'Seedance 1.5 Pro') + '_FL';
             // 如果设置了 swapFrames，交换首尾帧顺序
             const orderedInputs = node.swapFrames && inputs.length >= 2 ? [inputs[1], inputs[0]] : inputs;
             results = await generateVideo(
@@ -667,6 +697,47 @@ const CanvasWithSidebar: React.FC = () => {
   
   const handleHistoryPreview = (url: string, type: 'image' | 'video') => setPreviewMedia({ url, type });
 
+  const handleCropStart = (nodeId: string) => {
+      const node = nodes.find(n => n.id === nodeId);
+      if (!node?.imageSrc) {
+          alert("当前节点没有可裁剪的图片");
+          return;
+      }
+      setCropTarget({ nodeId, imageSrc: node.imageSrc, title: node.title, aspectRatio: node.aspectRatio || '1:1' });
+  };
+
+  const handleCropConfirm = (croppedSrc: string, naturalWidth: number, naturalHeight: number, aspectRatio: string) => {
+      void naturalWidth;
+      void naturalHeight;
+      if (!cropTarget) return;
+      const source = nodes.find(n => n.id === cropTarget.nodeId);
+      const { width, height } = getNodeSizeForAspectRatio(aspectRatio);
+      const newId = generateId();
+      const newNode: NodeData = {
+          id: newId,
+          type: NodeType.TEXT_TO_IMAGE,
+          x: source ? source.x + source.width + 80 : 80,
+          y: source ? source.y : 80,
+          width,
+          height,
+          title: `裁剪_${cropTarget.title}`.slice(0, 24),
+          imageSrc: croppedSrc,
+          aspectRatio,
+          model: source?.model || 'Seedream 5.0',
+          resolution: source?.resolution || '1k',
+          count: 1,
+          prompt: source?.prompt || '',
+          outputArtifacts: [croppedSrc]
+      };
+
+      setNodes(prev => [...prev, newNode]);
+      if (source) {
+          setConnections(prev => [...prev, { id: generateId(), sourceId: source.id, targetId: newId }]);
+      }
+      setSelectedNodeIds(new Set([newId]));
+      setCropTarget(null);
+  };
+
   const copyImageToClipboard = async (nodeId: string) => {
       const node = nodes.find(n => n.id === nodeId);
       if (node && node.imageSrc) {
@@ -688,20 +759,54 @@ const CanvasWithSidebar: React.FC = () => {
       const file = e.target.files?.[0];
       const nodeId = nodeToReplaceRef.current;
       if (file && nodeId) {
+          if (file.type.startsWith('video/')) {
+              const url = URL.createObjectURL(file);
+              const video = document.createElement('video');
+              video.preload = 'metadata';
+              video.onloadedmetadata = () => {
+                  const node = nodes.find(n => n.id === nodeId);
+                  if (node) {
+                      const aspectRatio = getClosestAspectRatio(video.videoWidth, video.videoHeight, VIDEO_ASPECT_RATIOS);
+                      const nodeSize = getNodeSizeForAspectRatio(aspectRatio, VIDEO_NODE_BASE_HEIGHT);
+                      const currentArtifacts = node.outputArtifacts || [];
+                      const newArtifacts = [url, ...currentArtifacts];
+                      updateNodeData(nodeId, {
+                          type: NodeType.TEXT_TO_VIDEO,
+                          videoSrc: url,
+                          imageSrc: undefined,
+                          title: file.name,
+                          width: nodeSize.width,
+                          height: nodeSize.height,
+                          aspectRatio,
+                          model: node.model || 'Seedance 1.5 Pro',
+                          resolution: node.resolution || '720p',
+                          duration: node.duration || '5s',
+                          outputArtifacts: newArtifacts
+                      });
+                  }
+              };
+              video.src = url;
+          } else if (file.type.startsWith('image/')) {
            const reader = new FileReader();
            reader.onload = (event) => {
                const img = new Image();
                img.onload = () => {
                    const node = nodes.find(n => n.id === nodeId);
                    if (node) {
-                        const { width, height, ratio } = calculateImportDimensions(img.width, img.height);
+                        const aspectRatio = getClosestAspectRatio(img.width, img.height, IMAGE_ASPECT_RATIOS);
+                        const { width, height } = getNodeSizeForAspectRatio(aspectRatio);
                         const src = event.target?.result as string;
                         const currentArtifacts = node.outputArtifacts || [];
                         const newArtifacts = [src, ...currentArtifacts];
                         updateNodeData(nodeId, { 
-                            imageSrc: src, 
+                            type: NodeType.TEXT_TO_IMAGE,
+                            imageSrc: src,
+                            videoSrc: undefined,
+                            title: file.name || node.title,
                             width, height,
-                            aspectRatio: `${ratio}:1`, 
+                            aspectRatio,
+                            model: node.model || 'Seedream 5.0',
+                            resolution: node.resolution || '1k',
                             outputArtifacts: newArtifacts
                         });
                    }
@@ -709,6 +814,7 @@ const CanvasWithSidebar: React.FC = () => {
                img.src = event.target?.result as string;
            };
            reader.readAsDataURL(file);
+          }
       }
       if (replaceImageRef.current) replaceImageRef.current.value = '';
       nodeToReplaceRef.current = null;
@@ -737,7 +843,7 @@ const CanvasWithSidebar: React.FC = () => {
     setNodes([]);
     setConnections([]);
     setTransform({ x: 0, y: 0, k: 1 });
-    setProjectName('未命名项目');
+    setProjectName('KC画布 MVP 试用项目');
     setShowNewWorkflowDialog(false);
     setSelectedNodeIds(new Set());
     setSelectionBox(null);
@@ -810,10 +916,11 @@ const CanvasWithSidebar: React.FC = () => {
         reader.onload = (event) => {
             const img = new Image();
             img.onload = () => {
-                 const { width, height, ratio } = calculateImportDimensions(img.width, img.height);
+                 const aspectRatio = getClosestAspectRatio(img.width, img.height, IMAGE_ASPECT_RATIOS);
+                 const { width, height } = getNodeSizeForAspectRatio(aspectRatio);
                  const src = event.target?.result as string;
-                 addNode(NodeType.ORIGINAL_IMAGE, center.x - width/2, center.y - height/2, {
-                     width, height, imageSrc: src, aspectRatio: `${ratio}:1`, outputArtifacts: [src]
+                 addNode(NodeType.TEXT_TO_IMAGE, center.x - width/2, center.y - height/2, {
+                     width, height, imageSrc: src, title: file.name, aspectRatio, model: 'Seedream 5.0', resolution: '1k', outputArtifacts: [src]
                  });
             };
             img.src = event.target?.result as string;
@@ -824,9 +931,10 @@ const CanvasWithSidebar: React.FC = () => {
         const video = document.createElement('video');
         video.preload = 'metadata';
         video.onloadedmetadata = () => {
-            const { width, height, ratio } = calculateImportDimensions(video.videoWidth, video.videoHeight);
-            addNode(NodeType.ORIGINAL_IMAGE, center.x - width/2, center.y - height/2, {
-                width, height, videoSrc: url, title: file.name, aspectRatio: `${ratio}:1`, outputArtifacts: [url]
+            const aspectRatio = getClosestAspectRatio(video.videoWidth, video.videoHeight, VIDEO_ASPECT_RATIOS);
+            const { width, height } = getNodeSizeForAspectRatio(aspectRatio, VIDEO_NODE_BASE_HEIGHT);
+            addNode(NodeType.TEXT_TO_VIDEO, center.x - width/2, center.y - height/2, {
+                width, height, videoSrc: url, title: file.name, aspectRatio, model: 'Seedance 1.5 Pro', resolution: '720p', duration: '5s', outputArtifacts: [url]
             });
         };
         video.src = url;
@@ -849,9 +957,10 @@ const CanvasWithSidebar: React.FC = () => {
                   const src = event.target?.result as string;
                   const img = new Image();
                   img.onload = () => {
-                       const { width, height, ratio } = calculateImportDimensions(img.width, img.height);
-                       addNode(NodeType.ORIGINAL_IMAGE, worldPos.x - width/2 + offsetX, worldPos.y - height/2 + offsetY, {
-                           width, height, imageSrc: src, aspectRatio: `${ratio}:1`, outputArtifacts: [src]
+                       const aspectRatio = getClosestAspectRatio(img.width, img.height, IMAGE_ASPECT_RATIOS);
+                       const { width, height } = getNodeSizeForAspectRatio(aspectRatio);
+                       addNode(NodeType.TEXT_TO_IMAGE, worldPos.x - width/2 + offsetX, worldPos.y - height/2 + offsetY, {
+                           width, height, imageSrc: src, title: file.name, aspectRatio, model: 'Seedream 5.0', resolution: '1k', outputArtifacts: [src]
                        });
                   };
                   img.src = src;
@@ -862,9 +971,10 @@ const CanvasWithSidebar: React.FC = () => {
               const video = document.createElement('video');
               video.preload = 'metadata';
               video.onloadedmetadata = () => {
-                  const { width, height, ratio } = calculateImportDimensions(video.videoWidth, video.videoHeight);
-                  addNode(NodeType.ORIGINAL_IMAGE, worldPos.x - width/2 + offsetX, worldPos.y - height/2 + offsetY, {
-                       width, height, videoSrc: url, title: file.name, aspectRatio: `${ratio}:1`, outputArtifacts: [url]
+                  const aspectRatio = getClosestAspectRatio(video.videoWidth, video.videoHeight, VIDEO_ASPECT_RATIOS);
+                  const { width, height } = getNodeSizeForAspectRatio(aspectRatio, VIDEO_NODE_BASE_HEIGHT);
+                  addNode(NodeType.TEXT_TO_VIDEO, worldPos.x - width/2 + offsetX, worldPos.y - height/2 + offsetY, {
+                       width, height, videoSrc: url, title: file.name, aspectRatio, model: 'Seedance 1.5 Pro', resolution: '720p', duration: '5s', outputArtifacts: [url]
                    });
               };
               video.src = url;
@@ -1057,7 +1167,7 @@ const CanvasWithSidebar: React.FC = () => {
                         </button>
                         {contextMenu.nodeType === NodeType.ORIGINAL_IMAGE && (
                             <button className={menuItemClass} onClick={() => { triggerReplaceImage(contextMenu.nodeId!); setContextMenu(null); }}>
-                                <Icons.Upload size={14}/> 替换图片
+                                <Icons.Upload size={14}/> 替换素材
                             </button>
                         )}
                         {canToggleVideoType && (
@@ -1181,7 +1291,7 @@ const CanvasWithSidebar: React.FC = () => {
         />
         <input type="file" ref={workflowInputRef} hidden accept=".aistudio-flow,.json" onChange={handleLoadWorkflow} />
         <input type="file" ref={assetInputRef} hidden accept="image/*,video/*" onChange={handleImportAsset} />
-        <input type="file" ref={replaceImageRef} hidden accept="image/*" onChange={handleReplaceImage} />
+        <input type="file" ref={replaceImageRef} hidden accept="image/*,video/*" onChange={handleReplaceImage} />
         <div 
             ref={containerRef}
             className={`flex-1 w-full h-full relative grid-pattern select-none ${dragMode === 'PAN' ? 'cursor-grabbing' : 'cursor-grab'}`}
@@ -1407,6 +1517,7 @@ const CanvasWithSidebar: React.FC = () => {
                             onMaximize={handleMaximize}
                             onDownload={handleDownload}
                             onUpload={triggerReplaceImage}
+                            onCrop={handleCropStart}
                             isSelecting={dragMode === 'SELECT'}
                             onDelete={deleteNode}
                             isDark={isDark}
@@ -1557,6 +1668,16 @@ const CanvasWithSidebar: React.FC = () => {
                          {previewMedia.type === 'video' ? <video src={previewMedia.url} controls autoPlay className="max-w-full max-h-[90vh]" /> : <img src={previewMedia.url} alt="Preview" className="max-w-full max-h-[90vh] object-contain" />}
                     </div>
                 </div>
+            )}
+            {cropTarget && (
+                <CropModal
+                    imageSrc={cropTarget.imageSrc}
+                    sourceTitle={cropTarget.title}
+                    initialAspectRatio={cropTarget.aspectRatio}
+                    isDark={isDark}
+                    onClose={() => setCropTarget(null)}
+                    onConfirm={handleCropConfirm}
+                />
             )}
         </div>
     </div>

@@ -335,36 +335,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
                 <div className="flex-1 overflow-y-auto custom-scrollbar">
                     <div className="p-6 space-y-6">
                         
-                        {/* ⚠️ 警告提示 */}
-                        <div className={`p-4 rounded-xl border ${isDark ? 'bg-amber-500/10 border-amber-500/30' : 'bg-amber-50 border-amber-200'}`}>
-                            <div className="flex items-start gap-3">
-                                <div className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center ${isDark ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-600'}`}>
-                                    <Icons.AlertTriangle size={18} />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <h4 className={`text-sm font-bold mb-1 ${isDark ? 'text-amber-400' : 'text-amber-700'}`}>
-                                        ⚠️ 博主提醒：自接 API 平台有风险！
-                                    </h4>
-                                    <p className={`text-xs leading-relaxed ${isDark ? 'text-amber-300/80' : 'text-amber-600'}`}>
-                                        很多小型 API 中转商可能会跑路，充值后血本无归。如果出图/出视频量大，建议使用大厂服务。
-                                    </p>
-                                    <div className={`mt-2 p-2 rounded-lg ${isDark ? 'bg-emerald-500/10 border border-emerald-500/30' : 'bg-emerald-50 border border-emerald-200'}`}>
-                                        <p className={`text-xs ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>
-                                            <span className="font-bold">✅ 推荐：</span>
-                                            <a href="https://xianchou.com" target="_blank" rel="noopener noreferrer" className="underline ml-1 hover:opacity-80">
-                                                献丑AI (xianchou.com)
-                                            </a>
-                                            <span className="mx-1">—</span>
-                                            <span>Banana Pro 4K 仅 0.2元/张，Sora 2 顶配仅 4积分/条</span>
-                                        </p>
-                                    </div>
-                                    <p className={`text-[10px] mt-2 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-                                        💡 提示：不同中转商的接口参数格式可能不同，如不兼容请参考 README 或用 AI 编辑器调整代码
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-
                         {/* 全局配置区域 */}
                         <div className="space-y-4">
                             {/* Global Base URL */}

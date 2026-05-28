@@ -4,6 +4,7 @@ import type { ModelConfig } from "./mode/config";
 import { IMAGE_HANDLERS, BananaHandler, Flux2Handler } from "./mode/image/configurations";
 import { VIDEO_HANDLERS, Sora2Handler, KlingStandardHandler } from "./mode/video/configurations";
 import { constructUrl, fetchThirdParty } from "./mode/network";
+import { generateMockImage } from "./mockGeneration";
 
 // Re-export for UI
 export { MODEL_REGISTRY, getModelConfig, saveModelConfig, registerCustomModel, deleteModel, isCustomModel, getVisibleModels };
@@ -12,7 +13,7 @@ export type { ModelConfig };
 // --- Generators ---
 
 export const generateCreativeDescription = async (input: string, mode: 'IMAGE' | 'VIDEO'): Promise<string> => {
-  const config = getModelConfig('BananaPro'); 
+  const config = getModelConfig('Seedream 5.0'); 
   if (!config.key) return input;
   const prompt = `Optimize this ${mode.toLowerCase()} description for professional AI generation. Input: "${input}". Provide ONLY the optimized prompt text.`;
   try {
@@ -28,7 +29,7 @@ export const generateCreativeDescription = async (input: string, mode: 'IMAGE' |
 export const generateImage = async (
     prompt: string, 
     aspectRatio: string = "1:1", 
-    modelName: string = "BananaPro", 
+    modelName: string = "Seedream 5.0", 
     resolution: string = "1k", 
     count: number = 1,
     inputImages: string[] = [],
@@ -45,9 +46,16 @@ export const generateImage = async (
       }
   }
   
-  if (!handler) handler = IMAGE_HANDLERS['BananaPro'];
+  if (!handler) handler = IMAGE_HANDLERS['Seedream 5.0'];
 
   const config = getModelConfig(modelName);
+  if (modelName === 'Seedream 5.0' && !config.key) {
+      const total = Math.max(1, Math.min(count, 4));
+      await new Promise(resolve => setTimeout(resolve, 650));
+      return Array.from({ length: total }, (_, index) =>
+          generateMockImage(prompt, aspectRatio, resolution, index, inputImages.length)
+      );
+  }
   
   // Debug: Log image generation parameters
   console.log(`[Image Gen] Model: ${modelName}, Input Images: ${inputImages.length}, Prompt Optimize: ${promptOptimize}`);
@@ -65,7 +73,7 @@ export const generateVideo = async (
     prompt: string, 
     inputImages: string[] = [], 
     aspectRatio: string = "16:9", 
-    modelName: string = "Sora2", 
+    modelName: string = "Seedance 1.5 Pro", 
     resolution: string = "720p", 
     duration: string = "5s",
     count: number = 1,
@@ -86,7 +94,7 @@ export const generateVideo = async (
         }
     }
 
-    if (!handler) handler = VIDEO_HANDLERS['Sora2'];
+    if (!handler) handler = VIDEO_HANDLERS['Seedance 1.5 Pro'];
 
     const config = getModelConfig(realModelName);
     

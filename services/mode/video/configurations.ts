@@ -229,6 +229,7 @@ export const Grok3Handler = {
 };
 
 export const VIDEO_HANDLERS: Record<string, any> = {
+    'Seedance 1.5 Pro': SeedanceHandler,
     'Sora 2': Sora2Handler,
     'Veo 3.1 Fast': VeoFastHandler,
     'Veo 3.1 Pro': VeoProHandler,

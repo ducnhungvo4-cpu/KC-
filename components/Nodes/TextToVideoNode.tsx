@@ -32,7 +32,7 @@ export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
     const isSelectedAndStable = selected && !isSelecting;
 
     const checkConfig = useCallback(() => {
-         const mName = data.model || 'Sora 2';
+         const mName = data.model || 'Seedance 1.5 Pro';
          const cfg = getModelConfig(mName);
          setIsConfigured(!!cfg.key);
     }, [data.model]);
@@ -111,8 +111,8 @@ export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
     };
 
 
-    const currentModel = data.model || 'Sora 2';
-    const handler = VIDEO_HANDLERS[currentModel] || VIDEO_HANDLERS['Sora 2'];
+    const currentModel = data.model || 'Seedance 1.5 Pro';
+    const handler = VIDEO_HANDLERS[currentModel] || VIDEO_HANDLERS['Seedance 1.5 Pro'];
     const rules = handler.rules;
 
     const resOptions = rules.resolutions || ['720p'];
@@ -233,7 +233,7 @@ export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
                   <div className="flex items-center gap-2">
                        <LocalCustomDropdown 
                            options={groupedVideoModels} 
-                           value={data.model || 'Sora 2'} 
+                           value={data.model || 'Seedance 1.5 Pro'} 
                            onChange={(val: any) => updateData(data.id, { model: val })} 
                            isOpen={activeDropdown === 'model'} 
                            onToggle={() => setActiveDropdown(activeDropdown === 'model' ? null : 'model')} 

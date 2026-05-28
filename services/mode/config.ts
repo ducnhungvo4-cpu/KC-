@@ -29,6 +29,7 @@ const deletedModels = loadDeletedModels();
 
 export const MODEL_REGISTRY: Record<string, ModelDef> = {
   // --- Image Models ---
+  'Seedream 5.0': { id: 'doubao-seedream-5-0', name: 'Seedream 5.0', type: 'IMAGE_GEN', category: 'IMAGE', defaultEndpoint: '/v1/images/generations' },
   'BananaPro': { id: 'gemini-3-pro-image-preview', name: 'Banana Pro', type: 'CHAT', category: 'IMAGE', defaultEndpoint: '/v1/chat/completions' },
   'Banana': { id: 'gemini-2.5-flash-image-preview', name: 'Banana', type: 'CHAT', category: 'IMAGE', defaultEndpoint: '/v1/chat/completions' },
   'Flux2': { id: 'flux-kontext-pro', name: 'Flux 2', type: 'IMAGE_GEN', category: 'IMAGE', defaultEndpoint: '/v1/images/generations' },
@@ -88,6 +89,7 @@ export const MODEL_REGISTRY: Record<string, ModelDef> = {
   },
   
   'Grok video 3': { id: 'grok-video-3', name: 'Grok Video', type: 'VIDEO_GEN_STD', category: 'VIDEO', defaultEndpoint: '/v1/video/create', defaultQueryEndpoint: '/v1/video/query' },
+  'Seedance 1.5 Pro': { id: 'doubao-seedance-1-5-pro', name: 'Seedance 1.5 Pro', type: 'VIDEO_GEN_STD', category: 'VIDEO', defaultEndpoint: '/v1/videos' },
   
   ...customModels
 };
@@ -231,5 +233,7 @@ export const isCustomModel = (key: string): boolean => {
 
 // 获取可见的模型列表（用于下拉框）
 export const getVisibleModels = (): string[] => {
-    return Object.keys(MODEL_REGISTRY);
+    const kcDefaults = ['Seedream 5.0', 'Seedance 1.5 Pro'];
+    const customVisible = Object.keys(loadCustomModels()).filter(key => MODEL_REGISTRY[key]);
+    return [...kcDefaults.filter(key => MODEL_REGISTRY[key]), ...customVisible.filter(key => !kcDefaults.includes(key))];
 };

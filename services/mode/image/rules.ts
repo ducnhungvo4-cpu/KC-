@@ -4,6 +4,7 @@ import { ImageModelRules } from "../types";
 const DEFAULT_RATIOS = ['1:1', '3:4', '4:3', '9:16', '16:9'];
 
 export const IMAGE_MODEL_CAPABILITIES: Record<string, ImageModelRules> = {
+    'Seedream 5.0': { resolutions: ['1k', '2k', '4k'], ratios: DEFAULT_RATIOS, hasPromptExtend: true },
     'BananaPro': { resolutions: ['1k', '2k', '4k'], ratios: DEFAULT_RATIOS },
     'Banana Pro Edit': { resolutions: ['1k', '2k', '4k'], ratios: ['1:1', '3:4', '4:3', '9:16', '16:9', '21:9', '9:21'], supportsEdit: true },
     'Banana': { resolutions: ['1k'], ratios: DEFAULT_RATIOS },
@@ -70,7 +71,7 @@ export const calculateImageSize = (aspectRatio: string, resolution: string, mode
       }
   }
 
-  const supportsHighRes = ['BananaPro', 'Banana Pro Edit', '即梦4.5'].includes(modelName);
+  const supportsHighRes = ['Seedream 5.0', 'BananaPro', 'Banana Pro Edit', '即梦4.5'].includes(modelName);
 
   if (supportsHighRes) {
       if (resolution === '2k') {

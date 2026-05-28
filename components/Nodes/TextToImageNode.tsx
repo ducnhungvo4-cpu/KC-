@@ -15,12 +15,13 @@ interface TextToImageNodeProps {
   inputs?: string[];
   onMaximize?: (id: string) => void;
   onDownload?: (id: string) => void;
+  onCrop?: (id: string) => void;
   isDark?: boolean;
   isSelecting?: boolean;
 }
 
 export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
-    data, updateData, onGenerate, selected, showControls, inputs = [], onMaximize, onDownload, isDark = true, isSelecting
+    data, updateData, onGenerate, selected, showControls, inputs = [], onMaximize, onDownload, onCrop, isDark = true, isSelecting
 }) => {
     const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
     const [deferredInputs, setDeferredInputs] = useState(false);
@@ -30,9 +31,9 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
     const isSelectedAndStable = selected && !isSelecting;
 
     const checkConfig = useCallback(() => {
-         const mName = data.model || 'BananaPro';
+         const mName = data.model || 'Seedream 5.0';
          const cfg = getModelConfig(mName);
-         setIsConfigured(!!cfg.key);
+         setIsConfigured(mName === 'Seedream 5.0' || !!cfg.key);
     }, [data.model]);
 
     const updateModels = useCallback(() => {
@@ -55,8 +56,8 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
     useEffect(() => { if (isSelectedAndStable && showControls) { const t = setTimeout(() => setDeferredInputs(true), 100); return () => clearTimeout(t); } else setDeferredInputs(false); }, [isSelectedAndStable, showControls]);
 
     // Get Rules for current model
-    const currentModel = data.model || 'BananaPro';
-    const handler = IMAGE_HANDLERS[currentModel] || IMAGE_HANDLERS['BananaPro']; // Fallback rules
+    const currentModel = data.model || 'Seedream 5.0';
+    const handler = IMAGE_HANDLERS[currentModel] || IMAGE_HANDLERS['Seedream 5.0']; // Fallback rules
     const rules = handler.rules;
     const supportedResolutions = rules.resolutions || ['1k'];
     const supportedRatios = rules.ratios || ['1:1', '16:9'];
@@ -172,7 +173,7 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
                       <div className="flex items-center gap-2">
                           <LocalCustomDropdown 
                               options={imageModels} 
-                              value={data.model || 'BananaPro'} 
+                              value={data.model || 'Seedream 5.0'} 
                               onChange={(val: any) => updateData(data.id, { model: val })} 
                               isOpen={activeDropdown === 'model'} 
                               onToggle={() => setActiveDropdown(activeDropdown === 'model' ? null : 'model')} 
@@ -184,8 +185,8 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
                           <LocalCustomDropdown icon={Icons.Crop} options={supportedRatios} value={data.aspectRatio || '1:1'} onChange={handleRatioChange} isOpen={activeDropdown === 'ratio'} onToggle={() => setActiveDropdown(activeDropdown === 'ratio' ? null : 'ratio')} onClose={() => setActiveDropdown(null)} isDark={isDark} />
                           <LocalCustomDropdown icon={Icons.Monitor} options={supportedResolutions} value={data.resolution || '1k'} onChange={(val: any) => updateData(data.id, { resolution: val })} isOpen={activeDropdown === 'res'} onToggle={() => setActiveDropdown(activeDropdown === 'res' ? null : 'res')} onClose={() => setActiveDropdown(null)} disabledOptions={['1k', '2k', '4k'].filter(r => !supportedResolutions.includes(r))} isDark={isDark} />
                           <LocalCustomDropdown icon={Icons.Layers} options={[1, 2, 3, 4]} value={data.count || 1} onChange={(val: any) => updateData(data.id, { count: val })} isOpen={activeDropdown === 'count'} onToggle={() => setActiveDropdown(activeDropdown === 'count' ? null : 'count')} onClose={() => setActiveDropdown(null)} isDark={isDark} />
-                          <button 
-                              className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-all border ${
+                         <button 
+                             className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-all border ${
                                   canOptimize 
                                       ? (data.promptOptimize 
                                           ? (isDark ? 'text-blue-400 bg-blue-500/20 border-blue-500/30' : 'text-blue-600 bg-blue-100 border-blue-200') 
@@ -199,6 +200,18 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
                           >
                               <Icons.Sparkles size={15} fill={data.promptOptimize && canOptimize ? "currentColor" : "none"} />
                           </button>
+                          {data.imageSrc && (
+                              <button
+                                  className={`shrink-0 h-8 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all border ${
+                                      isDark ? 'text-zinc-300 hover:text-white border-zinc-700 hover:border-cyan-500/60 hover:bg-cyan-500/10' : 'text-gray-600 hover:text-gray-900 border-gray-200 hover:border-cyan-400 hover:bg-cyan-50'
+                                  }`}
+                                  onClick={() => onCrop?.(data.id)}
+                                  title="裁剪当前图片并生成新图片节点"
+                              >
+                                  <Icons.Crop size={15} />
+                                  <span>裁剪</span>
+                              </button>
+                          )}
                           
                           {/* Spacer */}
                           <div className="flex-1" />

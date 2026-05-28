@@ -16,6 +16,7 @@ interface NodeContentProps {
   onMaximize?: (id: string) => void;
   onDownload?: (id: string) => void;
   onUpload?: (nodeId: string) => void;
+  onCrop?: (nodeId: string) => void;
   isSelecting?: boolean;
   onDelete?: (id: string) => void;
   isDark?: boolean;
