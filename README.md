@@ -80,6 +80,30 @@ SEEDREAM_WATERMARK=true
 
 `SEEDREAM_API_KEY` 和 `AUTH_SECRET` 应使用 Secret 类型。
 
+### Cloudflare Workers 部署
+
+如果线上域名是 `*.workers.dev`，说明项目部署在 Cloudflare Workers。Workers 使用 `wrangler.toml` 和 `worker/index.js`，`/api/*` 会先进入 Worker，其他路径由 `dist` 静态资源返回。
+
+Workers 构建配置：
+
+```bash
+Build command: npm run build
+```
+
+`wrangler.toml` 已配置：
+
+```toml
+main = "./worker/index.js"
+
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/*"]
+```
+
+在 Workers 的 Settings -> Variables and Secrets 中配置同样的 `LOGIN_PASSWORD`、`AUTH_SECRET`、`SEEDREAM_*` 变量。
+
 ## 构建验证
 
 ```bash
