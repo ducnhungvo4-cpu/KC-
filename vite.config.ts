@@ -5,6 +5,8 @@ import type { Plugin } from 'vite';
 import http from 'http';
 import https from 'https';
 
+import { cloudflare } from "@cloudflare/vite-plugin";
+
 // 自定义 CORS 代理插件
 function corsProxyPlugin(): Plugin {
     return {
@@ -121,7 +123,7 @@ export default defineConfig(() => {
           }
         }
       },
-      plugins: [react(), corsProxyPlugin()],
+      plugins: [react(), corsProxyPlugin(), cloudflare()],
       resolve: {
         alias: {
           '@': path.resolve(__dirname, '.'),
