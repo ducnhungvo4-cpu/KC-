@@ -40,11 +40,15 @@ const ConnectionPort: React.FC<{
       {/* Port visual */}
       <div className={`
         relative w-12 h-12 rounded-full cursor-crosshair flex items-center justify-center
+        opacity-0 scale-90 pointer-events-none
         transition-all duration-200 ease-out
         ${isDark 
           ? 'bg-black/40 border-[3px] border-zinc-500 text-zinc-400 shadow-[0_8px_24px_rgba(0,0,0,0.45)] backdrop-blur-sm' 
           : 'bg-white/75 border-[3px] border-gray-400 text-gray-500 shadow-[0_8px_24px_rgba(0,0,0,0.18)] backdrop-blur-sm'
         }
+        group-hover:opacity-100
+        group-hover:scale-100
+        group-hover/port:pointer-events-auto
         group-hover/port:scale-110
         group-hover/port:border-cyan-400
         group-hover/port:text-cyan-300
