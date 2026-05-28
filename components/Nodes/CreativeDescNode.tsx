@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { NodeData } from '../../types';
 import { Icons } from '../Icons';
 import { LocalCustomDropdown } from './Shared/LocalNodeComponents';
@@ -19,6 +19,8 @@ export const CreativeDescNode: React.FC<CreativeDescNodeProps> = ({
     data, updateData, onGenerate, selected, showControls, isDark = true, isSelecting
 }) => {
     const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+    const [isEditingBody, setIsEditingBody] = useState(false);
+    const bodyInputRef = useRef<HTMLTextAreaElement>(null);
     const isSelectedAndStable = selected && showControls && !isSelecting;
     const titleColor = isDark ? 'text-zinc-300' : 'text-gray-700';
     const containerBg = isDark ? 'bg-[#1f1f1f]' : 'bg-white';
@@ -27,6 +29,18 @@ export const CreativeDescNode: React.FC<CreativeDescNodeProps> = ({
         : (isDark ? 'border-zinc-600' : 'border-gray-300');
     const inputText = isDark ? 'text-zinc-200 placeholder-zinc-500' : 'text-gray-800 placeholder-gray-400';
     const panelBg = isDark ? 'bg-[#202020]/95 border-zinc-700 text-zinc-200' : 'bg-white/95 border-gray-200 text-gray-900 shadow-xl';
+
+    useEffect(() => {
+        if (isEditingBody) {
+            bodyInputRef.current?.focus();
+        }
+    }, [isEditingBody]);
+
+    useEffect(() => {
+        if (!selected) {
+            setIsEditingBody(false);
+        }
+    }, [selected]);
 
     return (
         <>
@@ -42,14 +56,33 @@ export const CreativeDescNode: React.FC<CreativeDescNodeProps> = ({
             </div>
 
             <div className={`w-full h-full relative rounded-[32px] border-[3px] ${border} ${containerBg} shadow-xl overflow-hidden transition-colors`}>
-                <textarea
-                    className={`w-full h-full resize-none bg-transparent px-10 py-10 text-3xl leading-relaxed outline-none no-scrollbar ${inputText}`}
-                    placeholder="双击开始编辑..."
-                    value={data.prompt || ''}
-                    onChange={(event) => updateData(data.id, { prompt: event.target.value })}
-                    onMouseDown={(event) => event.stopPropagation()}
-                    onWheel={(event) => event.stopPropagation()}
-                />
+                {isEditingBody ? (
+                    <textarea
+                        ref={bodyInputRef}
+                        className={`w-full h-full resize-none bg-transparent px-10 py-10 text-3xl leading-relaxed outline-none no-scrollbar ${inputText}`}
+                        placeholder="双击开始编辑..."
+                        value={data.prompt || ''}
+                        onChange={(event) => updateData(data.id, { prompt: event.target.value })}
+                        onMouseDown={(event) => event.stopPropagation()}
+                        onWheel={(event) => event.stopPropagation()}
+                        onBlur={() => setIsEditingBody(false)}
+                        onKeyDown={(event) => {
+                            if (event.key === 'Escape') {
+                                setIsEditingBody(false);
+                            }
+                        }}
+                    />
+                ) : (
+                    <div
+                        className={`w-full h-full px-10 py-10 text-3xl leading-relaxed whitespace-pre-wrap break-words select-none ${data.prompt ? inputText : isDark ? 'text-zinc-500' : 'text-gray-400'}`}
+                        onDoubleClick={(event) => {
+                            event.stopPropagation();
+                            setIsEditingBody(true);
+                        }}
+                    >
+                        {data.prompt || '双击开始编辑...'}
+                    </div>
+                )}
 
                 {data.isLoading && (
                     <div className="absolute inset-0 bg-black/45 backdrop-blur-sm flex flex-col items-center justify-center z-20">
