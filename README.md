@@ -54,6 +54,32 @@ npm start
 
 后端会服务 `dist` 前端页面，并提供 `/api/auth/login`、`/api/generate/image`、`/api/generate/video` 等接口。前端只保存登录 token，不保存模型 API Key。
 
+### Cloudflare Pages 部署
+
+Cloudflare Pages 不会运行 `server/server.mjs`，线上 API 由 `functions/api/[[path]].js` 提供。
+
+Pages 项目配置：
+
+```bash
+Build command: npm run build
+Build output directory: dist
+```
+
+在 Cloudflare Pages 的 Settings -> Variables and Secrets 中配置：
+
+```bash
+LOGIN_PASSWORD=kc8888
+AUTH_SECRET=replace-with-a-long-random-string
+SEEDREAM_BASE_URL=https://ark.cn-beijing.volces.com/api/v3
+SEEDREAM_API_KEY=your-seedream-key
+SEEDREAM_MODEL_ID=doubao-seedream-5-0-260128
+SEEDREAM_IMAGE_ENDPOINT=/images/generations
+SEEDREAM_SIZE=2K
+SEEDREAM_WATERMARK=true
+```
+
+`SEEDREAM_API_KEY` 和 `AUTH_SECRET` 应使用 Secret 类型。
+
 ## 构建验证
 
 ```bash
