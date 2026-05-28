@@ -89,6 +89,58 @@ const seedreamSize = (resolution = '2k') => {
   return '2K';
 };
 
+const angleLabels = {
+  front: '正面',
+  left_45: '左前45°',
+  right_45: '右前45°',
+  left_side: '左侧面',
+  right_side: '右侧面',
+  back: '背面',
+  top: '俯视',
+  low: '仰视',
+};
+
+const angleInstructions = {
+  front: '正面视角',
+  left_45: '左前45度视角',
+  right_45: '右前45度视角',
+  left_side: '左侧面视角',
+  right_side: '右侧面视角',
+  back: '背面视角',
+  top: '俯视视角',
+  low: '低机位仰视视角',
+};
+
+const backgroundInstructions = {
+  keep: '尽量保留原图背景和光线关系。',
+  clean: '使用干净背景，突出主体，产品摄影风格。',
+  solid: '使用简洁纯色背景，避免复杂环境元素。',
+};
+
+const aspectToQwenSize = (aspectRatio) => {
+  const sizes = {
+    '1:1': '1024*1024',
+    '3:4': '960*1280',
+    '4:3': '1280*960',
+    '9:16': '864*1536',
+    '16:9': '1536*864',
+  };
+  return sizes[aspectRatio] || '';
+};
+
+const buildMultiAnglePrompt = ({ angle, prompt = '', consistency = 'high', background = 'clean' }) => {
+  const consistencyText = consistency === 'high'
+    ? '严格保持图1中主体的身份、造型、比例、材质、颜色、Logo和关键细节一致。'
+    : '保持图1中主体的主要造型、颜色和材质一致。';
+  return [
+    `基于图1生成主体的${angleInstructions[angle] || angle}。`,
+    consistencyText,
+    backgroundInstructions[background] || backgroundInstructions.clean,
+    '不要改变主体设计，不要添加无关元素，不要生成拼贴图或多宫格。',
+    prompt ? `补充要求：${prompt}` : '',
+  ].filter(Boolean).join('');
+};
+
 const extractUrls = (data) => {
   const urls = [];
   const visit = (value) => {
@@ -103,6 +155,7 @@ const extractUrls = (data) => {
     }
     if (typeof value === 'object') {
       if (value.b64_json) urls.push(`data:image/png;base64,${value.b64_json}`);
+      if (value.image) visit(value.image);
       if (value.url) visit(value.url);
       if (value.image_url) visit(value.image_url);
       if (value.video_url) visit(value.video_url);
@@ -111,6 +164,7 @@ const extractUrls = (data) => {
       if (value.result) visit(value.result);
       if (value.output) visit(value.output);
       if (value.content) visit(value.content);
+      for (const nested of Object.values(value)) visit(nested);
     }
   };
   visit(data);
@@ -193,6 +247,66 @@ const handleImageGeneration = async (request, env) => {
   return json({ urls });
 };
 
+const handleMultiAngleGeneration = async (request, env) => {
+  if (request.method !== 'POST') return json({ error: 'METHOD_NOT_ALLOWED' }, 405);
+  if (!(await requireAuth(request, env))) return json({ error: 'UNAUTHORIZED' }, 401);
+
+  const body = await request.json().catch(() => ({}));
+  if (!body.image) return json({ error: 'IMAGE_REQUIRED' }, 400);
+  const angles = Array.isArray(body.angles) && body.angles.length ? body.angles.slice(0, 8) : ['left_45', 'right_45', 'back'];
+  const countPerAngle = Math.max(1, Math.min(Number(body.countPerAngle || 1), 2));
+  const size = aspectToQwenSize(body.aspectRatio);
+
+  const results = [];
+  for (const angle of angles) {
+    const prompt = buildMultiAnglePrompt({
+      angle,
+      prompt: body.prompt,
+      consistency: body.consistency,
+      background: body.background,
+    });
+    const parameters = {
+      n: countPerAngle,
+      negative_prompt: body.negativePrompt || '低清晰度，变形，主体结构错误，多余肢体，文字错误，拼贴，多宫格',
+      watermark: env.QWEN_EDIT_WATERMARK === 'true',
+      result_format: 'message',
+    };
+    if (size) parameters.size = size;
+
+    const result = await callModelApi({
+      baseUrl: env.QWEN_EDIT_BASE_URL || 'https://dashscope.aliyuncs.com/api/v1',
+      endpoint: env.QWEN_EDIT_ENDPOINT || '/services/aigc/multimodal-generation/generation',
+      apiKey: env.DASHSCOPE_API_KEY,
+      payload: {
+        model: env.QWEN_EDIT_MODEL || 'qwen-image-edit-plus-2025-12-15',
+        input: {
+          messages: [{
+            role: 'user',
+            content: [
+              { image: body.image },
+              { text: prompt },
+            ],
+          }],
+        },
+        parameters,
+      },
+      timeoutMs: 600000,
+    });
+
+    for (const url of extractUrls(result)) {
+      results.push({
+        angle,
+        label: angleLabels[angle] || angle,
+        url,
+        prompt,
+      });
+    }
+  }
+
+  if (!results.length) throw new Error('NO_MULTI_ANGLE_URL_RETURNED');
+  return json({ results });
+};
+
 const handleTextGeneration = async (request, env) => {
   if (request.method !== 'POST') return json({ error: 'METHOD_NOT_ALLOWED' }, 405);
   if (!(await requireAuth(request, env))) return json({ error: 'UNAUTHORIZED' }, 401);
@@ -218,6 +332,12 @@ const handleHealth = async (request, env) => {
       size: env.SEEDREAM_SIZE || '2K',
       watermark: env.SEEDREAM_WATERMARK !== 'false',
     },
+    qwenEdit: {
+      hasApiKey: Boolean(env.DASHSCOPE_API_KEY),
+      modelId: env.QWEN_EDIT_MODEL || 'qwen-image-edit-plus-2025-12-15',
+      endpoint: `${env.QWEN_EDIT_BASE_URL || 'https://dashscope.aliyuncs.com/api/v1'}${env.QWEN_EDIT_ENDPOINT || '/services/aigc/multimodal-generation/generation'}`,
+      watermark: env.QWEN_EDIT_WATERMARK === 'true',
+    },
   });
 };
 
@@ -229,6 +349,7 @@ export async function onRequest(context) {
     if (pathname === '/api/auth/login') return await handleLogin(request, env);
     if (pathname === '/api/auth/me') return await handleMe(request, env);
     if (pathname === '/api/generate/image') return await handleImageGeneration(request, env);
+    if (pathname === '/api/generate/multi-angle') return await handleMultiAngleGeneration(request, env);
     if (pathname === '/api/generate/text') return await handleTextGeneration(request, env);
     if (pathname === '/api/generate/video') return await handleVideoGeneration(request, env);
     if (pathname === '/api/health') return await handleHealth(request, env);

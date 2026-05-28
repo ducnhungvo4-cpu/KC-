@@ -76,9 +76,14 @@ SEEDREAM_MODEL_ID=doubao-seedream-5-0-260128
 SEEDREAM_IMAGE_ENDPOINT=/images/generations
 SEEDREAM_SIZE=2K
 SEEDREAM_WATERMARK=true
+DASHSCOPE_API_KEY=your-dashscope-key
+QWEN_EDIT_BASE_URL=https://dashscope.aliyuncs.com/api/v1
+QWEN_EDIT_ENDPOINT=/services/aigc/multimodal-generation/generation
+QWEN_EDIT_MODEL=qwen-image-edit-plus-2025-12-15
+QWEN_EDIT_WATERMARK=true
 ```
 
-`SEEDREAM_API_KEY` 和 `AUTH_SECRET` 应使用 Secret 类型。
+`SEEDREAM_API_KEY`、`DASHSCOPE_API_KEY` 和 `AUTH_SECRET` 应使用 Secret 类型。
 
 ### Cloudflare Workers 部署
 
@@ -103,6 +108,7 @@ run_worker_first = ["/api/*"]
 ```
 
 在 Workers 的 Settings -> Variables and Secrets 中配置同样的 `LOGIN_PASSWORD`、`AUTH_SECRET`、`SEEDREAM_*` 变量。
+多角度控制功能还需要配置 `DASHSCOPE_API_KEY`。
 
 ## 构建验证
 

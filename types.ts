@@ -42,6 +42,22 @@ export interface NodeData {
   activeToolbarItem?: string;
 }
 
+export interface MultiAngleOptions {
+  angles: string[];
+  prompt?: string;
+  consistency?: 'standard' | 'high';
+  background?: 'keep' | 'clean' | 'solid';
+  aspectRatio?: string;
+  countPerAngle?: number;
+}
+
+export interface MultiAngleResult {
+  angle: string;
+  label: string;
+  url: string;
+  prompt?: string;
+}
+
 export interface Connection {
   id: string;
   sourceId: string;

@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { NodeData, NodeType } from '../../types';
+import { MultiAngleOptions, NodeData, NodeType } from '../../types';
 import { TextToImageNode } from './TextToImageNode';
 import { TextToVideoNode } from './TextToVideoNode';
 import { StartEndToVideoNode } from './StartEndToVideoNode';
@@ -17,6 +17,7 @@ interface NodeContentProps {
   onDownload?: (id: string) => void;
   onUpload?: (nodeId: string) => void;
   onCrop?: (nodeId: string) => void;
+  onMultiAngle?: (nodeId: string, options: MultiAngleOptions) => void;
   isSelecting?: boolean;
   onDelete?: (id: string) => void;
   isDark?: boolean;

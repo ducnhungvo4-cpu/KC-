@@ -1,6 +1,7 @@
 
 import { MODEL_REGISTRY, getModelConfig, saveModelConfig, registerCustomModel, deleteModel, isCustomModel, getVisibleModels } from "./mode/config";
 import type { ModelConfig } from "./mode/config";
+import type { MultiAngleOptions, MultiAngleResult } from "../types";
 import { generateMockImage } from "./mockGeneration";
 import { apiFetch } from "./authService";
 
@@ -77,4 +78,15 @@ export const generateVideo = async (
         console.error(`Error generating video with ${modelName}`, e);
         throw e;
     }
+};
+
+export const generateMultiAngleImages = async (
+    image: string,
+    options: MultiAngleOptions
+): Promise<MultiAngleResult[]> => {
+    const result = await apiFetch('/api/generate/multi-angle', {
+        method: 'POST',
+        body: JSON.stringify({ image, ...options }),
+    });
+    return result.results || [];
 };

@@ -1,11 +1,11 @@
 
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import Sidebar from './components/Sidebar';
-import { NodeData, Connection, CanvasTransform, Point, DragMode, NodeType } from './types';
+import { MultiAngleOptions, NodeData, Connection, CanvasTransform, Point, DragMode, NodeType } from './types';
 import BaseNode from './components/Nodes/BaseNode';
 import { NodeContent } from './components/Nodes/NodeContent';
 import { Icons } from './components/Icons';
-import { generateCreativeDescription, generateImage, generateVideo } from './services/geminiService';
+import { generateCreativeDescription, generateImage, generateVideo, generateMultiAngleImages } from './services/geminiService';
 import { storageService } from './services/storageService';
 import { ThemeSwitcher } from './components/ThemeSwitcher';
 import { StorageModal } from './components/Settings/StorageModal';
@@ -752,6 +752,68 @@ const CanvasWithSidebar: React.FC = () => {
       }
       setSelectedNodeIds(new Set([newId]));
       setCropTarget(null);
+  };
+
+  const handleMultiAngleGenerate = async (nodeId: string, options: MultiAngleOptions) => {
+      const source = nodes.find(n => n.id === nodeId);
+      if (!source?.imageSrc) {
+          alert("当前节点没有可用于多角度控制的图片");
+          return;
+      }
+      if (!options.angles.length) {
+          alert("请至少选择一个角度");
+          return;
+      }
+
+      updateNodeData(nodeId, { isLoading: true });
+      try {
+          const results = await generateMultiAngleImages(source.imageSrc, {
+              ...options,
+              countPerAngle: 1,
+          });
+          if (!results.length) throw new Error("未返回多角度结果");
+
+          const baseAspectRatio = options.aspectRatio && options.aspectRatio !== 'source'
+              ? options.aspectRatio
+              : (source.aspectRatio || '1:1');
+          const { width, height } = getNodeSizeForAspectRatio(baseAspectRatio);
+          const gapX = width + 80;
+          const gapY = height + 70;
+          const newNodes = results.map((result, index) => {
+              const column = index % 3;
+              const row = Math.floor(index / 3);
+              const id = generateId();
+              const title = `${result.label || result.angle}_${source.title}`.slice(0, 24);
+              return {
+                  id,
+                  type: NodeType.TEXT_TO_IMAGE,
+                  x: source.x + source.width + 90 + column * gapX,
+                  y: source.y + row * gapY,
+                  width,
+                  height,
+                  title,
+                  imageSrc: result.url,
+                  aspectRatio: baseAspectRatio,
+                  model: source.model || 'Seedream 5.0',
+                  resolution: source.resolution || '1k',
+                  count: 1,
+                  prompt: result.prompt || options.prompt || source.prompt || '',
+                  outputArtifacts: [result.url]
+              } satisfies NodeData;
+          });
+
+          setNodes(prev => [...prev, ...newNodes]);
+          setConnections(prev => [
+              ...prev,
+              ...newNodes.map(node => ({ id: generateId(), sourceId: source.id, targetId: node.id }))
+          ]);
+          setSelectedNodeIds(new Set(newNodes.map(node => node.id)));
+          updateNodeData(nodeId, { isLoading: false });
+      } catch (e) {
+          console.error(e);
+          alert(`多角度生成失败: ${(e as Error).message}`);
+          updateNodeData(nodeId, { isLoading: false });
+      }
   };
 
   const copyImageToClipboard = async (nodeId: string) => {
@@ -1550,6 +1612,7 @@ const CanvasWithSidebar: React.FC = () => {
                             onDownload={handleDownload}
                             onUpload={triggerReplaceImage}
                             onCrop={handleCropStart}
+                            onMultiAngle={handleMultiAngleGenerate}
                             isSelecting={dragMode === 'SELECT'}
                             onDelete={deleteNode}
                             isDark={isDark}
