@@ -111,6 +111,13 @@ const imageSize = (aspectRatio = '1:1', resolution = '1k') => {
   return `${width}x${height}`;
 };
 
+const seedreamSize = (resolution = '2k') => {
+  const normalized = String(resolution || '').toLowerCase();
+  if (normalized.includes('4')) return '4K';
+  if (normalized.includes('1')) return '1K';
+  return '2K';
+};
+
 const mockImage = ({ prompt = '', aspectRatio = '1:1', resolution = '1k', index = 0 }) => {
   const [width, height] = imageSize(aspectRatio, resolution).split('x').map(Number);
   const safePrompt = String(prompt || 'KC 影视分镜概念图')
@@ -198,11 +205,13 @@ const handleImageGeneration = async (req, res) => {
   }
 
   const payload = {
-    model: process.env.SEEDREAM_MODEL_ID || 'doubao-seedream-5-0',
+    model: process.env.SEEDREAM_MODEL_ID || 'doubao-seedream-5-0-260128',
     prompt: body.prompt || '',
-    size: imageSize(body.aspectRatio, body.resolution),
-    n: count,
-    response_format: 'b64_json',
+    sequential_image_generation: 'disabled',
+    response_format: 'url',
+    size: process.env.SEEDREAM_SIZE || seedreamSize(body.resolution),
+    stream: false,
+    watermark: process.env.SEEDREAM_WATERMARK !== 'false',
   };
   if (body.inputImages?.length) {
     payload.image = body.inputImages[0];
@@ -210,13 +219,18 @@ const handleImageGeneration = async (req, res) => {
     payload.reference_image = body.inputImages[0];
   }
 
-  const result = await callModelApi({
-    baseUrl: process.env.SEEDREAM_BASE_URL,
-    endpoint: process.env.SEEDREAM_IMAGE_ENDPOINT || '/v1/images/generations',
-    apiKey: process.env.SEEDREAM_API_KEY,
-    payload,
-  });
-  const urls = extractUrls(result);
+  const results = [];
+  for (let index = 0; index < count; index += 1) {
+    const result = await callModelApi({
+      baseUrl: process.env.SEEDREAM_BASE_URL,
+      endpoint: process.env.SEEDREAM_IMAGE_ENDPOINT || '/images/generations',
+      apiKey: process.env.SEEDREAM_API_KEY,
+      payload,
+    });
+    results.push(...extractUrls(result));
+  }
+
+  const urls = [...new Set(results)];
   if (!urls.length) throw new Error('NO_IMAGE_URL_RETURNED');
   json(res, 200, { urls });
 };
