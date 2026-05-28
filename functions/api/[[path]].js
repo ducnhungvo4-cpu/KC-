@@ -98,6 +98,13 @@ const angleLabels = {
   back: '背面',
   top: '俯视',
   low: '仰视',
+  custom: '自定义视角',
+  fisheye: '鱼眼视角',
+  tilt: '倾斜视角',
+  front_top: '正面俯拍',
+  front_low: '正面仰拍',
+  panorama_top: '全景俯拍',
+  back_view: '背面视角',
 };
 
 const angleInstructions = {
@@ -109,11 +116,18 @@ const angleInstructions = {
   back: '背面视角',
   top: '俯视视角',
   low: '低机位仰视视角',
+  custom: '自定义相机视角',
+  fisheye: '鱼眼广角视角',
+  tilt: '倾斜构图视角',
+  front_top: '正面俯拍视角',
+  front_low: '正面仰拍视角',
+  panorama_top: '全景俯拍视角',
+  back_view: '背面视角',
 };
 
 const backgroundInstructions = {
   keep: '尽量保留原图背景和光线关系。',
-  clean: '使用干净背景，突出主体，产品摄影风格。',
+  clean: '使用干净背景并保持完整画面空间关系，画面清晰自然。',
   solid: '使用简洁纯色背景，避免复杂环境元素。',
 };
 
@@ -128,15 +142,30 @@ const aspectToQwenSize = (aspectRatio) => {
   return sizes[aspectRatio] || '';
 };
 
-const buildMultiAnglePrompt = ({ angle, prompt = '', consistency = 'high', background = 'clean' }) => {
+const zoomInstructions = {
+  wide: '全景景别，视野更宽，保留更多环境信息。',
+  medium: '中景景别，保持自然视野范围。',
+  close: '近景景别，适度靠近画面中心但不要裁掉关键空间关系。',
+};
+
+const buildMultiAnglePrompt = ({ angle, prompt = '', consistency = 'high', background = 'clean', yaw = 0, pitch = 0, zoom = 'medium', targetMode = 'scene' }) => {
+  const targetText = targetMode === 'subject'
+    ? '围绕图1中的主要主体进行视角变化。'
+    : '对图1的整张图片、完整场景和相机视角进行变化，不要把人物、物品或局部主体单独抠出，不要改变为孤立主体图。';
   const consistencyText = consistency === 'high'
-    ? '严格保持图1中主体的身份、造型、比例、材质、颜色、Logo和关键细节一致。'
-    : '保持图1中主体的主要造型、颜色和材质一致。';
+    ? '严格保持原图的空间布局、人物/物体相对位置、场景结构、材质、颜色和关键细节一致。'
+    : '保持原图的主要场景结构、元素关系、颜色和材质一致。';
+  const yawText = yaw > 0 ? `相机向右水平环绕约${yaw}度。` : yaw < 0 ? `相机向左水平环绕约${Math.abs(yaw)}度。` : '水平视角保持正向。';
+  const pitchText = pitch > 0 ? `相机向下俯拍约${pitch}度。` : pitch < 0 ? `相机向上仰拍约${Math.abs(pitch)}度。` : '垂直俯仰保持水平。';
   return [
-    `基于图1生成主体的${angleInstructions[angle] || angle}。`,
+    `基于图1生成${angleInstructions[angle] || angle}。`,
+    targetText,
+    yawText,
+    pitchText,
+    zoomInstructions[zoom] || zoomInstructions.medium,
     consistencyText,
     backgroundInstructions[background] || backgroundInstructions.clean,
-    '不要改变主体设计，不要添加无关元素，不要生成拼贴图或多宫格。',
+    '输出必须是单张完整画面，不要生成拼贴图或多宫格，不要只返回局部主体。',
     prompt ? `补充要求：${prompt}` : '',
   ].filter(Boolean).join('');
 };
@@ -264,6 +293,10 @@ const handleMultiAngleGeneration = async (request, env) => {
       prompt: body.prompt,
       consistency: body.consistency,
       background: body.background,
+      yaw: Number(body.yaw || 0),
+      pitch: Number(body.pitch || 0),
+      zoom: body.zoom,
+      targetMode: body.targetMode || 'scene',
     });
     const parameters = {
       n: countPerAngle,

@@ -49,6 +49,11 @@ export interface MultiAngleOptions {
   background?: 'keep' | 'clean' | 'solid';
   aspectRatio?: string;
   countPerAngle?: number;
+  yaw?: number;
+  pitch?: number;
+  zoom?: 'wide' | 'medium' | 'close';
+  preset?: string;
+  targetMode?: 'scene' | 'subject';
 }
 
 export interface MultiAngleResult {

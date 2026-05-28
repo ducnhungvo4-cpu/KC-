@@ -29,11 +29,16 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
     const [isConfigured, setIsConfigured] = useState(true);
     const [imageModels, setImageModels] = useState<string[]>([]);
     const [isAngleEditorOpen, setIsAngleEditorOpen] = useState(false);
+    const [isFunctionMenuOpen, setIsFunctionMenuOpen] = useState(false);
     const [anglePrompt, setAnglePrompt] = useState('');
     const [angleConsistency, setAngleConsistency] = useState<'standard' | 'high'>('high');
     const [angleBackground, setAngleBackground] = useState<'keep' | 'clean' | 'solid'>('clean');
     const [angleAspectRatio, setAngleAspectRatio] = useState('沿原图');
-    const [selectedAngles, setSelectedAngles] = useState<string[]>(['left_45', 'right_45', 'back']);
+    const [anglePreset, setAnglePreset] = useState('custom');
+    const [yaw, setYaw] = useState(0);
+    const [pitch, setPitch] = useState(0);
+    const [zoom, setZoom] = useState<'wide' | 'medium' | 'close'>('medium');
+    const [showAnglePrompt, setShowAnglePrompt] = useState(false);
 
     const isSelectedAndStable = selected && !isSelecting;
 
@@ -70,14 +75,13 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
     const supportedRatios = rules.ratios || ['1:1', '16:9'];
     const canOptimize = !!rules.hasPromptExtend;
     const anglePresets = [
-        { key: 'front', label: '正面' },
-        { key: 'left_45', label: '左前45°' },
-        { key: 'right_45', label: '右前45°' },
-        { key: 'left_side', label: '左侧面' },
-        { key: 'right_side', label: '右侧面' },
-        { key: 'back', label: '背面' },
-        { key: 'top', label: '俯视' },
-        { key: 'low', label: '仰视' },
+        { key: 'custom', label: '自定义', yaw: 0, pitch: 0, zoom: 'medium' as const },
+        { key: 'fisheye', label: '鱼眼视角', yaw: 0, pitch: 0, zoom: 'wide' as const },
+        { key: 'tilt', label: '倾斜视角', yaw: -25, pitch: 15, zoom: 'medium' as const },
+        { key: 'front_top', label: '正面俯拍', yaw: 0, pitch: 35, zoom: 'medium' as const },
+        { key: 'front_low', label: '正面仰拍', yaw: 0, pitch: -25, zoom: 'medium' as const },
+        { key: 'panorama_top', label: '全景俯拍', yaw: 0, pitch: 55, zoom: 'wide' as const },
+        { key: 'back_view', label: '背面视角', yaw: 180, pitch: 0, zoom: 'medium' as const },
     ];
     const angleAspectOptions = ['沿原图', '1:1', '3:4', '4:3', '9:16', '16:9'];
     const consistencyOptions = [
@@ -90,19 +94,27 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
         { value: 'solid' as const, label: '纯色背景' },
     ];
 
-    const toggleAngle = (key: string) => {
-        setSelectedAngles(prev => prev.includes(key) ? prev.filter(item => item !== key) : [...prev, key]);
+    const applyAnglePreset = (preset: typeof anglePresets[number]) => {
+        setAnglePreset(preset.key);
+        setYaw(preset.yaw);
+        setPitch(preset.pitch);
+        setZoom(preset.zoom);
     };
 
     const handleMultiAngleGenerate = () => {
-        if (!data.imageSrc || data.isLoading || selectedAngles.length === 0) return;
+        if (!data.imageSrc || data.isLoading) return;
         onMultiAngle?.(data.id, {
-            angles: selectedAngles,
+            angles: [anglePreset],
             prompt: anglePrompt,
             consistency: angleConsistency,
             background: angleBackground,
             aspectRatio: angleAspectRatio === '沿原图' ? 'source' : angleAspectRatio,
             countPerAngle: 1,
+            yaw,
+            pitch,
+            zoom,
+            preset: anglePreset,
+            targetMode: 'scene',
         });
     };
 
@@ -244,28 +256,37 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
                               <Icons.Sparkles size={15} fill={data.promptOptimize && canOptimize ? "currentColor" : "none"} />
                           </button>
                           {data.imageSrc && (
-                              <>
+                              <div className="relative">
                                   <button
                                       className={`shrink-0 h-8 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all border ${
                                           isDark ? 'text-zinc-300 hover:text-white border-zinc-700 hover:border-cyan-500/60 hover:bg-cyan-500/10' : 'text-gray-600 hover:text-gray-900 border-gray-200 hover:border-cyan-400 hover:bg-cyan-50'
                                       }`}
-                                      onClick={() => setIsAngleEditorOpen(prev => !prev)}
-                                      title="基于当前图片生成多角度视图"
+                                      onClick={() => setIsFunctionMenuOpen(prev => !prev)}
+                                      title="图片功能"
                                   >
-                                      <Icons.RefreshCw size={15} />
-                                      <span>多角度</span>
+                                      <Icons.Sliders size={15} />
+                                      <span>功能</span>
+                                      <Icons.ChevronRight size={12} className={`transition-transform ${isFunctionMenuOpen ? '-rotate-90' : 'rotate-90'}`} />
                                   </button>
-                                  <button
-                                      className={`shrink-0 h-8 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all border ${
-                                          isDark ? 'text-zinc-300 hover:text-white border-zinc-700 hover:border-cyan-500/60 hover:bg-cyan-500/10' : 'text-gray-600 hover:text-gray-900 border-gray-200 hover:border-cyan-400 hover:bg-cyan-50'
-                                      }`}
-                                      onClick={() => onCrop?.(data.id)}
-                                      title="裁剪当前图片并生成新图片节点"
-                                  >
-                                      <Icons.Crop size={15} />
-                                      <span>裁剪</span>
-                                  </button>
-                              </>
+                                  {isFunctionMenuOpen && (
+                                      <div className={`absolute bottom-full left-0 mb-2 w-36 rounded-xl border p-1.5 shadow-2xl z-[120] ${isDark ? 'bg-[#1a1a1a] border-zinc-700' : 'bg-white border-gray-200'}`} onMouseDown={(event) => event.stopPropagation()}>
+                                          <button
+                                              className={`w-full h-8 px-2 rounded-lg text-xs font-semibold flex items-center gap-2 transition-colors ${isDark ? 'text-zinc-300 hover:bg-zinc-800 hover:text-white' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`}
+                                              onClick={() => { setIsFunctionMenuOpen(false); setIsAngleEditorOpen(true); }}
+                                          >
+                                              <Icons.RefreshCw size={14} />
+                                              <span>多角度控制</span>
+                                          </button>
+                                          <button
+                                              className={`w-full h-8 px-2 rounded-lg text-xs font-semibold flex items-center gap-2 transition-colors ${isDark ? 'text-zinc-300 hover:bg-zinc-800 hover:text-white' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`}
+                                              onClick={() => { setIsFunctionMenuOpen(false); onCrop?.(data.id); }}
+                                          >
+                                              <Icons.Crop size={14} />
+                                              <span>图片裁剪</span>
+                                          </button>
+                                      </div>
+                                  )}
+                              </div>
                           )}
                           
                           {/* Spacer */}
@@ -287,90 +308,137 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
                           </button>
                       </div>
                       {data.imageSrc && isAngleEditorOpen && (
-                          <div className={`rounded-xl border p-3 flex flex-col gap-3 ${isDark ? 'border-zinc-700 bg-zinc-900/60' : 'border-gray-200 bg-gray-50'}`}>
+                          <div className={`rounded-2xl border p-5 flex flex-col gap-4 ${isDark ? 'border-zinc-700 bg-[#202020]' : 'border-gray-200 bg-white shadow-xl'}`}>
                               <div className="flex items-center justify-between gap-3">
-                                  <div>
-                                      <div className={`text-xs font-bold ${isDark ? 'text-zinc-200' : 'text-gray-800'}`}>多角度控制</div>
-                                      <div className={`text-[10px] mt-0.5 ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>保持主体一致，生成标准图片节点</div>
-                                  </div>
+                                  <div className={`text-lg font-semibold ${isDark ? 'text-zinc-100' : 'text-gray-900'}`}>多角度编辑器</div>
                                   <button
-                                      className={`w-7 h-7 rounded-lg flex items-center justify-center ${isDark ? 'hover:bg-zinc-800 text-zinc-400' : 'hover:bg-gray-100 text-gray-500'}`}
+                                      className={`w-9 h-9 rounded-lg flex items-center justify-center ${isDark ? 'hover:bg-zinc-800 text-zinc-400' : 'hover:bg-gray-100 text-gray-500'}`}
                                       onClick={() => setIsAngleEditorOpen(false)}
                                       title="收起"
                                   >
-                                      <Icons.X size={14} />
+                                      <Icons.X size={22} />
                                   </button>
                               </div>
-                              <div className="grid grid-cols-4 gap-2">
-                                  {anglePresets.map(angle => {
-                                      const active = selectedAngles.includes(angle.key);
+                              <div className="flex flex-wrap gap-3">
+                                  {anglePresets.map(preset => {
+                                      const active = anglePreset === preset.key;
                                       return (
                                           <button
-                                              key={angle.key}
-                                              className={`h-8 rounded-lg text-xs font-semibold border transition-all ${
+                                              key={preset.key}
+                                              className={`h-9 px-4 rounded-lg text-sm font-semibold border transition-all ${
                                                   active
-                                                      ? 'bg-cyan-500/15 border-cyan-400 text-cyan-300'
+                                                      ? (isDark ? 'bg-zinc-600 border-zinc-500 text-white' : 'bg-gray-900 border-gray-900 text-white')
                                                       : (isDark ? 'border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-600' : 'border-gray-200 text-gray-600 hover:text-gray-900 hover:border-gray-300')
                                               }`}
-                                              onClick={() => toggleAngle(angle.key)}
+                                              onClick={() => applyAnglePreset(preset)}
                                           >
-                                              {angle.label}
+                                              {preset.label}
                                           </button>
                                       );
                                   })}
                               </div>
-                              <textarea
-                                  className={`w-full border rounded-xl px-3 py-2 text-xs leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-cyan-500/20 min-h-[58px] no-scrollbar transition-all ${inputBg}`}
-                                  placeholder="补充材质、光线、风格要求，例如：产品摄影、干净棚拍光、保持原有颜色..."
-                                  value={anglePrompt}
-                                  onChange={(event) => setAnglePrompt(event.target.value)}
-                                  onWheel={(event) => event.stopPropagation()}
-                              />
-                              <div className="flex flex-wrap items-center gap-2">
-                                  <div className={`h-8 rounded-lg border p-0.5 flex items-center ${isDark ? 'border-zinc-700 bg-zinc-950/30' : 'border-gray-200 bg-white'}`}>
-                                      {consistencyOptions.map(item => (
-                                          <button
-                                              key={item.value}
-                                              className={`h-6 px-2.5 rounded-md text-[11px] font-semibold transition-colors ${angleConsistency === item.value ? 'bg-blue-600 text-white' : (isDark ? 'text-zinc-400 hover:text-white' : 'text-gray-500 hover:text-gray-900')}`}
-                                              onClick={() => setAngleConsistency(item.value)}
-                                          >
-                                              {item.label}
-                                          </button>
-                                      ))}
+                              <div className="grid grid-cols-[360px_minmax(320px,1fr)] gap-6">
+                                  <div className={`relative h-[360px] rounded-2xl overflow-hidden flex items-center justify-center ${isDark ? 'bg-zinc-800' : 'bg-gray-100'}`}>
+                                      <div className={`absolute inset-12 rounded-full border ${isDark ? 'border-zinc-500/60' : 'border-gray-400/60'}`} />
+                                      <div className={`absolute inset-16 rounded-full border ${isDark ? 'border-zinc-500/40' : 'border-gray-400/40'}`} />
+                                      <div className={`absolute left-1/2 top-12 bottom-12 w-px ${isDark ? 'bg-zinc-500/40' : 'bg-gray-400/40'}`} />
+                                      <div className={`absolute top-1/2 left-12 right-12 h-px ${isDark ? 'bg-zinc-500/40' : 'bg-gray-400/40'}`} />
+                                      <div className={`absolute top-1/2 left-14 right-14 h-px rounded-full ${isDark ? 'bg-zinc-500/40' : 'bg-gray-400/40'}`} style={{ transform: `rotate(${pitch / 2}deg)` }} />
+                                      <div className={`absolute left-1/2 top-14 bottom-14 w-px rounded-full ${isDark ? 'bg-zinc-500/40' : 'bg-gray-400/40'}`} style={{ transform: `rotate(${yaw / 8}deg)` }} />
+                                      <button className={`absolute left-8 top-1/2 -translate-y-1/2 ${isDark ? 'text-zinc-400' : 'text-gray-500'}`} onClick={() => setYaw(v => Math.max(-180, v - 15))}>‹</button>
+                                      <button className={`absolute right-8 top-1/2 -translate-y-1/2 ${isDark ? 'text-zinc-400' : 'text-gray-500'}`} onClick={() => setYaw(v => Math.min(180, v + 15))}>›</button>
+                                      <button className={`absolute top-8 left-1/2 -translate-x-1/2 ${isDark ? 'text-zinc-400' : 'text-gray-500'}`} onClick={() => setPitch(v => Math.min(90, v + 10))}>⌃</button>
+                                      <button className={`absolute bottom-8 left-1/2 -translate-x-1/2 ${isDark ? 'text-zinc-400' : 'text-gray-500'}`} onClick={() => setPitch(v => Math.max(-90, v - 10))}>⌄</button>
+                                      <img
+                                          src={data.imageSrc}
+                                          className="relative z-10 max-w-[145px] max-h-[145px] object-contain rounded-lg shadow-2xl transition-transform duration-200"
+                                          draggable={false}
+                                          style={{
+                                              transform: `perspective(700px) rotateY(${yaw / 5}deg) rotateX(${-pitch / 5}deg) scale(${zoom === 'wide' ? 0.82 : zoom === 'close' ? 1.18 : 1})`,
+                                          }}
+                                      />
                                   </div>
-                                  <div className={`h-8 rounded-lg border p-0.5 flex items-center ${isDark ? 'border-zinc-700 bg-zinc-950/30' : 'border-gray-200 bg-white'}`}>
-                                      {backgroundOptions.map(item => (
-                                          <button
-                                              key={item.value}
-                                              className={`h-6 px-2.5 rounded-md text-[11px] font-semibold transition-colors ${angleBackground === item.value ? 'bg-blue-600 text-white' : (isDark ? 'text-zinc-400 hover:text-white' : 'text-gray-500 hover:text-gray-900')}`}
-                                              onClick={() => setAngleBackground(item.value)}
-                                          >
-                                              {item.label}
-                                          </button>
+                                  <div className="flex flex-col gap-5 justify-center">
+                                      {[
+                                          { label: '水平环绕', value: yaw, min: -180, max: 180, setter: setYaw, suffix: '°' },
+                                          { label: '垂直俯仰', value: pitch, min: -90, max: 90, setter: setPitch, suffix: '°' },
+                                      ].map(item => (
+                                          <div key={item.label} className="grid grid-cols-[90px_1fr_50px] items-center gap-4">
+                                              <span className={`text-sm ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>{item.label}</span>
+                                              <input
+                                                  type="range"
+                                                  min={item.min}
+                                                  max={item.max}
+                                                  value={item.value}
+                                                  onChange={(event) => {
+                                                      setAnglePreset('custom');
+                                                      item.setter(Number(event.target.value));
+                                                  }}
+                                                  className="w-full accent-white"
+                                              />
+                                              <span className={`text-sm font-semibold text-right ${isDark ? 'text-zinc-100' : 'text-gray-900'}`}>{item.value}{item.suffix}</span>
+                                          </div>
                                       ))}
+                                      <div className="grid grid-cols-[90px_1fr_50px] items-center gap-4">
+                                          <span className={`text-sm ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>景别缩放</span>
+                                          <div className={`h-9 rounded-lg border p-0.5 flex items-center ${isDark ? 'border-zinc-700 bg-zinc-950/30' : 'border-gray-200 bg-white'}`}>
+                                              {[
+                                                  { value: 'wide' as const, label: '全景' },
+                                                  { value: 'medium' as const, label: '中景' },
+                                                  { value: 'close' as const, label: '近景' },
+                                              ].map(item => (
+                                                  <button
+                                                      key={item.value}
+                                                      className={`flex-1 h-7 rounded-md text-xs font-semibold transition-colors ${zoom === item.value ? 'bg-zinc-100 text-zinc-950' : (isDark ? 'text-zinc-400 hover:text-white' : 'text-gray-500 hover:text-gray-900')}`}
+                                                      onClick={() => { setAnglePreset('custom'); setZoom(item.value); }}
+                                                  >
+                                                      {item.label}
+                                                  </button>
+                                              ))}
+                                          </div>
+                                          <span className={`text-sm font-semibold text-right ${isDark ? 'text-zinc-100' : 'text-gray-900'}`}>{zoom === 'wide' ? '全景' : zoom === 'close' ? '近景' : '中景'}</span>
+                                      </div>
+                                      <div className="grid grid-cols-[90px_1fr] items-center gap-4">
+                                          <span className={`text-sm ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>提示词</span>
+                                          <button
+                                              className={`relative w-10 h-5 rounded-full transition-colors ${showAnglePrompt ? 'bg-cyan-500' : (isDark ? 'bg-zinc-700' : 'bg-gray-300')}`}
+                                              onClick={() => setShowAnglePrompt(value => !value)}
+                                              title="展开补充提示词"
+                                          >
+                                              <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${showAnglePrompt ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                                          </button>
+                                      </div>
+                                      <div className="flex flex-wrap items-center gap-2">
+                                          <LocalCustomDropdown icon={Icons.Crop} options={angleAspectOptions} value={angleAspectRatio} onChange={(val: any) => setAngleAspectRatio(val)} isOpen={activeDropdown === 'angleAspect'} onToggle={() => setActiveDropdown(activeDropdown === 'angleAspect' ? null : 'angleAspect')} onClose={() => setActiveDropdown(null)} isDark={isDark} />
+                                          <div className={`h-8 rounded-lg border p-0.5 flex items-center ${isDark ? 'border-zinc-700 bg-zinc-950/30' : 'border-gray-200 bg-white'}`}>
+                                              {backgroundOptions.map(item => (
+                                                  <button key={item.value} className={`h-6 px-2.5 rounded-md text-[11px] font-semibold transition-colors ${angleBackground === item.value ? 'bg-blue-600 text-white' : (isDark ? 'text-zinc-400 hover:text-white' : 'text-gray-500 hover:text-gray-900')}`} onClick={() => setAngleBackground(item.value)}>{item.label}</button>
+                                              ))}
+                                          </div>
+                                          <div className={`h-8 rounded-lg border p-0.5 flex items-center ${isDark ? 'border-zinc-700 bg-zinc-950/30' : 'border-gray-200 bg-white'}`}>
+                                              {consistencyOptions.map(item => (
+                                                  <button key={item.value} className={`h-6 px-2.5 rounded-md text-[11px] font-semibold transition-colors ${angleConsistency === item.value ? 'bg-blue-600 text-white' : (isDark ? 'text-zinc-400 hover:text-white' : 'text-gray-500 hover:text-gray-900')}`} onClick={() => setAngleConsistency(item.value)}>{item.label}</button>
+                                              ))}
+                                          </div>
+                                      </div>
                                   </div>
-                                  <LocalCustomDropdown
-                                      icon={Icons.Crop}
-                                      options={angleAspectOptions}
-                                      value={angleAspectRatio}
-                                      onChange={(val: any) => setAngleAspectRatio(val)}
-                                      isOpen={activeDropdown === 'angleAspect'}
-                                      onToggle={() => setActiveDropdown(activeDropdown === 'angleAspect' ? null : 'angleAspect')}
-                                      onClose={() => setActiveDropdown(null)}
-                                      isDark={isDark}
+                              </div>
+                              {showAnglePrompt && (
+                                  <textarea
+                                      className={`w-full border rounded-xl px-3 py-2 text-xs leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-cyan-500/20 min-h-[58px] no-scrollbar transition-all ${inputBg}`}
+                                      placeholder="补充材质、光线、风格要求，例如：保持场景空间关系、电影感光线、不要改变建筑布局..."
+                                      value={anglePrompt}
+                                      onChange={(event) => setAnglePrompt(event.target.value)}
+                                      onWheel={(event) => event.stopPropagation()}
                                   />
-                                  <div className="flex-1" />
-                                  <button
-                                      className={`h-8 px-4 rounded-lg text-xs font-bold flex items-center gap-2 transition-all ${
-                                          data.isLoading || selectedAngles.length === 0
-                                              ? 'bg-gray-400 text-white cursor-not-allowed'
-                                              : 'bg-cyan-600 hover:bg-cyan-500 text-white shadow-lg shadow-cyan-500/20'
-                                      }`}
-                                      disabled={data.isLoading || selectedAngles.length === 0}
-                                      onClick={handleMultiAngleGenerate}
-                                  >
-                                      {data.isLoading ? <Icons.Loader2 size={14} className="animate-spin" /> : <Icons.Camera size={14} />}
-                                      <span>{data.isLoading ? '生成中' : `生成 ${selectedAngles.length} 个角度`}</span>
+                              )}
+                              <div className="flex items-center justify-between">
+                                  <button className={`h-8 px-3 rounded-lg text-sm flex items-center gap-2 ${isDark ? 'text-zinc-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'}`} onClick={() => { setAnglePreset('custom'); setYaw(0); setPitch(0); setZoom('medium'); setAnglePrompt(''); }}>
+                                      <Icons.RotateCcw size={15} />
+                                      <span>重置参数</span>
+                                  </button>
+                                  <button className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all ${data.isLoading ? 'bg-gray-400 text-white cursor-not-allowed' : 'bg-white text-zinc-950 hover:bg-cyan-100 shadow-lg'}`} disabled={data.isLoading} onClick={handleMultiAngleGenerate} title="生成多角度图片">
+                                      {data.isLoading ? <Icons.Loader2 size={22} className="animate-spin" /> : <Icons.ArrowUp size={26} />}
                                   </button>
                               </div>
                           </div>
