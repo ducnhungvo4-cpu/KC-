@@ -182,6 +182,13 @@ const Sidebar: React.FC<SidebarProps> = ({
         <div className={`text-[10px] font-bold uppercase tracking-wider ${textMuted}`}>生成节点</div>
         <div className="space-y-2">
           <NodeButton 
+            icon={Icons.FileText} 
+            label="文本" 
+            description="文本输入与模型生成"
+            type={NodeType.CREATIVE_DESC} 
+            color={isDark ? 'bg-zinc-500/15 text-zinc-300' : 'bg-zinc-100 text-zinc-700'} 
+          />
+          <NodeButton 
             icon={Icons.Image} 
             label="生图" 
             description="文本/图片生成图片"

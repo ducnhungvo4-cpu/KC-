@@ -22,38 +22,41 @@ const ConnectionPort: React.FC<{
   onMouseUp?: (e: React.MouseEvent) => void;
 }> = ({ type, isDark, onMouseDown, onMouseUp }) => {
   const isInput = type === 'input';
+  const label = isInput ? '连接输入' : '拖出连接';
   
   return (
     <div 
-      className={`absolute ${isInput ? '-left-3' : '-right-3'} top-1/2 -translate-y-1/2 z-50 group/port`}
+      className={`absolute ${isInput ? '-left-9' : '-right-9'} top-1/2 -translate-y-1/2 z-50 group/port`}
       onMouseDown={(e) => {
         e.stopPropagation();
         onMouseDown?.(e);
       }}
       onMouseUp={onMouseUp}
+      title={label}
     >
       {/* Hover area for easier targeting */}
       <div className="absolute -inset-4 cursor-crosshair" />
       
       {/* Port visual */}
       <div className={`
-        relative w-3.5 h-3.5 rounded-full cursor-crosshair
+        relative w-12 h-12 rounded-full cursor-crosshair flex items-center justify-center
         transition-all duration-200 ease-out
         ${isDark 
-          ? 'bg-[#1e1e1e] border border-zinc-600 shadow-[0_2px_4px_rgba(0,0,0,0.3)]' 
-          : 'bg-white border border-gray-300 shadow-[0_2px_4px_rgba(0,0,0,0.1)]'
+          ? 'bg-black/40 border-[3px] border-zinc-500 text-zinc-400 shadow-[0_8px_24px_rgba(0,0,0,0.45)] backdrop-blur-sm' 
+          : 'bg-white/75 border-[3px] border-gray-400 text-gray-500 shadow-[0_8px_24px_rgba(0,0,0,0.18)] backdrop-blur-sm'
         }
-        group-hover/port:scale-125 
-        group-hover/port:border-blue-500
-        group-hover/port:shadow-[0_0_8px_rgba(59,130,246,0.5)]
+        group-hover/port:scale-110
+        group-hover/port:border-cyan-400
+        group-hover/port:text-cyan-300
+        group-hover/port:shadow-[0_0_18px_rgba(34,211,238,0.45)]
       `}>
-        {/* Inner dot */}
-        <div className={`
-          absolute inset-[3px] rounded-full
-          transition-all duration-200
-          ${isDark ? 'bg-zinc-400' : 'bg-gray-400'}
-          group-hover/port:bg-blue-500
-        `} />
+        <div className="relative w-7 h-7">
+          <span className="absolute left-0 top-1/2 h-[3px] w-full -translate-y-1/2 rounded-full bg-current" />
+          <span className="absolute top-0 left-1/2 h-full w-[3px] -translate-x-1/2 rounded-full bg-current" />
+        </div>
+      </div>
+      <div className={`absolute ${isInput ? 'right-full mr-2' : 'left-full ml-2'} top-1/2 -translate-y-1/2 px-2 py-1 rounded-md text-[10px] font-medium whitespace-nowrap opacity-0 group-hover/port:opacity-100 transition-opacity pointer-events-none ${isDark ? 'bg-zinc-900 text-zinc-200 border border-zinc-700' : 'bg-white text-gray-700 border border-gray-200 shadow-sm'}`}>
+        {label}
       </div>
     </div>
   );
@@ -62,20 +65,6 @@ const ConnectionPort: React.FC<{
 const BaseNode: React.FC<BaseNodeProps> = ({ 
   data, selected, onMouseDown, onContextMenu, onConnectStart, onPortMouseUp, children, onResizeStart, isDark = true
 }) => {
-  
-  // Get accent color based on node type
-  const getAccentColor = () => {
-    switch (data.type) {
-      case NodeType.TEXT_TO_IMAGE: return 'cyan';
-      case NodeType.TEXT_TO_VIDEO: return 'cyan';
-      case NodeType.IMAGE_TO_IMAGE: return 'purple';
-      case NodeType.IMAGE_TO_VIDEO: return 'orange';
-      case NodeType.START_END_TO_VIDEO: return 'emerald';
-      default: return 'cyan';
-    }
-  };
-
-  const accentColor = getAccentColor();
   const showInputPort = data.type !== NodeType.ORIGINAL_IMAGE;
 
   return (

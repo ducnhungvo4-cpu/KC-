@@ -355,13 +355,16 @@ const CanvasWithSidebar: React.FC = () => {
     } else if (type === NodeType.TEXT_TO_IMAGE || type === NodeType.IMAGE_TO_IMAGE) {
         if (!dataOverride?.width) w = 400;
         if (!dataOverride?.height) h = 400;
+    } else if (type === NodeType.CREATIVE_DESC) {
+        if (!dataOverride?.width) w = 520;
+        if (!dataOverride?.height) h = 520;
     }
     
     const getDefaultTitle = (t: NodeType) => {
         switch (t) {
             case NodeType.TEXT_TO_IMAGE: return '生图';
             case NodeType.TEXT_TO_VIDEO: return '生视频';
-            case NodeType.CREATIVE_DESC: return '创意描述';
+            case NodeType.CREATIVE_DESC: return 'Text';
             default: return `原始图片_${Date.now()}`;
         }
     };
@@ -372,6 +375,8 @@ const CanvasWithSidebar: React.FC = () => {
                 return 'Seedream 5.0';
             case NodeType.TEXT_TO_VIDEO:
                 return 'Seedance 1.5 Pro';
+            case NodeType.CREATIVE_DESC:
+                return 'Gemini 3.1 Flash Lite';
             default:
                 return '';
         }
@@ -418,13 +423,15 @@ const CanvasWithSidebar: React.FC = () => {
           w = 400 * (16/9); h = 400;
       } else if (isImageGenType) {
           w = 400; h = 400;
+      } else if (type === NodeType.CREATIVE_DESC) {
+          w = 520; h = 520;
       }
 
       const getDefaultTitle = (t: NodeType) => {
           switch (t) {
               case NodeType.TEXT_TO_IMAGE: return '生图';
               case NodeType.TEXT_TO_VIDEO: return '生视频';
-              case NodeType.CREATIVE_DESC: return '创意描述';
+              case NodeType.CREATIVE_DESC: return 'Text';
               default: return `原始图片_${Date.now()}`;
           }
       };
@@ -435,6 +442,8 @@ const CanvasWithSidebar: React.FC = () => {
                   return 'Seedream 5.0';
               case NodeType.TEXT_TO_VIDEO:
                   return 'Seedance 1.5 Pro';
+              case NodeType.CREATIVE_DESC:
+                  return 'Gemini 3.1 Flash Lite';
               default:
                   return '';
           }
@@ -1198,6 +1207,10 @@ const CanvasWithSidebar: React.FC = () => {
                             <div className="w-5 h-5 rounded bg-cyan-500/10 flex items-center justify-center"><Icons.Image size={12} className="text-cyan-400"/></div>
                             <span>生图</span>
                         </button>
+                        <button className={menuItemClass} onClick={() => { addNode(NodeType.CREATIVE_DESC, contextMenu.worldX, contextMenu.worldY); setContextMenu(null); }}>
+                            <div className="w-5 h-5 rounded bg-zinc-500/10 flex items-center justify-center"><Icons.FileText size={12} className={isDark ? 'text-zinc-300' : 'text-zinc-600'}/></div>
+                            <span>文本</span>
+                        </button>
                         <button className={menuItemClass} onClick={() => { addNode(NodeType.TEXT_TO_VIDEO, contextMenu.worldX, contextMenu.worldY); setContextMenu(null); }}>
                             <div className="w-5 h-5 rounded bg-purple-500/10 flex items-center justify-center"><Icons.Video size={12} className="text-purple-400"/></div>
                             <span>生视频</span>
@@ -1233,6 +1246,10 @@ const CanvasWithSidebar: React.FC = () => {
             <button className={menuItemClass} onClick={() => handleQuickAddNode(NodeType.TEXT_TO_IMAGE)}>
                 <div className="w-6 h-6 rounded-md bg-cyan-500/10 flex items-center justify-center"><Icons.Image size={14} className="text-cyan-400"/></div>
                 <span>生图</span>
+            </button>
+            <button className={menuItemClass} onClick={() => handleQuickAddNode(NodeType.CREATIVE_DESC)}>
+                <div className="w-6 h-6 rounded-md bg-zinc-500/10 flex items-center justify-center"><Icons.FileText size={14} className={isDark ? 'text-zinc-300' : 'text-zinc-600'}/></div>
+                <span>文本</span>
             </button>
             <button className={menuItemClass} onClick={() => handleQuickAddNode(NodeType.TEXT_TO_VIDEO)}>
                 <div className="w-6 h-6 rounded-md bg-purple-500/10 flex items-center justify-center"><Icons.Video size={14} className="text-purple-400"/></div>
