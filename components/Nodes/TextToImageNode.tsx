@@ -17,6 +17,7 @@ interface TextToImageNodeProps {
   onPreviewReference?: (item: InputMedia) => void;
   onMaximize?: (id: string) => void;
   onDownload?: (id: string) => void;
+  onUpload?: (id: string) => void;
   onCrop?: (id: string) => void;
   onMultiAngle?: (id: string, options: MultiAngleOptions) => void;
   isDark?: boolean;
@@ -25,7 +26,7 @@ interface TextToImageNodeProps {
 }
 
 export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
-    data, updateData, onGenerate, selected, showControls, inputs = [], inputMedia = [], onPreviewReference, onMaximize, onDownload, onCrop, onMultiAngle, isDark = true, isSelecting, canvasScale = 1
+    data, updateData, onGenerate, selected, showControls, inputs = [], inputMedia = [], onPreviewReference, onMaximize, onDownload, onUpload, onCrop, onMultiAngle, isDark = true, isSelecting, canvasScale = 1
 }) => {
     const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
     const [deferredInputs, setDeferredInputs] = useState(false);
@@ -257,11 +258,37 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
              )}
         </div>
 
+        {isSelectedAndStable && showControls && hasResult && (
+            <div className={`absolute bottom-full left-1/2 mb-4 z-[75] flex items-center gap-1.5 rounded-2xl border px-3 py-2 shadow-2xl backdrop-blur-xl pointer-events-auto ${isDark ? 'bg-[#202020]/95 border-zinc-700 text-zinc-100' : 'bg-white/95 border-gray-200 text-gray-900'}`} style={panelTransform} onMouseDown={(e) => e.stopPropagation()}>
+                <button className={`h-9 px-3 rounded-xl text-sm font-semibold flex items-center gap-2 transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => setIsAngleEditorOpen(true)} title="多角度控制">
+                    <Icons.RefreshCw size={16} />
+                    <span>多角度</span>
+                </button>
+                <button className={`h-9 px-3 rounded-xl text-sm font-semibold flex items-center gap-2 transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onCrop?.(data.id)} title="图片裁剪">
+                    <Icons.Crop size={16} />
+                    <span>裁剪</span>
+                </button>
+                <button className={`h-9 px-3 rounded-xl text-sm font-semibold flex items-center gap-2 transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onUpload?.(data.id)} title="上传替换当前图片">
+                    <Icons.Upload size={16} />
+                    <span>上传</span>
+                </button>
+                <div className={`w-px h-6 mx-1 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`} />
+                <button className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onDownload?.(data.id)} title="下载">
+                    <Icons.Download size={17} />
+                </button>
+                <button className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onMaximize?.(data.id)} title="放大查看">
+                    <Icons.Maximize2 size={17} />
+                </button>
+            </div>
+        )}
+
         {/* Control Panel */}
-        {isSelectedAndStable && showControls && (
+        {isSelectedAndStable && showControls && (!hasResult || isAngleEditorOpen) && (
             <div className="absolute top-full left-1/2 min-w-[520px] pt-4 z-[70] pointer-events-auto" style={panelTransform} onMouseDown={(e) => e.stopPropagation()}>
-                 {inputMedia.length > 0 && <LocalInputThumbnails inputs={inputs} items={inputMedia} ready={deferredInputs} isDark={isDark} onPreview={onPreviewReference} />}
+                 {!hasResult && inputMedia.length > 0 && <LocalInputThumbnails inputs={inputs} items={inputMedia} ready={deferredInputs} isDark={isDark} onPreview={onPreviewReference} />}
                  <div className={`${controlPanelBg} rounded-2xl p-4 flex flex-col gap-3 border`}>
+                      {!hasResult && (
+                      <>
                       {/* Prompt Input */}
                       <textarea 
                           className={`w-full border rounded-xl px-4 py-3 text-sm leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/20 min-h-[72px] no-scrollbar transition-all ${inputBg}`} 
@@ -351,9 +378,11 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
                               }`}
                           >
                               {data.isLoading ? <Icons.Loader2 className="animate-spin" size={15}/> : <Icons.Wand2 size={15} />}
-                              <span>{data.isLoading ? '生成中' : '生成'}</span>
+                          <span>{data.isLoading ? '生成中' : '生成'}</span>
                           </button>
                       </div>
+                      </>
+                      )}
                       {data.imageSrc && isAngleEditorOpen && (
                           <div className={`rounded-2xl border p-5 flex flex-col gap-4 ${isDark ? 'border-zinc-700 bg-[#202020]' : 'border-gray-200 bg-white shadow-xl'}`}>
                               <div className="flex items-center justify-between gap-3">

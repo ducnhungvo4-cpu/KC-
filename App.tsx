@@ -1030,6 +1030,13 @@ const CanvasWithSidebar: React.FC = () => {
       }
 
       const baseTitle = file.name || `本地素材_${new Date().toLocaleTimeString()}`;
+      const target = nodes.find(n => n.id === targetId);
+      if (!target) {
+          if (attachInputRef.current) attachInputRef.current.value = '';
+          nodeToAttachInputRef.current = null;
+          return;
+      }
+
       if (file.type.startsWith('image/')) {
           const reader = new FileReader();
           reader.onload = (event) => {
@@ -1038,21 +1045,21 @@ const CanvasWithSidebar: React.FC = () => {
                   const aspectRatio = getClosestAspectRatio(img.width, img.height, IMAGE_ASPECT_RATIOS);
                   const { width, height } = getNodeSizeForAspectRatio(aspectRatio);
                   const src = event.target?.result as string;
-                  addInputSourceNode(targetId, {
-                      id: generateId(),
+                  updateNodeData(targetId, {
                       type: NodeType.TEXT_TO_IMAGE,
-                      x: 0,
-                      y: 0,
                       width,
                       height,
                       title: baseTitle,
                       imageSrc: src,
+                      videoSrc: undefined,
                       aspectRatio,
-                      model: 'Seedream 5.0',
-                      resolution: '1k',
-                      count: 1,
-                      prompt: '',
-                      outputArtifacts: [src],
+                      model: target.type === NodeType.TEXT_TO_IMAGE ? (target.model || 'Seedream 5.0') : 'Seedream 5.0',
+                      resolution: target.resolution || '1k',
+                      count: target.count || 1,
+                      outputArtifacts: [
+                          src,
+                          ...(target.type === NodeType.TEXT_TO_IMAGE ? (target.outputArtifacts || []).filter(item => item !== src) : []),
+                      ],
                   });
               };
               img.src = event.target?.result as string;
@@ -1065,22 +1072,22 @@ const CanvasWithSidebar: React.FC = () => {
           video.onloadedmetadata = () => {
               const aspectRatio = getClosestAspectRatio(video.videoWidth, video.videoHeight, VIDEO_ASPECT_RATIOS);
               const { width, height } = getNodeSizeForAspectRatio(aspectRatio, VIDEO_NODE_BASE_HEIGHT);
-              addInputSourceNode(targetId, {
-                  id: generateId(),
+              updateNodeData(targetId, {
                   type: NodeType.TEXT_TO_VIDEO,
-                  x: 0,
-                  y: 0,
                   width,
                   height,
                   title: baseTitle,
                   videoSrc: url,
+                  imageSrc: undefined,
                   aspectRatio,
-                  model: 'Seedance 1.5 Pro',
-                  resolution: '720p',
-                  duration: '5s',
-                  count: 1,
-                  prompt: '',
-                  outputArtifacts: [url],
+                  model: target.type === NodeType.TEXT_TO_VIDEO || target.type === NodeType.START_END_TO_VIDEO ? (target.model || 'Seedance 1.5 Pro') : 'Seedance 1.5 Pro',
+                  resolution: target.resolution || '720p',
+                  duration: target.duration || '5s',
+                  count: target.count || 1,
+                  outputArtifacts: [
+                      url,
+                      ...((target.type === NodeType.TEXT_TO_VIDEO || target.type === NodeType.START_END_TO_VIDEO) ? (target.outputArtifacts || []).filter(item => item !== url) : []),
+                  ],
               });
           };
           video.src = url;
@@ -1088,20 +1095,11 @@ const CanvasWithSidebar: React.FC = () => {
           const reader = new FileReader();
           reader.onload = (event) => {
               const text = String(event.target?.result || '');
-              addInputSourceNode(targetId, {
-                  id: generateId(),
-                  type: NodeType.CREATIVE_DESC,
-                  x: 0,
-                  y: 0,
-                  width: 520,
-                  height: 520,
+              updateNodeData(targetId, {
+                  type: target.type === NodeType.CREATIVE_DESC ? NodeType.CREATIVE_DESC : target.type,
                   title: baseTitle,
-                  aspectRatio: '1:1',
-                  model: 'Xiaomi MiMo 2.5 Pro',
-                  count: 1,
                   prompt: text,
-                  optimizedPrompt: text,
-                  outputArtifacts: [],
+                  optimizedPrompt: target.type === NodeType.CREATIVE_DESC ? text : target.optimizedPrompt,
               });
           };
           reader.readAsText(file, 'utf-8');

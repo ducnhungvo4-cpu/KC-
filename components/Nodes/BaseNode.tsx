@@ -72,6 +72,7 @@ const BaseNode: React.FC<BaseNodeProps> = ({
   data, selected, onMouseDown, onContextMenu, onConnectStart, onPortMouseUp, children, onResizeStart, onAttachInput, isDark = true
 }) => {
   const showInputPort = data.type !== NodeType.ORIGINAL_IMAGE;
+  const hasContent = Boolean(data.imageSrc || data.videoSrc);
 
   return (
     <div 
@@ -91,14 +92,14 @@ const BaseNode: React.FC<BaseNodeProps> = ({
       <div className="relative w-full h-full">
           {children}
 
-          {onAttachInput && (
+          {onAttachInput && !hasContent && (
             <button
-              className={`absolute left-1/2 top-0 -translate-x-1/2 -translate-y-[calc(100%+10px)] z-[80] h-9 px-3 rounded-full border backdrop-blur-xl shadow-lg flex items-center gap-2 text-xs font-semibold opacity-0 translate-y-[-6px] pointer-events-none transition-all duration-200 group-hover:opacity-100 group-hover:pointer-events-auto group-hover:translate-y-0 ${
+              className={`absolute left-1/2 top-0 -translate-x-1/2 -translate-y-[calc(100%+12px)] z-[80] h-9 px-3 rounded-full border backdrop-blur-xl shadow-lg flex items-center gap-2 text-sm font-semibold opacity-0 pointer-events-none transition-all duration-200 group-hover:opacity-100 group-hover:pointer-events-auto ${
                 isDark
                   ? 'bg-zinc-950/90 border-zinc-700 text-zinc-200 hover:border-cyan-400 hover:text-white'
                   : 'bg-white/95 border-gray-200 text-gray-700 hover:border-cyan-400 hover:text-gray-950'
               }`}
-              title="上传本地素材作为当前节点入参"
+              title="上传本地素材到当前节点"
               onMouseDown={(e) => e.stopPropagation()}
               onClick={(e) => {
                 e.stopPropagation();
@@ -106,7 +107,7 @@ const BaseNode: React.FC<BaseNodeProps> = ({
               }}
             >
               <Icons.Upload size={14} />
-              <span>本地入参</span>
+              <span>上传</span>
             </button>
           )}
 

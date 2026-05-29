@@ -18,13 +18,14 @@ interface StartEndToVideoNodeProps {
   onPreviewReference?: (item: InputMedia) => void;
   onMaximize?: (id: string) => void;
   onDownload?: (id: string) => void;
+  onUpload?: (id: string) => void;
   isDark?: boolean;
   isSelecting?: boolean;
   canvasScale?: number;
 }
 
 export const StartEndToVideoNode: React.FC<StartEndToVideoNodeProps> = ({
-    data, updateData, onGenerate, selected, showControls, inputs = [], inputMedia = [], onPreviewReference, onMaximize, onDownload, isDark = true, isSelecting, canvasScale = 1
+    data, updateData, onGenerate, selected, showControls, inputs = [], inputMedia = [], onPreviewReference, onMaximize, onDownload, onUpload, isDark = true, isSelecting, canvasScale = 1
 }) => {
     const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
     const [progress, setProgress] = useState(0);
@@ -291,8 +292,24 @@ export const StartEndToVideoNode: React.FC<StartEndToVideoNodeProps> = ({
             )}
         </div>
 
+        {isSelectedAndStable && showControls && hasResult && (
+            <div className={`absolute bottom-full left-1/2 mb-4 z-[75] flex items-center gap-1.5 rounded-2xl border px-3 py-2 shadow-2xl backdrop-blur-xl pointer-events-auto ${isDark ? 'bg-[#202020]/95 border-zinc-700 text-zinc-100' : 'bg-white/95 border-gray-200 text-gray-900'}`} style={panelTransform} onMouseDown={(e) => e.stopPropagation()}>
+                <button className={`h-9 px-3 rounded-xl text-sm font-semibold flex items-center gap-2 transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onUpload?.(data.id)} title="上传替换当前视频">
+                    <Icons.Upload size={16} />
+                    <span>上传</span>
+                </button>
+                <div className={`w-px h-6 mx-1 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`} />
+                <button className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onDownload?.(data.id)} title="下载">
+                    <Icons.Download size={17} />
+                </button>
+                <button className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onMaximize?.(data.id)} title="放大查看">
+                    <Icons.Maximize2 size={17} />
+                </button>
+            </div>
+        )}
+
         {/* Control Panel */}
-        {isSelectedAndStable && showControls && (
+        {isSelectedAndStable && showControls && !hasResult && (
           <div className="absolute top-full left-1/2 min-w-[520px] pt-4 z-[70] pointer-events-auto" style={panelTransform} onMouseDown={(e) => e.stopPropagation()}>
                {renderFrameThumbnails()}
                {!hasValidInputs && (
