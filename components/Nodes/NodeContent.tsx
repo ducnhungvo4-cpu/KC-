@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { MultiAngleOptions, NodeData, NodeType } from '../../types';
+import { InputMedia, MultiAngleOptions, NodeData, NodeType } from '../../types';
 import { TextToImageNode } from './TextToImageNode';
 import { TextToVideoNode } from './TextToVideoNode';
 import { StartEndToVideoNode } from './StartEndToVideoNode';
@@ -18,9 +18,12 @@ interface NodeContentProps {
   onUpload?: (nodeId: string) => void;
   onCrop?: (nodeId: string) => void;
   onMultiAngle?: (nodeId: string, options: MultiAngleOptions) => void;
+  onAnalyzeMedia?: (nodeId: string) => void;
+  onAnalyzeScript?: (nodeId: string) => void;
   isSelecting?: boolean;
   onDelete?: (id: string) => void;
   isDark?: boolean;
+  inputMedia?: InputMedia[];
 }
 
 const NodeContentComponent: React.FC<NodeContentProps> = (props) => {
@@ -54,6 +57,15 @@ export const NodeContent = memo(NodeContentComponent, (prev, next) => {
                  if (prev.inputs[i] !== next.inputs[i]) return false; 
              } 
          }
+    }
+
+    if (prev.inputMedia !== next.inputMedia) {
+        if (prev.inputMedia?.length !== next.inputMedia?.length) return false;
+        if (prev.inputMedia && next.inputMedia) {
+            for (let i = 0; i < prev.inputMedia.length; i++) {
+                if (prev.inputMedia[i].type !== next.inputMedia[i].type || prev.inputMedia[i].url !== next.inputMedia[i].url) return false;
+            }
+        }
     }
     
     // Check Selection/Visibility State

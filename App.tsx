@@ -1,11 +1,11 @@
 
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import Sidebar from './components/Sidebar';
-import { MultiAngleOptions, NodeData, Connection, CanvasTransform, Point, DragMode, NodeType } from './types';
+import { InputMedia, MultiAngleOptions, NodeData, Connection, CanvasTransform, Point, DragMode, NodeType } from './types';
 import BaseNode from './components/Nodes/BaseNode';
 import { NodeContent } from './components/Nodes/NodeContent';
 import { Icons } from './components/Icons';
-import { generateCreativeDescription, generateImage, generateVideo, generateMultiAngleImages } from './services/geminiService';
+import { analyzeConnectedMedia, analyzeScriptAssets, generateCreativeDescription, generateImage, generateVideo, generateMultiAngleImages } from './services/geminiService';
 import { storageService } from './services/storageService';
 import { ThemeSwitcher } from './components/ThemeSwitcher';
 import { StorageModal } from './components/Settings/StorageModal';
@@ -220,9 +220,28 @@ const CanvasWithSidebar: React.FC = () => {
     return map;
   }, [nodes, connections]);
 
+  const inputMediaMap = useMemo(() => {
+    const map: Record<string, InputMedia[]> = {};
+    nodes.forEach(node => {
+        map[node.id] = connections
+            .filter(c => c.targetId === node.id)
+            .map(c => nodes.find(n => n.id === c.sourceId))
+            .filter((n): n is NodeData => Boolean(n && (n.imageSrc || n.videoSrc)))
+            .map(n => ({
+                type: n.videoSrc ? 'video' : 'image',
+                url: n.videoSrc || n.imageSrc || '',
+            }));
+    });
+    return map;
+  }, [nodes, connections]);
+
   const getInputImages = useCallback((nodeId: string) => {
     return inputsMap[nodeId] || EMPTY_ARRAY;
   }, [inputsMap]);
+
+  const getInputMedia = useCallback((nodeId: string) => {
+    return inputMediaMap[nodeId] || [];
+  }, [inputMediaMap]);
   
   const performCopy = () => {
       if (selectedNodeIds.size === 0) return;
@@ -407,7 +426,7 @@ const CanvasWithSidebar: React.FC = () => {
             case NodeType.TEXT_TO_VIDEO:
                 return 'Seedance 1.5 Pro';
             case NodeType.CREATIVE_DESC:
-                return 'Gemini 3.1 Flash Lite';
+                return 'Xiaomi MiMo 2.5 Pro';
             default:
                 return '';
         }
@@ -474,7 +493,7 @@ const CanvasWithSidebar: React.FC = () => {
               case NodeType.TEXT_TO_VIDEO:
                   return 'Seedance 1.5 Pro';
               case NodeType.CREATIVE_DESC:
-                  return 'Gemini 3.1 Flash Lite';
+                  return 'Xiaomi MiMo 2.5 Pro';
               default:
                   return '';
           }
@@ -678,7 +697,7 @@ const CanvasWithSidebar: React.FC = () => {
 
     try {
       if (node.type === NodeType.CREATIVE_DESC) {
-        const res = await generateCreativeDescription(node.prompt || '', node.model === 'TEXT_TO_VIDEO' ? 'VIDEO' : 'IMAGE');
+        const res = await generateCreativeDescription(node.prompt || '', node.model === 'TEXT_TO_VIDEO' ? 'VIDEO' : 'IMAGE', node.model);
         updateNodeData(nodeId, { optimizedPrompt: res, isLoading: false });
       } else {
           let results: string[] = [];
@@ -731,6 +750,49 @@ const CanvasWithSidebar: React.FC = () => {
       alert(`生成失败: ${(e as Error).message}`);
       updateNodeData(nodeId, { isLoading: false });
     }
+  };
+
+  const handleAnalyzeMedia = async (nodeId: string) => {
+      const node = nodes.find(n => n.id === nodeId);
+      if (!node) return;
+      const inputMedia = getInputMedia(node.id);
+      if (!inputMedia.length) {
+          alert("请先把图片或视频节点连接到文本节点前面");
+          return;
+      }
+
+      updateNodeData(nodeId, { isLoading: true });
+      try {
+          const text = await analyzeConnectedMedia(node.prompt || '', inputMedia, node.model);
+          updateNodeData(nodeId, {
+              optimizedPrompt: text,
+              prompt: node.prompt || text,
+              isLoading: false
+          });
+      } catch (e) {
+          console.error(e);
+          alert(`分析失败: ${(e as Error).message}`);
+          updateNodeData(nodeId, { isLoading: false });
+      }
+  };
+
+  const handleAnalyzeScript = async (nodeId: string) => {
+      const node = nodes.find(n => n.id === nodeId);
+      if (!node) return;
+      if (!node.prompt?.trim()) {
+          alert("请先在文本节点里输入或粘贴剧本内容");
+          return;
+      }
+
+      updateNodeData(nodeId, { isLoading: true });
+      try {
+          const text = await analyzeScriptAssets(node.prompt, node.model);
+          updateNodeData(nodeId, { optimizedPrompt: text, isLoading: false });
+      } catch (e) {
+          console.error(e);
+          alert(`剧本分析失败: ${(e as Error).message}`);
+          updateNodeData(nodeId, { isLoading: false });
+      }
   };
 
   const handleMaximize = (nodeId: string) => {
@@ -1696,11 +1758,14 @@ const CanvasWithSidebar: React.FC = () => {
                             selected={selectedNodeIds.has(node.id)}
                             showControls={selectedNodeIds.size === 1}
                             inputs={getInputImages(node.id)}
+                            inputMedia={getInputMedia(node.id)}
                             onMaximize={handleMaximize}
                             onDownload={handleDownload}
                             onUpload={triggerReplaceImage}
                             onCrop={handleCropStart}
                             onMultiAngle={handleMultiAngleGenerate}
+                            onAnalyzeMedia={handleAnalyzeMedia}
+                            onAnalyzeScript={handleAnalyzeScript}
                             isSelecting={dragMode === 'SELECT'}
                             onDelete={deleteNode}
                             isDark={isDark}

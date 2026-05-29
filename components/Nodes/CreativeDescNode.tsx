@@ -7,16 +7,19 @@ interface CreativeDescNodeProps {
   data: NodeData;
   updateData: (id: string, updates: Partial<NodeData>) => void;
   onGenerate: (id: string) => void;
+  onAnalyzeMedia?: (id: string) => void;
+  onAnalyzeScript?: (id: string) => void;
   selected?: boolean;
   showControls?: boolean;
   isDark?: boolean;
   isSelecting?: boolean;
+  inputMedia?: { type: 'image' | 'video'; url: string }[];
 }
 
-const TEXT_MODELS = ['Gemini 3.1 Flash Lite', 'Gemini 2.5 Flash', 'Prompt Helper'];
+const TEXT_MODELS = ['Xiaomi MiMo 2.5 Pro', 'Xiaomi MiMo 2.5', 'Prompt Helper'];
 
 export const CreativeDescNode: React.FC<CreativeDescNodeProps> = ({
-    data, updateData, onGenerate, selected, showControls, isDark = true, isSelecting
+    data, updateData, onGenerate, onAnalyzeMedia, onAnalyzeScript, selected, showControls, isDark = true, isSelecting, inputMedia = []
 }) => {
     const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
     const [isEditingBody, setIsEditingBody] = useState(false);
@@ -29,6 +32,10 @@ export const CreativeDescNode: React.FC<CreativeDescNodeProps> = ({
         : (isDark ? 'border-zinc-600' : 'border-gray-300');
     const inputText = isDark ? 'text-zinc-200 placeholder-zinc-500' : 'text-gray-800 placeholder-gray-400';
     const panelBg = isDark ? 'bg-[#202020]/95 border-zinc-700 text-zinc-200' : 'bg-white/95 border-gray-200 text-gray-900 shadow-xl';
+    const actionButton = isDark
+        ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white'
+        : 'border-gray-200 text-gray-600 hover:bg-gray-100 hover:text-gray-900';
+    const disabledButton = 'opacity-45 cursor-not-allowed hover:bg-transparent';
 
     useEffect(() => {
         if (isEditingBody) {
@@ -114,6 +121,24 @@ export const CreativeDescNode: React.FC<CreativeDescNodeProps> = ({
                                 width="w-[190px]"
                                 isDark={isDark}
                             />
+                            <button
+                                onClick={() => onAnalyzeMedia?.(data.id)}
+                                disabled={data.isLoading || inputMedia.length === 0}
+                                className={`h-8 px-3 rounded-lg border text-xs font-medium flex items-center gap-2 transition-colors ${actionButton} ${inputMedia.length === 0 ? disabledButton : ''}`}
+                                title={inputMedia.length === 0 ? '连接图片或视频节点后可分析' : '分析前置图片/视频并生成复刻提示词或分镜表'}
+                            >
+                                <Icons.Scan size={14} />
+                                分析图片/视频
+                            </button>
+                            <button
+                                onClick={() => onAnalyzeScript?.(data.id)}
+                                disabled={data.isLoading || !data.prompt?.trim()}
+                                className={`h-8 px-3 rounded-lg border text-xs font-medium flex items-center gap-2 transition-colors ${actionButton} ${!data.prompt?.trim() ? disabledButton : ''}`}
+                                title="基于剧本生成角色资产表"
+                            >
+                                <Icons.BookOpen size={14} />
+                                剧本角色表
+                            </button>
                             <div className="flex-1" />
                             <button
                                 className={`w-8 h-8 rounded-lg flex items-center justify-center ${isDark ? 'text-zinc-300 hover:bg-zinc-800' : 'text-gray-500 hover:bg-gray-100'}`}

@@ -63,6 +63,11 @@ export interface MultiAngleResult {
   prompt?: string;
 }
 
+export interface InputMedia {
+  type: 'image' | 'video';
+  url: string;
+}
+
 export interface Connection {
   id: string;
   sourceId: string;

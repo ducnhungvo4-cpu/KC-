@@ -271,6 +271,102 @@ const callModelApi = async ({ baseUrl, endpoint, apiKey, payload, timeoutMs = 30
   }
 };
 
+const extractText = (data) => {
+  const content = data?.choices?.[0]?.message?.content;
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content)) {
+    return content.map(part => part?.text || part?.content || '').filter(Boolean).join('\n');
+  }
+  return '';
+};
+
+const MEDIA_ANALYSIS_SYSTEM_PROMPT = [
+  '你是专业的影视广告视觉分析师和AI生成提示词工程师。',
+  '当输入是图片时，完整分析画面构成，并输出可用于复刻该图片的生成提示词。',
+  '当输入是视频时，按时间顺序拆解为完整分镜表，覆盖画面、镜头、运动、主体、场景、光线、色彩、声音和可复刻的视频生成提示词。',
+  '输出使用中文，结构清晰，避免泛泛形容，尽量描述可观察的视觉事实。'
+].join('\n');
+
+const DEFAULT_SCRIPT_ASSET_SYSTEM_PROMPT = [
+  '你是影视前期视觉资产拆解专家。你的任务是根据用户剧本，为每个主要角色输出完整、稳定、可复用的 AI 角色资产提示词。',
+  '执行顺序必须固定：通读剧本 -> 提取角色基础事实 -> 先锁定性别 -> 再判断时代/朝代/世界观 -> 再判断身份阶层职业 -> 再选择五官、发型、服装、配饰 -> 执行道具过滤 -> 输出角色资产表。',
+  '性别规则：男性角色不得调用女性服装、凤冠、步摇、霞帔、襦裙、宫裙、女帝高髻等女性专属规则；女性角色不得调用男性冠帽、蟒袍、衮服、权臣朝服、男性朝靴等男性专属规则；性别不明时使用中性保守描述并标注“剧本未明确”。',
+  '时代规则：现代角色只能使用现代服装、发型和材质；古代角色只能使用古代服装系统；不得把现代服装混入古代角色，也不得把古装词库混入现代角色。',
+  '高位古装规则：高位男性强化金冠/玉冠/翼善冠、圆领袍/蟒袍/衮服/朝服、宽阔袍摆、袍摆压地、长袍遮鞋、不露鞋面不露脚踝；高位女性强化凤冠/珠翠头面/大体量盘发、重工大袖礼袍、厚重曳地宫裙、层层堆叠裙摆、裙摆遮鞋、不露鞋面不露脚踝。',
+  '道具过滤规则：剧本中的武器、手机、文件、扇子、伞、佩剑、佩刀、香囊、玉佩、令牌、腰间流苏、腰间挂件等只能进入“配饰与道具档案”，不得进入最终生图提示词。双手必须空握不持物，腰间不挂载悬挂物。',
+  '固定生图构图：真人写实风格，模拟真实拍摄效果，8K 超高清，明亮柔和光线，干净白色背景。左侧正面面部特写，右侧正好 3 个全身人物单行水平排列，分别为正面、右侧面 90 度、背面；全图正好 4 个人物形象，不多不少，同一人同一服装同一发型。',
+  '每个角色输出字段必须包含：基础设定、身材体态、脸部特征、发型、服装配色、内衬层、中间层、外层/外袍、下装、鞋子设定、面料质感、图案纹样、纹样位置、结构廓形、工艺重工程度、穿着状态、配饰与道具档案、最终生图提示词、负面提示词。',
+  '最终输出用 Markdown。先给“角色总览表”，再逐个角色输出完整资产卡。信息不足时可以基于剧情合理推断，但必须标注“推断”，不得违背剧本。'
+].join('\n');
+
+const normalizeInputMedia = (inputMedia = []) => inputMedia
+  .filter(item => item?.url && (item.type === 'image' || item.type === 'video'))
+  .slice(0, 6)
+  .map(item => {
+    if (item.type === 'video') {
+      return {
+        type: 'video_url',
+        video_url: { url: item.url },
+        fps: Number(item.fps || 2),
+        media_resolution: item.mediaResolution || 'default',
+      };
+    }
+    return {
+      type: 'image_url',
+      image_url: { url: item.url },
+    };
+  });
+
+const resolveMimoTextModel = (modelName) => {
+  const value = String(modelName || '').toLowerCase();
+  if (value.includes('2.5 pro') || value.includes('2.5-pro') || value.includes('2.5pro')) return 'mimo-v2.5-pro';
+  if (value.includes('2.5')) return 'mimo-v2.5';
+  return process.env.MIMO_TEXT_MODEL_ID || process.env.TEXT_MODEL_ID || 'mimo-v2.5-pro';
+};
+
+const buildMimoPayload = (body) => {
+  const task = body.task || 'text';
+  const baseMessages = [];
+  let model = resolveMimoTextModel(body.modelName);
+  let maxCompletionTokens = Number(process.env.MIMO_MAX_COMPLETION_TOKENS || 4096);
+
+  if (task === 'media-analysis') {
+    const mediaParts = normalizeInputMedia(body.inputMedia || body.media || []);
+    if (!mediaParts.length) throw new Error('INPUT_MEDIA_REQUIRED');
+    model = process.env.MIMO_VISION_MODEL_ID || 'mimo-v2.5';
+    maxCompletionTokens = Number(process.env.MIMO_MEDIA_MAX_COMPLETION_TOKENS || 4096);
+    baseMessages.push({ role: 'system', content: process.env.MIMO_MEDIA_SYSTEM_PROMPT || MEDIA_ANALYSIS_SYSTEM_PROMPT });
+    baseMessages.push({
+      role: 'user',
+      content: [
+        ...mediaParts,
+        {
+          type: 'text',
+          text: [
+            body.prompt ? `用户补充要求：${body.prompt}` : '',
+            '请根据输入媒体输出分析结果。图片输出“画面构成分析 + 复刻提示词”；视频输出“完整分镜表 + 视频复刻提示词”。'
+          ].filter(Boolean).join('\n'),
+        },
+      ],
+    });
+  } else if (task === 'script-assets') {
+    baseMessages.push({ role: 'system', content: process.env.MIMO_SCRIPT_SYSTEM_PROMPT || DEFAULT_SCRIPT_ASSET_SYSTEM_PROMPT });
+    baseMessages.push({ role: 'user', content: body.prompt || '' });
+  } else {
+    baseMessages.push({ role: 'user', content: body.prompt || '' });
+  }
+
+  return {
+    model,
+    messages: baseMessages,
+    max_completion_tokens: maxCompletionTokens,
+    temperature: Number(process.env.MIMO_TEMPERATURE || 0.7),
+    top_p: Number(process.env.MIMO_TOP_P || 0.95),
+    stream: false,
+    thinking: { type: 'disabled' },
+  };
+};
+
 const handleImageGeneration = async (req, res) => {
   const body = await readBody(req);
   const count = Math.max(1, Math.min(Number(body.count || 1), 4));
@@ -411,21 +507,21 @@ const handleVideoGeneration = async (req, res) => {
 
 const handleTextGeneration = async (req, res) => {
   const body = await readBody(req);
-  if (!process.env.TEXT_API_KEY || !process.env.TEXT_BASE_URL) {
+  const apiKey = process.env.MIMO_API_KEY || process.env.TEXT_API_KEY;
+  const baseUrl = process.env.MIMO_BASE_URL || process.env.TEXT_BASE_URL || 'https://api.xiaomimimo.com/v1';
+  const endpoint = process.env.MIMO_TEXT_ENDPOINT || process.env.TEXT_ENDPOINT || '/chat/completions';
+  if (!apiKey) {
     return json(res, 200, { text: body.prompt || '' });
   }
 
   const result = await callModelApi({
-    baseUrl: process.env.TEXT_BASE_URL,
-    endpoint: process.env.TEXT_ENDPOINT || '/v1/chat/completions',
-    apiKey: process.env.TEXT_API_KEY,
-    payload: {
-      model: process.env.TEXT_MODEL_ID || 'gemini-2.0-flash-exp',
-      messages: [{ role: 'user', content: body.prompt || '' }],
-      stream: false,
-    },
+    baseUrl,
+    endpoint,
+    apiKey,
+    payload: buildMimoPayload(body),
+    timeoutMs: 600000,
   });
-  json(res, 200, { text: result.choices?.[0]?.message?.content || body.prompt || '' });
+  json(res, 200, { text: extractText(result), usage: result.usage || null });
 };
 
 const contentTypes = {

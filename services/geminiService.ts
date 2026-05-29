@@ -1,7 +1,7 @@
 
 import { MODEL_REGISTRY, getModelConfig, saveModelConfig, registerCustomModel, deleteModel, isCustomModel, getVisibleModels } from "./mode/config";
 import type { ModelConfig } from "./mode/config";
-import type { MultiAngleOptions, MultiAngleResult } from "../types";
+import type { InputMedia, MultiAngleOptions, MultiAngleResult } from "../types";
 import { generateMockImage } from "./mockGeneration";
 import { apiFetch } from "./authService";
 
@@ -11,17 +11,61 @@ export type { ModelConfig };
 
 // --- Generators ---
 
-export const generateCreativeDescription = async (input: string, mode: 'IMAGE' | 'VIDEO'): Promise<string> => {
+export const generateCreativeDescription = async (input: string, mode: 'IMAGE' | 'VIDEO', modelName?: string): Promise<string> => {
   const prompt = `Optimize this ${mode.toLowerCase()} description for professional AI generation. Input: "${input}". Provide ONLY the optimized prompt text.`;
   try {
      const res = await apiFetch('/api/generate/text', {
        method: 'POST',
-       body: JSON.stringify({ prompt, mode }),
+       body: JSON.stringify({ task: 'text', prompt, mode, modelName }),
      });
      return res.text || input;
   } catch (e) {
     return input;
   }
+};
+
+const blobToDataUrl = (blob: Blob) => new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+});
+
+const normalizeMediaForModel = async (media: InputMedia): Promise<InputMedia> => {
+    if (!media.url.startsWith('blob:')) return media;
+    const response = await fetch(media.url);
+    const blob = await response.blob();
+    return { ...media, url: await blobToDataUrl(blob) };
+};
+
+export const analyzeConnectedMedia = async (
+    prompt: string,
+    inputMedia: InputMedia[],
+    modelName?: string
+): Promise<string> => {
+    const normalizedMedia = await Promise.all(inputMedia.map(normalizeMediaForModel));
+    const result = await apiFetch('/api/generate/text', {
+        method: 'POST',
+        body: JSON.stringify({
+            task: 'media-analysis',
+            prompt,
+            inputMedia: normalizedMedia,
+            modelName,
+        }),
+    });
+    return result.text || '';
+};
+
+export const analyzeScriptAssets = async (script: string, modelName?: string): Promise<string> => {
+    const result = await apiFetch('/api/generate/text', {
+        method: 'POST',
+        body: JSON.stringify({
+            task: 'script-assets',
+            prompt: script,
+            modelName,
+        }),
+    });
+    return result.text || '';
 };
 
 export const generateImage = async (
