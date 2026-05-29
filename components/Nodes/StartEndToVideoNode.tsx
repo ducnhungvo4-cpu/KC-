@@ -20,10 +20,11 @@ interface StartEndToVideoNodeProps {
   onDownload?: (id: string) => void;
   isDark?: boolean;
   isSelecting?: boolean;
+  canvasScale?: number;
 }
 
 export const StartEndToVideoNode: React.FC<StartEndToVideoNodeProps> = ({
-    data, updateData, onGenerate, selected, showControls, inputs = [], inputMedia = [], onPreviewReference, onMaximize, onDownload, isDark = true, isSelecting
+    data, updateData, onGenerate, selected, showControls, inputs = [], inputMedia = [], onPreviewReference, onMaximize, onDownload, isDark = true, isSelecting, canvasScale = 1
 }) => {
     const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
     const [progress, setProgress] = useState(0);
@@ -31,6 +32,11 @@ export const StartEndToVideoNode: React.FC<StartEndToVideoNodeProps> = ({
     const [videoModels, setVideoModels] = useState<string[]>([]);
 
     const isSelectedAndStable = selected && !isSelecting;
+    const panelScale = 1 / Math.max(canvasScale, 0.1);
+    const panelTransform: React.CSSProperties = {
+        transform: `translateX(-50%) scale(${panelScale})`,
+        transformOrigin: 'top center',
+    };
     
     // Apply swap if needed
     const swapped = data.swapFrames || false;
@@ -287,7 +293,7 @@ export const StartEndToVideoNode: React.FC<StartEndToVideoNodeProps> = ({
 
         {/* Control Panel */}
         {isSelectedAndStable && showControls && (
-          <div className="absolute top-full left-1/2 -translate-x-1/2 min-w-[520px] pt-4 z-[70] pointer-events-auto" onMouseDown={(e) => e.stopPropagation()}>
+          <div className="absolute top-full left-1/2 min-w-[520px] pt-4 z-[70] pointer-events-auto" style={panelTransform} onMouseDown={(e) => e.stopPropagation()}>
                {renderFrameThumbnails()}
                {!hasValidInputs && (
                    <div className={`mb-3 px-4 py-2.5 rounded-xl border flex items-center gap-2 text-xs ${isDark ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' : 'bg-amber-50 border-amber-200 text-amber-600'}`}>

@@ -20,10 +20,11 @@ interface TextToVideoNodeProps {
   onDownload?: (id: string) => void;
   isDark?: boolean;
   isSelecting?: boolean;
+  canvasScale?: number;
 }
 
 export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
-    data, updateData, onGenerate, selected, showControls, inputs = [], inputMedia = [], onPreviewReference, onMaximize, onDownload, isDark = true, isSelecting
+    data, updateData, onGenerate, selected, showControls, inputs = [], inputMedia = [], onPreviewReference, onMaximize, onDownload, isDark = true, isSelecting, canvasScale = 1
 }) => {
     const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
     const [deferredInputs, setDeferredInputs] = useState(false);
@@ -32,6 +33,11 @@ export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
     const [videoModels, setVideoModels] = useState<string[]>([]);
 
     const isSelectedAndStable = selected && !isSelecting;
+    const panelScale = 1 / Math.max(canvasScale, 0.1);
+    const panelTransform: React.CSSProperties = {
+        transform: `translateX(-50%) scale(${panelScale})`,
+        transformOrigin: 'top center',
+    };
 
     const checkConfig = useCallback(() => {
          const mName = data.model || 'Seedance 1.5 Pro';
@@ -219,7 +225,7 @@ export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
 
         {/* Control Panel */}
         {isSelectedAndStable && showControls && (
-          <div className="absolute top-full left-1/2 -translate-x-1/2 min-w-[580px] pt-4 z-[70] pointer-events-auto" onMouseDown={(e) => e.stopPropagation()}>
+          <div className="absolute top-full left-1/2 min-w-[580px] pt-4 z-[70] pointer-events-auto" style={panelTransform} onMouseDown={(e) => e.stopPropagation()}>
                {inputMedia.length > 0 && <LocalInputThumbnails inputs={inputs} items={inputMedia} ready={deferredInputs} isDark={isDark} onPreview={onPreviewReference} />}
               <div className={`${controlPanelBg} rounded-2xl p-4 flex flex-col gap-3 border`}>
                   {/* Prompt Input */}

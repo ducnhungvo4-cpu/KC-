@@ -1886,6 +1886,7 @@ const CanvasWithSidebar: React.FC = () => {
                             isSelecting={dragMode === 'SELECT'}
                             onDelete={deleteNode}
                             isDark={isDark}
+                            canvasScale={transform.k}
                         />
                     </BaseNode>
                 ))}

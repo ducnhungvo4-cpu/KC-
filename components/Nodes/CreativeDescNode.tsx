@@ -15,12 +15,13 @@ interface CreativeDescNodeProps {
   isDark?: boolean;
   isSelecting?: boolean;
   inputMedia?: InputMedia[];
+  canvasScale?: number;
 }
 
 const TEXT_MODELS = ['Xiaomi MiMo 2.5 Pro', 'Xiaomi MiMo 2.5', 'Prompt Helper'];
 
 export const CreativeDescNode: React.FC<CreativeDescNodeProps> = ({
-    data, updateData, onGenerate, onAnalyzeMedia, onAnalyzeScript, onPreviewReference, selected, showControls, isDark = true, isSelecting, inputMedia = []
+    data, updateData, onGenerate, onAnalyzeMedia, onAnalyzeScript, onPreviewReference, selected, showControls, isDark = true, isSelecting, inputMedia = [], canvasScale = 1
 }) => {
     const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
     const [isEditingBody, setIsEditingBody] = useState(false);
@@ -38,6 +39,11 @@ export const CreativeDescNode: React.FC<CreativeDescNodeProps> = ({
         : 'border-gray-200 text-gray-600 hover:bg-gray-100 hover:text-gray-900';
     const disabledButton = 'opacity-45 cursor-not-allowed hover:bg-transparent';
     const mediaInputCount = inputMedia.filter(item => item.type === 'image' || item.type === 'video').length;
+    const panelScale = 1 / Math.max(canvasScale, 0.1);
+    const panelTransform: React.CSSProperties = {
+        transform: `translateX(-50%) scale(${panelScale})`,
+        transformOrigin: 'top center',
+    };
 
     useEffect(() => {
         if (isEditingBody) {
@@ -102,7 +108,7 @@ export const CreativeDescNode: React.FC<CreativeDescNodeProps> = ({
             </div>
 
             {isSelectedAndStable && (
-                <div className="absolute top-full left-1/2 -translate-x-1/2 min-w-[760px] pt-7 z-[70] pointer-events-auto" onMouseDown={(event) => event.stopPropagation()}>
+                <div className="absolute top-full left-1/2 min-w-[760px] pt-7 z-[70] pointer-events-auto" style={panelTransform} onMouseDown={(event) => event.stopPropagation()}>
                     {inputMedia.length > 0 && <LocalInputThumbnails inputs={[]} items={inputMedia} ready={true} isDark={isDark} label="参考内容" onPreview={onPreviewReference} />}
                     <div className={`${panelBg} rounded-[22px] border p-4 flex flex-col gap-4`}>
                         <textarea

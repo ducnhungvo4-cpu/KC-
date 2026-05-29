@@ -25,6 +25,7 @@ interface NodeContentProps {
   onDelete?: (id: string) => void;
   isDark?: boolean;
   inputMedia?: InputMedia[];
+  canvasScale?: number;
 }
 
 const NodeContentComponent: React.FC<NodeContentProps> = (props) => {

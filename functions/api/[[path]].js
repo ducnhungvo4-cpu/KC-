@@ -215,15 +215,27 @@ const callModelApi = async ({ baseUrl, endpoint, apiKey, payload, timeoutMs = 30
       signal: controller.signal,
     });
     const text = await response.text();
-    const data = text ? JSON.parse(text) : {};
+    let data = {};
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch {
+      data = { raw: text };
+    }
     if (!response.ok) {
-      throw new Error(data?.error?.message || data?.message || `MODEL_API_${response.status}`);
+      throw new Error(data?.error?.message || data?.message || data?.code || data?.raw || `MODEL_API_${response.status}`);
     }
     return data;
   } finally {
     clearTimeout(timer);
   }
 };
+
+const getQwenEditApiKey = (env) => (
+  env.DASHSCOPE_API_KEY ||
+  env.QWEN_EDIT_API_KEY ||
+  env.ALIYUN_DASHSCOPE_API_KEY ||
+  env.DASHSCOPE_KEY
+);
 
 const extractText = (data) => {
   const content = data?.choices?.[0]?.message?.content;
@@ -405,7 +417,7 @@ const handleMultiAngleGeneration = async (request, env) => {
     const result = await callModelApi({
       baseUrl: env.QWEN_EDIT_BASE_URL || 'https://dashscope.aliyuncs.com/api/v1',
       endpoint: env.QWEN_EDIT_ENDPOINT || '/services/aigc/multimodal-generation/generation',
-      apiKey: env.DASHSCOPE_API_KEY,
+      apiKey: getQwenEditApiKey(env),
       payload: {
         model: env.QWEN_EDIT_MODEL || 'qwen-image-edit-plus-2025-12-15',
         input: {
@@ -475,7 +487,7 @@ const handleHealth = async (request, env) => {
       watermark: env.SEEDREAM_WATERMARK !== 'false',
     },
     qwenEdit: {
-      hasApiKey: Boolean(env.DASHSCOPE_API_KEY),
+      hasApiKey: Boolean(getQwenEditApiKey(env)),
       modelId: env.QWEN_EDIT_MODEL || 'qwen-image-edit-plus-2025-12-15',
       endpoint: `${env.QWEN_EDIT_BASE_URL || 'https://dashscope.aliyuncs.com/api/v1'}${env.QWEN_EDIT_ENDPOINT || '/services/aigc/multimodal-generation/generation'}`,
       watermark: env.QWEN_EDIT_WATERMARK === 'true',

@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { InputMedia, MultiAngleOptions, NodeData } from '../../types';
 import { Icons } from '../Icons';
 import { getModelConfig, MODEL_REGISTRY, getVisibleModels } from '../../services/geminiService';
@@ -21,10 +21,11 @@ interface TextToImageNodeProps {
   onMultiAngle?: (id: string, options: MultiAngleOptions) => void;
   isDark?: boolean;
   isSelecting?: boolean;
+  canvasScale?: number;
 }
 
 export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
-    data, updateData, onGenerate, selected, showControls, inputs = [], inputMedia = [], onPreviewReference, onMaximize, onDownload, onCrop, onMultiAngle, isDark = true, isSelecting
+    data, updateData, onGenerate, selected, showControls, inputs = [], inputMedia = [], onPreviewReference, onMaximize, onDownload, onCrop, onMultiAngle, isDark = true, isSelecting, canvasScale = 1
 }) => {
     const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
     const [deferredInputs, setDeferredInputs] = useState(false);
@@ -41,8 +42,15 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
     const [pitch, setPitch] = useState(0);
     const [zoom, setZoom] = useState<'wide' | 'medium' | 'close'>('medium');
     const [showAnglePrompt, setShowAnglePrompt] = useState(false);
+    const [isAngleDragging, setIsAngleDragging] = useState(false);
+    const anglePadRef = useRef<HTMLDivElement>(null);
 
     const isSelectedAndStable = selected && !isSelecting;
+    const panelScale = 1 / Math.max(canvasScale, 0.1);
+    const panelTransform: React.CSSProperties = {
+        transform: `translateX(-50%) scale(${panelScale})`,
+        transformOrigin: 'top center',
+    };
 
     const checkConfig = useCallback(() => {
          const mName = data.model || 'Seedream 5.0';
@@ -101,6 +109,36 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
         setYaw(preset.yaw);
         setPitch(preset.pitch);
         setZoom(preset.zoom);
+    };
+
+    const updateAngleFromPointer = (event: React.PointerEvent<HTMLDivElement>) => {
+        const target = anglePadRef.current;
+        if (!target) return;
+        const rect = target.getBoundingClientRect();
+        const nx = Math.min(Math.max((event.clientX - rect.left) / rect.width, 0), 1);
+        const ny = Math.min(Math.max((event.clientY - rect.top) / rect.height, 0), 1);
+        setAnglePreset('custom');
+        setYaw(Math.round((nx - 0.5) * 360));
+        setPitch(Math.round((0.5 - ny) * 180));
+    };
+
+    const handleAnglePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+        event.stopPropagation();
+        setIsAngleDragging(true);
+        event.currentTarget.setPointerCapture(event.pointerId);
+        updateAngleFromPointer(event);
+    };
+
+    const handleAnglePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+        if (!isAngleDragging) return;
+        updateAngleFromPointer(event);
+    };
+
+    const handleAnglePointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+        setIsAngleDragging(false);
+        if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+            event.currentTarget.releasePointerCapture(event.pointerId);
+        }
     };
 
     const handleMultiAngleGenerate = () => {
@@ -221,7 +259,7 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
 
         {/* Control Panel */}
         {isSelectedAndStable && showControls && (
-            <div className="absolute top-full left-1/2 -translate-x-1/2 min-w-[520px] pt-4 z-[70] pointer-events-auto" onMouseDown={(e) => e.stopPropagation()}>
+            <div className="absolute top-full left-1/2 min-w-[520px] pt-4 z-[70] pointer-events-auto" style={panelTransform} onMouseDown={(e) => e.stopPropagation()}>
                  {inputMedia.length > 0 && <LocalInputThumbnails inputs={inputs} items={inputMedia} ready={deferredInputs} isDark={isDark} onPreview={onPreviewReference} />}
                  <div className={`${controlPanelBg} rounded-2xl p-4 flex flex-col gap-3 border`}>
                       {/* Prompt Input */}
@@ -347,23 +385,41 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
                                   })}
                               </div>
                               <div className="grid grid-cols-[360px_minmax(320px,1fr)] gap-6">
-                                  <div className={`relative h-[360px] rounded-2xl overflow-hidden flex items-center justify-center ${isDark ? 'bg-zinc-800' : 'bg-gray-100'}`}>
+                                  <div
+                                      ref={anglePadRef}
+                                      className={`relative h-[360px] rounded-2xl overflow-hidden flex items-center justify-center cursor-grab active:cursor-grabbing touch-none ${isDark ? 'bg-zinc-800' : 'bg-gray-100'}`}
+                                      onPointerDown={handleAnglePointerDown}
+                                      onPointerMove={handleAnglePointerMove}
+                                      onPointerUp={handleAnglePointerUp}
+                                      onPointerCancel={handleAnglePointerUp}
+                                      title="拖动预览图区域调整水平环绕和垂直俯仰"
+                                  >
                                       <div className={`absolute inset-12 rounded-full border ${isDark ? 'border-zinc-500/60' : 'border-gray-400/60'}`} />
                                       <div className={`absolute inset-16 rounded-full border ${isDark ? 'border-zinc-500/40' : 'border-gray-400/40'}`} />
                                       <div className={`absolute left-1/2 top-12 bottom-12 w-px ${isDark ? 'bg-zinc-500/40' : 'bg-gray-400/40'}`} />
                                       <div className={`absolute top-1/2 left-12 right-12 h-px ${isDark ? 'bg-zinc-500/40' : 'bg-gray-400/40'}`} />
                                       <div className={`absolute top-1/2 left-14 right-14 h-px rounded-full ${isDark ? 'bg-zinc-500/40' : 'bg-gray-400/40'}`} style={{ transform: `rotate(${pitch / 2}deg)` }} />
                                       <div className={`absolute left-1/2 top-14 bottom-14 w-px rounded-full ${isDark ? 'bg-zinc-500/40' : 'bg-gray-400/40'}`} style={{ transform: `rotate(${yaw / 8}deg)` }} />
-                                      <button className={`absolute left-8 top-1/2 -translate-y-1/2 ${isDark ? 'text-zinc-400' : 'text-gray-500'}`} onClick={() => setYaw(v => Math.max(-180, v - 15))}>‹</button>
-                                      <button className={`absolute right-8 top-1/2 -translate-y-1/2 ${isDark ? 'text-zinc-400' : 'text-gray-500'}`} onClick={() => setYaw(v => Math.min(180, v + 15))}>›</button>
-                                      <button className={`absolute top-8 left-1/2 -translate-x-1/2 ${isDark ? 'text-zinc-400' : 'text-gray-500'}`} onClick={() => setPitch(v => Math.min(90, v + 10))}>⌃</button>
-                                      <button className={`absolute bottom-8 left-1/2 -translate-x-1/2 ${isDark ? 'text-zinc-400' : 'text-gray-500'}`} onClick={() => setPitch(v => Math.max(-90, v - 10))}>⌄</button>
+                                      <button className={`absolute left-8 top-1/2 -translate-y-1/2 z-20 ${isDark ? 'text-zinc-400' : 'text-gray-500'}`} onPointerDown={(event) => event.stopPropagation()} onClick={() => setYaw(v => Math.max(-180, v - 15))}>‹</button>
+                                      <button className={`absolute right-8 top-1/2 -translate-y-1/2 z-20 ${isDark ? 'text-zinc-400' : 'text-gray-500'}`} onPointerDown={(event) => event.stopPropagation()} onClick={() => setYaw(v => Math.min(180, v + 15))}>›</button>
+                                      <button className={`absolute top-8 left-1/2 -translate-x-1/2 z-20 ${isDark ? 'text-zinc-400' : 'text-gray-500'}`} onPointerDown={(event) => event.stopPropagation()} onClick={() => setPitch(v => Math.min(90, v + 10))}>⌃</button>
+                                      <button className={`absolute bottom-8 left-1/2 -translate-x-1/2 z-20 ${isDark ? 'text-zinc-400' : 'text-gray-500'}`} onPointerDown={(event) => event.stopPropagation()} onClick={() => setPitch(v => Math.max(-90, v - 10))}>⌄</button>
+                                      <div
+                                          className={`absolute z-10 w-3 h-3 rounded-full border ${isDark ? 'border-white/70 bg-white/20' : 'border-gray-700/60 bg-gray-900/10'}`}
+                                          style={{
+                                              left: `${50 + (yaw / 180) * 34}%`,
+                                              top: `${50 - (pitch / 90) * 34}%`,
+                                              transform: 'translate(-50%, -50%)',
+                                          }}
+                                      />
                                       <img
                                           src={data.imageSrc}
-                                          className="relative z-10 max-w-[145px] max-h-[145px] object-contain rounded-lg shadow-2xl transition-transform duration-200"
+                                          className="absolute z-10 max-w-[145px] max-h-[145px] object-contain rounded-lg shadow-2xl transition-[transform,left,top] duration-150 pointer-events-none"
                                           draggable={false}
                                           style={{
-                                              transform: `perspective(700px) rotateY(${yaw / 5}deg) rotateX(${-pitch / 5}deg) scale(${zoom === 'wide' ? 0.82 : zoom === 'close' ? 1.18 : 1})`,
+                                              left: `${50 + (yaw / 180) * 34}%`,
+                                              top: `${50 - (pitch / 90) * 34}%`,
+                                              transform: `translate(-50%, -50%) perspective(700px) rotateY(${yaw / 5}deg) rotateX(${-pitch / 5}deg) scale(${zoom === 'wide' ? 0.82 : zoom === 'close' ? 1.18 : 1})`,
                                           }}
                                       />
                                   </div>
