@@ -1679,10 +1679,7 @@ const CanvasWithSidebar: React.FC = () => {
                     const isSelected = selectedConnectionId === conn.id;
                     
                     // 连接线颜色
-                    const lineColor = isSelected ? "#3b82f6" : (isDark ? "#475569" : "#8b5cf6");
-                    const gradientId = `connection-gradient-${conn.id.replace(/[^a-zA-Z0-9_-]/g, '-')}`;
-                    const gradientAccent = isSelected ? "#c084fc" : (isDark ? "#22d3ee" : "#2563eb");
-                    const gradientAccentAlt = isDark ? "#a855f7" : "#7c3aed";
+                    const lineColor = isSelected ? (isDark ? "#d4d4d8" : "#52525b") : (isDark ? "#71717a" : "#9ca3af");
                     
                     // 计算贝塞尔曲线上 t=0.5 的实际中点位置
                     const t = 0.5;
@@ -1707,30 +1704,6 @@ const CanvasWithSidebar: React.FC = () => {
                                 pointerEvents: 'none'
                             }}
                         >
-                            <defs>
-                                <linearGradient
-                                    id={gradientId}
-                                    x1={0}
-                                    y1={0}
-                                    x2={svgWidth}
-                                    y2={0}
-                                    gradientUnits="userSpaceOnUse"
-                                >
-                                    <stop offset="0%" stopColor={lineColor} stopOpacity="0.65" />
-                                    <stop offset="38%" stopColor={gradientAccentAlt} stopOpacity="0.92" />
-                                    <stop offset="50%" stopColor={gradientAccent} stopOpacity="1" />
-                                    <stop offset="62%" stopColor={gradientAccentAlt} stopOpacity="0.92" />
-                                    <stop offset="100%" stopColor={lineColor} stopOpacity="0.65" />
-                                    <animateTransform
-                                        attributeName="gradientTransform"
-                                        type="translate"
-                                        from={`${-svgWidth} 0`}
-                                        to={`${svgWidth} 0`}
-                                        dur="1.05s"
-                                        repeatCount="indefinite"
-                                    />
-                                </linearGradient>
-                            </defs>
                             {/* 点击区域 */}
                             <path 
                                 d={d} 
@@ -1743,23 +1716,42 @@ const CanvasWithSidebar: React.FC = () => {
                             {/* 主连接线 - 实线 */}
                             <path 
                                 d={d} 
-                                stroke={`url(#${gradientId})`}
-                                strokeWidth={isSelected ? 3 : 2} 
+                                stroke={lineColor}
+                                strokeWidth={isSelected ? 2.5 : 2}
                                 fill="none" 
                                 strokeLinecap="round"
+                                strokeDasharray="2 10"
+                                opacity={isSelected ? 0.9 : 0.56}
                                 style={{ pointerEvents: 'none' }}
-                            />
+                            >
+                                <animate
+                                    attributeName="stroke-dashoffset"
+                                    from="0"
+                                    to="-12"
+                                    dur="1.25s"
+                                    repeatCount="indefinite"
+                                />
+                            </path>
                             {/* 选中时的发光效果 */}
                             {isSelected && (
                                 <path 
                                     d={d} 
-                                    stroke="#3b82f6"
-                                    strokeWidth={6} 
+                                    stroke={lineColor}
+                                    strokeWidth={5}
                                     fill="none" 
                                     strokeLinecap="round"
-                                    opacity={0.3}
+                                    strokeDasharray="2 10"
+                                    opacity={0.16}
                                     style={{ pointerEvents: 'none' }}
-                                />
+                                >
+                                    <animate
+                                        attributeName="stroke-dashoffset"
+                                        from="0"
+                                        to="-12"
+                                        dur="1.25s"
+                                        repeatCount="indefinite"
+                                    />
+                                </path>
                             )}
                             {/* 删除按钮 - 使用纯 SVG 实现 */}
                             {isSelected && (

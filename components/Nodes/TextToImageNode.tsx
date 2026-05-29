@@ -190,6 +190,13 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
                              >
                                  <Icons.Download size={16} />
                              </button>
+                             <button
+                                 title="Crop"
+                                 className="w-8 h-8 rounded-lg bg-black/40 hover:bg-black/60 backdrop-blur-md text-white/80 hover:text-white flex items-center justify-center transition-all"
+                                 onClick={(e) => { e.stopPropagation(); onCrop?.(data.id); }}
+                             >
+                                 <Icons.Crop size={16} />
+                             </button>
                          </div>
                      </div>
                  </>
