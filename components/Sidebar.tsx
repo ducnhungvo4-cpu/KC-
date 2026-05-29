@@ -9,10 +9,20 @@ interface SidebarProps {
   onOpenExportImport: () => void;
   nodes: NodeData[];
   onPreviewMedia: (url: string, type: 'image' | 'video') => void;
+  onSaveAsset: (url: string, type: 'image' | 'video', title: string) => void;
+  onCopyAsset: (url: string, type: 'image' | 'video') => void;
+  onDeleteAsset: (nodeId: string, url: string, type: 'image' | 'video') => void;
   isDark?: boolean;
 }
 
-type ActivePanel = 'ADD' | 'HISTORY' | 'PROJECT' | null;
+type ActivePanel = 'ADD' | 'HISTORY' | 'ASSETS' | 'PROJECT' | null;
+type AssetItem = {
+    id: string;
+    nodeId: string;
+    url: string;
+    type: 'image' | 'video';
+    title: string;
+};
 
 const HistoryItem = memo(({ node, type, onClick, isDark }: { node: NodeData, type: 'image' | 'video', onClick: () => void, isDark: boolean }) => {
     const stackCount = node.outputArtifacts?.length || 0;
@@ -64,10 +74,14 @@ const Sidebar: React.FC<SidebarProps> = ({
   onOpenExportImport,
   nodes,
   onPreviewMedia,
+  onSaveAsset,
+  onCopyAsset,
+  onDeleteAsset,
   isDark = true
 }) => {
   const [activePanel, setActivePanel] = useState<ActivePanel>(null);
   const [historyTab, setHistoryTab] = useState<'image' | 'video'>('image');
+  const [assetMenu, setAssetMenu] = useState<{ x: number; y: number; item: AssetItem } | null>(null);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -88,6 +102,32 @@ const Sidebar: React.FC<SidebarProps> = ({
       uniqueNodes.filter(n => n.videoSrc && !n.isLoading), 
   [uniqueNodes]);
 
+  const materialAssets = useMemo(() => {
+      const map = new Map<string, AssetItem>();
+      uniqueNodes.forEach(node => {
+          const nodeType: 'image' | 'video' = node.videoSrc ? 'video' : 'image';
+          const urls = [
+              ...(node.imageSrc ? [node.imageSrc] : []),
+              ...(node.videoSrc ? [node.videoSrc] : []),
+              ...(node.outputArtifacts || []),
+          ].filter(Boolean);
+          urls.forEach((url, index) => {
+              const type: 'image' | 'video' = node.videoSrc === url || /\.(mp4|webm|mov|mkv)(\?|$)/i.test(url) ? 'video' : nodeType;
+              const id = `${node.id}:${url}`;
+              if (!map.has(id)) {
+                  map.set(id, {
+                      id,
+                      nodeId: node.id,
+                      url,
+                      type,
+                      title: index === 0 ? node.title : `${node.title} #${index + 1}`,
+                  });
+              }
+          });
+      });
+      return Array.from(map.values());
+  }, [uniqueNodes]);
+
   // Close panel when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -99,6 +139,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         !panelRef.current.contains(target)
       ) {
         setActivePanel(null);
+        setAssetMenu(null);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -238,6 +279,51 @@ const Sidebar: React.FC<SidebarProps> = ({
     </div>
   );
 
+  const renderAssetsPanel = () => (
+    <div className="h-full flex flex-col">
+      {materialAssets.length === 0 ? (
+        <div className={`flex-1 flex flex-col items-center justify-center py-10 ${textMuted}`}>
+          <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-3 ${isDark ? 'bg-zinc-800' : 'bg-gray-100'}`}>
+            <Icons.Images size={24} className="opacity-45" />
+          </div>
+          <p className="text-sm font-medium">暂无素材</p>
+          <p className="text-xs mt-1">上传或生成后会出现在这里</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3 overflow-y-auto custom-scrollbar pr-1">
+          {materialAssets.map(item => (
+            <button
+              key={item.id}
+              className={`relative aspect-square rounded-xl overflow-hidden group text-left ${isDark ? 'bg-zinc-900' : 'bg-gray-100'}`}
+              onClick={() => onPreviewMedia(item.url, item.type)}
+              onContextMenu={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                setAssetMenu({ x: event.clientX, y: event.clientY, item });
+              }}
+            >
+              {item.type === 'video' ? (
+                <>
+                  <video src={item.url} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" muted preload="metadata" />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-full bg-black/30 backdrop-blur-sm flex items-center justify-center">
+                      <Icons.Play size={14} className="text-white ml-0.5" />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <img src={item.url} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" decoding="async" />
+              )}
+              <div className={`absolute inset-x-0 bottom-0 p-2 ${isDark ? 'bg-gradient-to-t from-black/80 to-transparent' : 'bg-gradient-to-t from-white/90 to-transparent'}`}>
+                <div className={`text-[11px] truncate font-medium ${isDark ? 'text-white' : 'text-gray-800'}`}>{item.title}</div>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
   // 渲染面板内容
   const renderPanel = () => {
     if (!activePanel) return null;
@@ -345,12 +431,16 @@ const Sidebar: React.FC<SidebarProps> = ({
         title = '项目';
         content = renderProjectPanel();
         break;
+      case 'ASSETS':
+        title = '素材库';
+        content = renderAssetsPanel();
+        break;
     }
 
     return (
       <div 
         ref={panelRef}
-        className={`fixed left-[76px] top-1/2 -translate-y-1/2 w-64 max-h-[80vh] ${bgMain} backdrop-blur-xl border ${borderColor} rounded-2xl z-[190] flex flex-col shadow-xl animate-in slide-in-from-left-2 duration-200`}
+        className={`fixed left-[76px] top-1/2 -translate-y-1/2 ${activePanel === 'ASSETS' ? 'w-80 h-[70vh]' : 'w-64 max-h-[80vh]'} ${bgMain} backdrop-blur-xl border ${borderColor} rounded-2xl z-[190] flex flex-col shadow-xl animate-in slide-in-from-left-2 duration-200`}
       >
         {/* Panel Header */}
         <div className={`px-4 py-3 border-b ${borderColor} flex items-center justify-between shrink-0`}>
@@ -383,6 +473,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         <div className={`w-8 h-px my-1 ${isDark ? 'bg-zinc-800' : 'bg-gray-200'}`} />
         
         <SidebarButton icon={Icons.Clock} panel="HISTORY" tooltip="生成历史" />
+        <SidebarButton icon={Icons.Images} panel="ASSETS" tooltip="素材库" />
         <SidebarButton icon={Icons.Upload} tooltip="导入素材" onClick={onImportAsset} />
         
         <div className={`w-8 h-px my-1 ${isDark ? 'bg-zinc-800' : 'bg-gray-200'}`} />
@@ -392,6 +483,33 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Panel */}
       {renderPanel()}
+      {assetMenu && (
+        <div
+          className={`fixed z-[260] min-w-[150px] rounded-xl border py-1.5 shadow-2xl backdrop-blur-xl ${isDark ? 'bg-zinc-900/95 border-zinc-700/80' : 'bg-white/95 border-gray-200'}`}
+          style={{ left: assetMenu.x, top: assetMenu.y }}
+          onMouseDown={(event) => event.stopPropagation()}
+        >
+          <button
+            className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2.5 rounded-lg ${isDark ? 'text-gray-300 hover:bg-zinc-800 hover:text-white' : 'text-gray-700 hover:bg-gray-100 hover:text-black'}`}
+            onClick={() => { onSaveAsset(assetMenu.item.url, assetMenu.item.type, assetMenu.item.title); setAssetMenu(null); }}
+          >
+            <Icons.Save size={14} /> 保存素材
+          </button>
+          <button
+            className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2.5 rounded-lg ${isDark ? 'text-gray-300 hover:bg-zinc-800 hover:text-white' : 'text-gray-700 hover:bg-gray-100 hover:text-black'}`}
+            onClick={() => { onCopyAsset(assetMenu.item.url, assetMenu.item.type); setAssetMenu(null); }}
+          >
+            <Icons.Copy size={14} /> 复制
+          </button>
+          <div className={`h-px my-1 mx-2 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`} />
+          <button
+            className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2.5 rounded-lg text-red-400 ${isDark ? 'hover:bg-red-500/10 hover:text-red-300' : 'hover:bg-red-50 hover:text-red-600'}`}
+            onClick={() => { onDeleteAsset(assetMenu.item.nodeId, assetMenu.item.url, assetMenu.item.type); setAssetMenu(null); }}
+          >
+            <Icons.Trash2 size={14} /> 删除
+          </button>
+        </div>
+      )}
     </>
   );
 };

@@ -200,6 +200,7 @@ const CanvasWithSidebar: React.FC = () => {
   const attachInputRef = useRef<HTMLInputElement>(null);
   const nodeToReplaceRef = useRef<string | null>(null);
   const nodeToAttachInputRef = useRef<string | null>(null);
+  const assetImportPositionRef = useRef<Point | null>(null);
 
   const spacePressed = useRef(false);
 
@@ -1193,12 +1194,77 @@ const CanvasWithSidebar: React.FC = () => {
       }
   };
 
+  const saveAssetFile = async (url: string, type: 'image' | 'video', title = 'asset') => {
+      const ext = type === 'video' ? 'mp4' : 'png';
+      const filename = `${title.replace(/\s+/g, '_')}_${Date.now()}.${ext}`;
+      try {
+          const response = await fetch(url);
+          const blob = await response.blob();
+          const saved = await storageService.saveFile(blob, filename);
+          if (saved) return;
+
+          const blobUrl = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = blobUrl;
+          link.download = filename;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(blobUrl);
+      } catch {
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = filename;
+          link.target = '_blank';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+      }
+  };
+
+  const copyAssetToClipboard = async (url: string, type: 'image' | 'video') => {
+      try {
+          if (type === 'image' && navigator.clipboard && 'ClipboardItem' in window) {
+              const response = await fetch(url);
+              const blob = await response.blob();
+              await navigator.clipboard.write([new ClipboardItem({ [blob.type || 'image/png']: blob })]);
+              return;
+          }
+          await navigator.clipboard.writeText(url);
+      } catch (error) {
+          console.error(error);
+          alert('复制素材失败，请尝试先保存到本地。');
+      }
+  };
+
+  const deleteAssetFromLibrary = (nodeId: string, url: string, type: 'image' | 'video') => {
+      const updateList = (list: NodeData[]) => list.map(node => {
+          if (node.id !== nodeId) return node;
+          const artifacts = (node.outputArtifacts || []).filter(item => item !== url);
+          const updates: Partial<NodeData> = { outputArtifacts: artifacts };
+          if (type === 'image' && node.imageSrc === url) {
+              updates.imageSrc = artifacts[0];
+          }
+          if (type === 'video' && node.videoSrc === url) {
+              updates.videoSrc = artifacts[0];
+          }
+          return { ...node, ...updates };
+      });
+
+      setNodes(prev => updateList(prev));
+      setDeletedNodes(prev => updateList(prev).filter(node => node.imageSrc || node.videoSrc || node.outputArtifacts?.length));
+  };
+
   const handleImportAsset = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file) {
+        assetImportPositionRef.current = null;
+        return;
+    }
     
     const rect = containerRef.current?.getBoundingClientRect();
-    const center = rect ? screenToWorld(rect.width / 2, rect.height / 2) : { x: 0, y: 0 };
+    const center = assetImportPositionRef.current || (rect ? screenToWorld(rect.width / 2, rect.height / 2) : { x: 0, y: 0 });
+    assetImportPositionRef.current = null;
     
     if (file.type.startsWith('image/')) {
         const reader = new FileReader();
@@ -1509,6 +1575,9 @@ const CanvasWithSidebar: React.FC = () => {
                         <button className={`${menuItemClass} ${!internalClipboard ? 'opacity-40 cursor-not-allowed' : ''}`} onClick={() => { performPaste({ x: contextMenu.worldX, y: contextMenu.worldY }); setContextMenu(null); }} disabled={!internalClipboard}>
                             <Icons.Copy size={14}/> 粘贴
                         </button>
+                        <button className={menuItemClass} onClick={() => { assetImportPositionRef.current = { x: contextMenu.worldX, y: contextMenu.worldY }; assetInputRef.current?.click(); setContextMenu(null); }}>
+                            <Icons.Upload size={14}/> 本地上传
+                        </button>
                         <div className={`h-px my-1.5 mx-2 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`}></div>
                         <div className={`px-3 py-1 text-[9px] font-semibold uppercase tracking-wider ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>添加节点</div>
                         <button className={menuItemClass} onClick={() => { addNode(NodeType.TEXT_TO_IMAGE, contextMenu.worldX, contextMenu.worldY); setContextMenu(null); }}>
@@ -1620,6 +1689,9 @@ const CanvasWithSidebar: React.FC = () => {
           onOpenExportImport={() => setIsExportImportOpen(true)}
           nodes={[...nodes, ...deletedNodes]}
           onPreviewMedia={handleHistoryPreview}
+          onSaveAsset={saveAssetFile}
+          onCopyAsset={copyAssetToClipboard}
+          onDeleteAsset={deleteAssetFromLibrary}
           isDark={isDark}
         />
         <input type="file" ref={workflowInputRef} hidden accept=".aistudio-flow,.json" onChange={handleLoadWorkflow} />
