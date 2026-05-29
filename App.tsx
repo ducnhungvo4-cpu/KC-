@@ -1090,61 +1090,17 @@ const CanvasWithSidebar: React.FC = () => {
       });
   };
 
-  const zoomAtPoint = useCallback((clientX: number, clientY: number, scaleFactor: number) => {
-    const el = containerRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const px = clientX - rect.left;
-    const py = clientY - rect.top;
-    setTransform(prev => {
-      const newK = Math.min(Math.max(0.4, prev.k * scaleFactor), 2);
-      if (newK === prev.k) return prev;
-      const worldX = (px - prev.x) / prev.k;
-      const worldY = (py - prev.y) / prev.k;
-      return { x: px - worldX * newK, y: py - worldY * newK, k: newK };
-    });
-  }, []);
-
-  // Wheel / touchpad handling:
-  // - Mouse wheel keeps the original behavior: wheel up/down zooms the canvas.
-  // - Trackpad two-finger pan moves the canvas when horizontal deltas are present or deltas are small/high precision.
-  // - Trackpad pinch emits ctrl/meta+wheel in Chromium; use a smoother exponential zoom curve.
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const onWheelNative = (e: WheelEvent) => {
-      e.preventDefault();
-
-      if (e.ctrlKey || e.metaKey) {
-        const factor = Math.exp(-e.deltaY * 0.0035);
-        zoomAtPoint(e.clientX, e.clientY, factor);
-        return;
-      }
-
-      const absX = Math.abs(e.deltaX);
-      const absY = Math.abs(e.deltaY);
-      const isPixelWheel = e.deltaMode === WheelEvent.DOM_DELTA_PIXEL;
-      const hasHorizontalPan = absX > 0.5 && absX >= absY * 0.35;
-      const isHighPrecisionVerticalPan = isPixelWheel && absX > 0 && absY > 0 && absY < 24;
-      const likelyTrackpadPan = e.shiftKey || hasHorizontalPan || isHighPrecisionVerticalPan;
-
-      if (likelyTrackpadPan) {
-        const lineScale = e.deltaMode === WheelEvent.DOM_DELTA_LINE ? 16 : 1;
-        setTransform(prev => ({
-          ...prev,
-          x: prev.x - e.deltaX * lineScale,
-          y: prev.y - e.deltaY * lineScale,
-        }));
-        return;
-      }
-
-      const direction = e.deltaY > 0 ? -1 : 1;
-      const factor = 1 + direction * 0.1;
-      zoomAtPoint(e.clientX, e.clientY, factor);
-    };
-    el.addEventListener('wheel', onWheelNative, { passive: false });
-    return () => el.removeEventListener('wheel', onWheelNative);
-  }, [zoomAtPoint]);
+  const handleWheel = (e: React.WheelEvent) => {
+    if (e.ctrlKey || e.metaKey) e.preventDefault();
+    const zoomIntensity = 0.1;
+    const direction = e.deltaY > 0 ? -1 : 1;
+    let newK = transform.k + direction * zoomIntensity;
+    newK = Math.min(Math.max(0.4, newK), 2); 
+    const rect = containerRef.current!.getBoundingClientRect();
+    const worldX = (e.clientX - rect.left - transform.x) / transform.k;
+    const worldY = (e.clientY - rect.top - transform.y) / transform.k;
+    setTransform({ x: (e.clientX - rect.left) - worldX * newK, y: (e.clientY - rect.top) - worldY * newK, k: newK });
+  };
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (contextMenu) setContextMenu(null);
@@ -1495,6 +1451,7 @@ const CanvasWithSidebar: React.FC = () => {
                 backgroundColor: canvasBg,
                 '--grid-color': isDark ? '#27272a' : '#E4E4E7'
             } as React.CSSProperties}
+            onWheel={handleWheel}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
