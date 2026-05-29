@@ -1124,7 +1124,9 @@ const CanvasWithSidebar: React.FC = () => {
       const absX = Math.abs(e.deltaX);
       const absY = Math.abs(e.deltaY);
       const isPixelWheel = e.deltaMode === WheelEvent.DOM_DELTA_PIXEL;
-      const likelyTrackpadPan = e.shiftKey || absX > 0 || (isPixelWheel && absY > 0 && absY < 45);
+      const hasHorizontalPan = absX > 0.5 && absX >= absY * 0.35;
+      const isHighPrecisionVerticalPan = isPixelWheel && absX > 0 && absY > 0 && absY < 24;
+      const likelyTrackpadPan = e.shiftKey || hasHorizontalPan || isHighPrecisionVerticalPan;
 
       if (likelyTrackpadPan) {
         const lineScale = e.deltaMode === WheelEvent.DOM_DELTA_LINE ? 16 : 1;
