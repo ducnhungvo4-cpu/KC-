@@ -91,17 +91,19 @@ const BaseNode: React.FC<BaseNodeProps> = ({
 
           {/* Connection Ports */}
           {showInputPort && (
-            <ConnectionPort 
-              type="input" 
-              isDark={isDark} 
+            <ConnectionPort
+              type="input"
+              isDark={isDark}
+              onMouseDown={(e) => onConnectStart(e, 'target')}
               onMouseUp={(e) => onPortMouseUp?.(e, data.id, 'target')}
             />
           )}
 
-          <ConnectionPort 
-            type="output" 
-            isDark={isDark} 
+          <ConnectionPort
+            type="output"
+            isDark={isDark}
             onMouseDown={(e) => onConnectStart(e, 'source')}
+            onMouseUp={(e) => onPortMouseUp?.(e, data.id, 'source')}
           />
 
           {/* Resize Handle */}

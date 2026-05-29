@@ -23,6 +23,29 @@ const VIDEO_NODE_BASE_HEIGHT = 400;
 const IMAGE_ASPECT_RATIOS = ['1:1', '3:4', '4:3', '9:16', '16:9'];
 const VIDEO_ASPECT_RATIOS = ['1:1', '3:4', '4:3', '9:16', '16:9', '21:9', '9:21'];
 
+// 节点媒体类别：正向/反向连接共用同一套合法性校验规则。
+type MediaCategory = 'image' | 'video' | 'text';
+
+const NODE_MEDIA_CATEGORY: Record<NodeType, MediaCategory> = {
+    [NodeType.TEXT_TO_IMAGE]: 'image',
+    [NodeType.IMAGE_TO_IMAGE]: 'image',
+    [NodeType.ORIGINAL_IMAGE]: 'image',
+    [NodeType.TEXT_TO_VIDEO]: 'video',
+    [NodeType.IMAGE_TO_VIDEO]: 'video',
+    [NodeType.START_END_TO_VIDEO]: 'video',
+    [NodeType.CREATIVE_DESC]: 'text',
+};
+
+// 目标节点（下游）允许接收的来源节点（上游）类别：
+// - 图片节点：可接图片、文字
+// - 视频节点：可接图片、文字
+// - 文字节点：可接图片、视频、文字
+const ALLOWED_SOURCE_CATEGORIES: Record<MediaCategory, MediaCategory[]> = {
+    image: ['image', 'text'],
+    video: ['image', 'text'],
+    text: ['image', 'video', 'text'],
+};
+
 const getNodeSizeForAspectRatio = (aspectRatio = '1:1', baseSize = IMAGE_NODE_BASE_SIZE) => {
     const [wRaw, hRaw] = aspectRatio.split(':').map(Number);
     const wRatio = Number.isFinite(wRaw) && wRaw > 0 ? wRaw : 1;
@@ -1159,8 +1182,11 @@ const CanvasWithSidebar: React.FC = () => {
         setSelectedNodeIds(newSelection);
     } else if (dragMode === 'CONNECT') {
         setTempConnection(worldPos);
-        if (connectionStartRef.current?.type === 'source') {
-            const candidates = nodes.filter(n => n.id !== connectionStartRef.current?.nodeId).filter(n => n.type !== NodeType.ORIGINAL_IMAGE)
+        const start = connectionStartRef.current;
+        if (start) {
+            const candidates = nodes.filter(n => n.id !== start.nodeId)
+                // 正向起点(source)：候选为合法的下游节点；反向起点(target)：候选为合法的上游节点
+                .filter(n => start.type === 'source' ? canConnectNodes(start.nodeId, n.id) : canConnectNodes(n.id, start.nodeId))
                 .map(n => ({ node: n, dist: Math.sqrt(Math.pow(worldPos.x - (n.x + n.width/2), 2) + Math.pow(worldPos.y - (n.y + n.height/2), 2)) }))
                 .filter(item => item.dist < 500).sort((a, b) => a.dist - b.dist).slice(0, 3).map(item => item.node);
             setSuggestedNodes(candidates);
@@ -1191,14 +1217,36 @@ const CanvasWithSidebar: React.FC = () => {
     if (dragMode !== 'NONE') { setDragMode('NONE'); setTempConnection(null); connectionStartRef.current = null; setSuggestedNodes([]); setSelectionBox(null); }
   };
 
+  // 校验一条 source→target 连线是否合法（与拖拽方向无关）。
+  const canConnectNodes = (sourceId: string, targetId: string): boolean => {
+      if (!sourceId || !targetId || sourceId === targetId) return false;
+      const source = nodes.find(n => n.id === sourceId);
+      const target = nodes.find(n => n.id === targetId);
+      if (!source || !target) return false;
+      // 原始图片节点为纯输入素材，没有输入端口，不可作为下游目标。
+      if (target.type === NodeType.ORIGINAL_IMAGE) return false;
+      const sourceCategory = NODE_MEDIA_CATEGORY[source.type];
+      const targetCategory = NODE_MEDIA_CATEGORY[target.type];
+      return ALLOWED_SOURCE_CATEGORIES[targetCategory]?.includes(sourceCategory) ?? false;
+  };
+
   const createConnection = (sourceId: string, targetId: string) => {
-      if (!connections.some(c => c.sourceId === sourceId && c.targetId === targetId)) setConnections(prev => [...prev, { id: generateId(), sourceId, targetId }]);
+      if (canConnectNodes(sourceId, targetId) && !connections.some(c => c.sourceId === sourceId && c.targetId === targetId)) {
+          setConnections(prev => [...prev, { id: generateId(), sourceId, targetId }]);
+      }
       setDragMode('NONE'); setTempConnection(null); connectionStartRef.current = null; setSuggestedNodes([]);
   };
 
   const handlePortMouseUp = (e: React.MouseEvent, nodeId: string, type: 'source' | 'target') => {
+      const start = connectionStartRef.current;
+      if (dragMode !== 'CONNECT' || !start) return;
+      // 在发起连接的同一节点上释放：视为未拖出连线，交由画布默认逻辑处理(如正向的快捷添加菜单)。
+      if (start.nodeId === nodeId) return;
       e.stopPropagation(); e.preventDefault();
-      if (dragMode === 'CONNECT' && connectionStartRef.current && connectionStartRef.current.type === 'source' && type === 'target' && connectionStartRef.current.nodeId !== nodeId) createConnection(connectionStartRef.current.nodeId, nodeId);
+      // 正向：从输出端口(source)拖出，落到目标节点的输入端口(target)
+      if (start.type === 'source' && type === 'target') createConnection(start.nodeId, nodeId);
+      // 反向：从输入端口(target)拖出，落到上游节点的输出端口(source)
+      else if (start.type === 'target' && type === 'source') createConnection(nodeId, start.nodeId);
   };
 
   const deleteNode = (id: string) => {
@@ -1536,26 +1584,30 @@ const CanvasWithSidebar: React.FC = () => {
                 {dragMode === 'CONNECT' && connectionStartRef.current && tempConnection && (() => {
                     const sourceNode = nodes.find(n => n.id === connectionStartRef.current?.nodeId);
                     if (!sourceNode) return null;
-                    
-                    const sx = sourceNode.x + sourceNode.width;
+
+                    // 反向连接(从输入端口拖出)时，预览线从节点左侧出发，曲线向左弯。
+                    const fromSource = connectionStartRef.current?.type === 'source';
+                    const sx = fromSource ? sourceNode.x + sourceNode.width : sourceNode.x;
                     const sy = sourceNode.y + sourceNode.height / 2;
                     const tx = tempConnection.x;
                     const ty = tempConnection.y;
-                    
+
                     const dist = Math.abs(tx - sx);
                     const cp = Math.max(30, dist * 0.3);
-                    
+
                     const minX = Math.min(sx, tx) - cp - 20;
                     const minY = Math.min(sy, ty) - 20;
                     const maxX = Math.max(sx, tx) + cp + 20;
                     const maxY = Math.max(sy, ty) + 20;
-                    
+
                     const relSx = sx - minX;
                     const relSy = sy - minY;
                     const relTx = tx - minX;
                     const relTy = ty - minY;
-                    
-                    const d = `M ${relSx} ${relSy} C ${relSx + cp} ${relSy}, ${relTx - cp} ${relTy}, ${relTx} ${relTy}`;
+
+                    const c1x = fromSource ? relSx + cp : relSx - cp;
+                    const c2x = fromSource ? relTx - cp : relTx + cp;
+                    const d = `M ${relSx} ${relSy} C ${c1x} ${relSy}, ${c2x} ${relTy}, ${relTx} ${relTy}`;
                     
                     return (
                         <svg 
@@ -1624,7 +1676,7 @@ const CanvasWithSidebar: React.FC = () => {
                 <div className={`fixed z-50 border rounded-xl shadow-2xl p-2 flex flex-col gap-1 w-48 pointer-events-auto ${isDark ? 'bg-[#1A1D21] border-zinc-700' : 'bg-white border-gray-200'}`} style={{ left: lastMousePosRef.current.x + 20, top: lastMousePosRef.current.y }}>
                     <div className={`text-[10px] uppercase font-bold px-2 py-1 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Quick Connect</div>
                     {suggestedNodes.map(node => (
-                        <button key={node.id} className={`flex items-center gap-2 px-2 py-1.5 rounded text-left text-xs transition-colors ${isDark ? 'hover:bg-zinc-800 text-gray-300 hover:text-cyan-400' : 'hover:bg-gray-100 text-gray-700 hover:text-cyan-600'}`} onClick={(e) => { e.stopPropagation(); createConnection(connectionStartRef.current!.nodeId, node.id); }}>
+                        <button key={node.id} className={`flex items-center gap-2 px-2 py-1.5 rounded text-left text-xs transition-colors ${isDark ? 'hover:bg-zinc-800 text-gray-300 hover:text-cyan-400' : 'hover:bg-gray-100 text-gray-700 hover:text-cyan-600'}`} onClick={(e) => { e.stopPropagation(); const start = connectionStartRef.current!; if (start.type === 'source') createConnection(start.nodeId, node.id); else createConnection(node.id, start.nodeId); }}>
                             {node.type === NodeType.TEXT_TO_VIDEO ? <Icons.Video size={12} /> : <Icons.Image size={12} />}<span className="truncate">{node.title}</span>
                         </button>
                     ))}
