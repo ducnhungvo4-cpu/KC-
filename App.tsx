@@ -1090,34 +1090,59 @@ const CanvasWithSidebar: React.FC = () => {
       });
   };
 
-  // 触控板手势：双指滑动平移画布，双指捏合(扩散放大/内收缩小)缩放。
-  // 浏览器中捏合手势会触发带 ctrlKey 的 wheel 事件，普通双指滑动则为不带 ctrlKey 的 wheel 事件。
-  // 需用原生非 passive 监听才能 preventDefault（React 的 onWheel 默认是 passive，无法阻止页面缩放/回退）。
+  const zoomAtPoint = useCallback((clientX: number, clientY: number, scaleFactor: number) => {
+    const el = containerRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const px = clientX - rect.left;
+    const py = clientY - rect.top;
+    setTransform(prev => {
+      const newK = Math.min(Math.max(0.4, prev.k * scaleFactor), 2);
+      if (newK === prev.k) return prev;
+      const worldX = (px - prev.x) / prev.k;
+      const worldY = (py - prev.y) / prev.k;
+      return { x: px - worldX * newK, y: py - worldY * newK, k: newK };
+    });
+  }, []);
+
+  // Wheel / touchpad handling:
+  // - Mouse wheel keeps the original behavior: wheel up/down zooms the canvas.
+  // - Trackpad two-finger pan moves the canvas when horizontal deltas are present or deltas are small/high precision.
+  // - Trackpad pinch emits ctrl/meta+wheel in Chromium; use a smoother exponential zoom curve.
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     const onWheelNative = (e: WheelEvent) => {
       e.preventDefault();
-      const rect = el.getBoundingClientRect();
-      const px = e.clientX - rect.left;
-      const py = e.clientY - rect.top;
+
       if (e.ctrlKey || e.metaKey) {
-        // 捏合缩放：以光标为锚点。扩散(deltaY<0)放大，内收(deltaY>0)缩小。
-        setTransform(prev => {
-          const factor = Math.exp(-e.deltaY * 0.01);
-          const newK = Math.min(Math.max(0.4, prev.k * factor), 2);
-          const worldX = (px - prev.x) / prev.k;
-          const worldY = (py - prev.y) / prev.k;
-          return { x: px - worldX * newK, y: py - worldY * newK, k: newK };
-        });
-      } else {
-        // 双指滑动平移
-        setTransform(prev => ({ ...prev, x: prev.x - e.deltaX, y: prev.y - e.deltaY }));
+        const factor = Math.exp(-e.deltaY * 0.0035);
+        zoomAtPoint(e.clientX, e.clientY, factor);
+        return;
       }
+
+      const absX = Math.abs(e.deltaX);
+      const absY = Math.abs(e.deltaY);
+      const isPixelWheel = e.deltaMode === WheelEvent.DOM_DELTA_PIXEL;
+      const likelyTrackpadPan = e.shiftKey || absX > 0 || (isPixelWheel && absY > 0 && absY < 45);
+
+      if (likelyTrackpadPan) {
+        const lineScale = e.deltaMode === WheelEvent.DOM_DELTA_LINE ? 16 : 1;
+        setTransform(prev => ({
+          ...prev,
+          x: prev.x - e.deltaX * lineScale,
+          y: prev.y - e.deltaY * lineScale,
+        }));
+        return;
+      }
+
+      const direction = e.deltaY > 0 ? -1 : 1;
+      const factor = 1 + direction * 0.1;
+      zoomAtPoint(e.clientX, e.clientY, factor);
     };
     el.addEventListener('wheel', onWheelNative, { passive: false });
     return () => el.removeEventListener('wheel', onWheelNative);
-  }, []);
+  }, [zoomAtPoint]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (contextMenu) setContextMenu(null);
