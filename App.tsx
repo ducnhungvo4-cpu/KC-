@@ -171,7 +171,7 @@ const CanvasWithSidebar: React.FC = () => {
   const [cropTarget, setCropTarget] = useState<{ nodeId: string; imageSrc: string; title: string; aspectRatio: string } | null>(null);
   
   // Quick Add Menu State
-  const [quickAddMenu, setQuickAddMenu] = useState<{ sourceId: string, x: number, y: number, worldX: number, worldY: number } | null>(null);
+  const [quickAddMenu, setQuickAddMenu] = useState<{ sourceId: string, x: number, y: number, worldX: number, worldY: number, direction?: 'forward' | 'backward' } | null>(null);
 
   const [contextMenu, setContextMenu] = useState<{ 
       type: 'CANVAS' | 'NODE', 
@@ -480,10 +480,12 @@ const CanvasWithSidebar: React.FC = () => {
           }
       };
 
+      // 反向新建时，新节点位于锚点上游(左侧)，让其右边缘对齐落点；正向保持原有左边缘对齐落点。
+      const isBackward = quickAddMenu.direction === 'backward';
       const newNode: NodeData = {
           id: newId,
           type,
-          x: quickAddMenu.worldX,
+          x: isBackward ? quickAddMenu.worldX - w : quickAddMenu.worldX,
           y: quickAddMenu.worldY - h / 2,
           width: w,
           height: h,
@@ -497,8 +499,13 @@ const CanvasWithSidebar: React.FC = () => {
           outputArtifacts: []
       };
 
+      // 反向：新节点作为上游(source)，锚点为下游(target)；正向：保持原有方向。
+      const newConnection = isBackward
+          ? { id: generateId(), sourceId: newId, targetId: quickAddMenu.sourceId }
+          : { id: generateId(), sourceId: quickAddMenu.sourceId, targetId: newId };
+
       setNodes(prev => [...prev, newNode]);
-      setConnections(prev => [...prev, { id: generateId(), sourceId: quickAddMenu.sourceId, targetId: newId }]);
+      setConnections(prev => [...prev, newConnection]);
       setQuickAddMenu(null);
   };
 
@@ -1083,17 +1090,34 @@ const CanvasWithSidebar: React.FC = () => {
       });
   };
 
-  const handleWheel = (e: React.WheelEvent) => {
-    if (e.ctrlKey || e.metaKey) e.preventDefault();
-    const zoomIntensity = 0.1;
-    const direction = e.deltaY > 0 ? -1 : 1;
-    let newK = transform.k + direction * zoomIntensity;
-    newK = Math.min(Math.max(0.4, newK), 2); 
-    const rect = containerRef.current!.getBoundingClientRect();
-    const worldX = (e.clientX - rect.left - transform.x) / transform.k;
-    const worldY = (e.clientY - rect.top - transform.y) / transform.k;
-    setTransform({ x: (e.clientX - rect.left) - worldX * newK, y: (e.clientY - rect.top) - worldY * newK, k: newK });
-  };
+  // 触控板手势：双指滑动平移画布，双指捏合(扩散放大/内收缩小)缩放。
+  // 浏览器中捏合手势会触发带 ctrlKey 的 wheel 事件，普通双指滑动则为不带 ctrlKey 的 wheel 事件。
+  // 需用原生非 passive 监听才能 preventDefault（React 的 onWheel 默认是 passive，无法阻止页面缩放/回退）。
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onWheelNative = (e: WheelEvent) => {
+      e.preventDefault();
+      const rect = el.getBoundingClientRect();
+      const px = e.clientX - rect.left;
+      const py = e.clientY - rect.top;
+      if (e.ctrlKey || e.metaKey) {
+        // 捏合缩放：以光标为锚点。扩散(deltaY<0)放大，内收(deltaY>0)缩小。
+        setTransform(prev => {
+          const factor = Math.exp(-e.deltaY * 0.01);
+          const newK = Math.min(Math.max(0.4, prev.k * factor), 2);
+          const worldX = (px - prev.x) / prev.k;
+          const worldY = (py - prev.y) / prev.k;
+          return { x: px - worldX * newK, y: py - worldY * newK, k: newK };
+        });
+      } else {
+        // 双指滑动平移
+        setTransform(prev => ({ ...prev, x: prev.x - e.deltaX, y: prev.y - e.deltaY }));
+      }
+    };
+    el.addEventListener('wheel', onWheelNative, { passive: false });
+    return () => el.removeEventListener('wheel', onWheelNative);
+  }, []);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (contextMenu) setContextMenu(null);
@@ -1211,8 +1235,11 @@ const CanvasWithSidebar: React.FC = () => {
   };
 
   const handleMouseUp = (e: React.MouseEvent) => {
-    if (dragMode === 'CONNECT' && connectionStartRef.current?.type === 'source') {
-         setQuickAddMenu({ sourceId: connectionStartRef.current.nodeId, x: e.clientX, y: e.clientY, worldX: screenToWorld(e.clientX, e.clientY).x, worldY: screenToWorld(e.clientX, e.clientY).y });
+    // 连线拖到空白处释放：弹出快捷新建菜单。正向(从输出端口拖出)新建下游节点，反向(从输入端口拖出)新建上游节点。
+    if (dragMode === 'CONNECT' && connectionStartRef.current) {
+         const world = screenToWorld(e.clientX, e.clientY);
+         const direction = connectionStartRef.current.type === 'source' ? 'forward' : 'backward';
+         setQuickAddMenu({ sourceId: connectionStartRef.current.nodeId, x: e.clientX, y: e.clientY, worldX: world.x, worldY: world.y, direction });
     }
     if (dragMode !== 'NONE') { setDragMode('NONE'); setTempConnection(null); connectionStartRef.current = null; setSuggestedNodes([]); setSelectionBox(null); }
   };
@@ -1441,7 +1468,6 @@ const CanvasWithSidebar: React.FC = () => {
                 backgroundColor: canvasBg,
                 '--grid-color': isDark ? '#27272a' : '#E4E4E7'
             } as React.CSSProperties}
-            onWheel={handleWheel}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
