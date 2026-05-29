@@ -50,6 +50,7 @@ const NodeContentComponent: React.FC<NodeContentProps> = (props) => {
 export const NodeContent = memo(NodeContentComponent, (prev, next) => {
     if (prev.isSelecting !== next.isSelecting) return false;
     if (prev.isDark !== next.isDark) return false;
+    if (prev.canvasScale !== next.canvasScale) return false;
     
     // Check Inputs
     if (prev.inputs !== next.inputs) {
