@@ -1496,6 +1496,8 @@ const CanvasWithSidebar: React.FC = () => {
                     
                     // 连接线颜色
                     const lineColor = isSelected ? "#3b82f6" : (isDark ? "#6b7280" : "#9ca3af");
+                    const gradientId = `connection-gradient-${conn.id.replace(/[^a-zA-Z0-9_-]/g, '-')}`;
+                    const gradientAccent = isSelected ? "#93c5fd" : (isDark ? "#f8fafc" : "#2563eb");
                     
                     // 计算贝塞尔曲线上 t=0.5 的实际中点位置
                     const t = 0.5;
@@ -1520,6 +1522,30 @@ const CanvasWithSidebar: React.FC = () => {
                                 pointerEvents: 'none'
                             }}
                         >
+                            <defs>
+                                <linearGradient
+                                    id={gradientId}
+                                    x1={0}
+                                    y1={0}
+                                    x2={svgWidth}
+                                    y2={0}
+                                    gradientUnits="userSpaceOnUse"
+                                >
+                                    <stop offset="0%" stopColor={lineColor} stopOpacity="0.65" />
+                                    <stop offset="45%" stopColor={lineColor} stopOpacity="0.9" />
+                                    <stop offset="50%" stopColor={gradientAccent} stopOpacity="1" />
+                                    <stop offset="55%" stopColor={lineColor} stopOpacity="0.9" />
+                                    <stop offset="100%" stopColor={lineColor} stopOpacity="0.65" />
+                                    <animateTransform
+                                        attributeName="gradientTransform"
+                                        type="translate"
+                                        from={`${-svgWidth} 0`}
+                                        to={`${svgWidth} 0`}
+                                        dur="1.8s"
+                                        repeatCount="indefinite"
+                                    />
+                                </linearGradient>
+                            </defs>
                             {/* 点击区域 */}
                             <path 
                                 d={d} 
@@ -1532,7 +1558,7 @@ const CanvasWithSidebar: React.FC = () => {
                             {/* 主连接线 - 实线 */}
                             <path 
                                 d={d} 
-                                stroke={lineColor}
+                                stroke={`url(#${gradientId})`}
                                 strokeWidth={isSelected ? 3 : 2} 
                                 fill="none" 
                                 strokeLinecap="round"
