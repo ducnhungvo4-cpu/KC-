@@ -64,8 +64,10 @@ export interface MultiAngleResult {
 }
 
 export interface InputMedia {
-  type: 'image' | 'video';
+  type: 'image' | 'video' | 'text';
   url: string;
+  text?: string;
+  title?: string;
 }
 
 export interface Connection {

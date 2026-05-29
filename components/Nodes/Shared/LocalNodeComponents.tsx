@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, memo } from 'react';
 import { Icons } from '../../Icons';
-import { NodeData } from '../../../types';
+import { InputMedia, NodeData } from '../../../types';
 
 // --- Local Components (Extracted) ---
 
@@ -182,26 +182,52 @@ export const LocalCustomDropdown = ({ options, value, onChange, isOpen, onToggle
     );
 };
 
-export const LocalThumbnailItem = memo(({ src, index, isDark }: { src: string, index: number, isDark: boolean }) => {
+export const LocalThumbnailItem = memo(({ item, index, isDark, onPreview }: { item: InputMedia, index: number, isDark: boolean, onPreview?: (item: InputMedia) => void }) => {
     const [loaded, setLoaded] = useState(false);
+    const src = item.url;
     return (
-        <div className={`relative w-[48px] h-[48px] flex-shrink-0 border rounded-lg overflow-hidden shadow-sm group/thumb cursor-pointer hover:border-cyan-500/50 transition-colors ${isDark ? 'border-zinc-700 bg-black/40' : 'border-gray-300 bg-gray-100'}`}>
+        <button
+            type="button"
+            className={`relative w-[48px] h-[48px] flex-shrink-0 border rounded-lg overflow-hidden shadow-sm group/thumb cursor-pointer hover:border-cyan-500/70 transition-colors ${isDark ? 'border-zinc-700 bg-black/40' : 'border-gray-300 bg-gray-100'}`}
+            onClick={(event) => {
+                event.stopPropagation();
+                onPreview?.(item);
+            }}
+            title="查看参考内容"
+        >
             <div className={`absolute inset-0 ${isDark ? 'bg-zinc-800/50' : 'bg-gray-200'}`} />
-            <img src={src} className="absolute inset-0 w-full h-full object-cover will-change-[clip-path]" draggable={false} decoding="async" loading="lazy" onLoad={() => setLoaded(true)} style={{ clipPath: loaded ? 'inset(0 0 0% 0)' : 'inset(0 0 100% 0)', opacity: loaded ? 1 : 0, transition: 'clip-path 0.8s ease-out, opacity 0.3s ease-in' }} />
+            {item.type === 'video' ? (
+                <>
+                    <video src={src} className="absolute inset-0 w-full h-full object-cover" muted playsInline preload="metadata" />
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                        <Icons.Play size={16} className="text-white drop-shadow" fill="currentColor" />
+                    </div>
+                </>
+            ) : item.type === 'text' ? (
+                <div className={`absolute inset-0 flex flex-col items-center justify-center px-1 ${isDark ? 'text-zinc-200' : 'text-gray-700'}`}>
+                    <Icons.FileText size={16} />
+                    <span className="mt-0.5 max-w-full truncate text-[8px]">{item.title || 'Text'}</span>
+                </div>
+            ) : (
+                <img src={src} className="absolute inset-0 w-full h-full object-cover will-change-[clip-path]" draggable={false} decoding="async" loading="lazy" onLoad={() => setLoaded(true)} style={{ clipPath: loaded ? 'inset(0 0 0% 0)' : 'inset(0 0 100% 0)', opacity: loaded ? 1 : 0, transition: 'clip-path 0.8s ease-out, opacity 0.3s ease-in' }} />
+            )}
+            <div className="absolute inset-0 bg-black/0 group-hover/thumb:bg-black/20 transition-colors" />
+            <Icons.Maximize2 size={12} className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white opacity-0 group-hover/thumb:opacity-100 transition-opacity drop-shadow" />
             <div className="absolute top-0 right-0 bg-black/60 backdrop-blur-sm text-white text-[9px] font-bold px-1.5 rounded-bl z-10">{index + 1}</div>
-        </div>
+        </button>
     );
 });
 
-export const LocalInputThumbnails = memo(({ inputs, ready, isDark, label }: { inputs: string[], ready: boolean, isDark: boolean, label?: string }) => {
-    if (!inputs || inputs.length === 0) return null;
+export const LocalInputThumbnails = memo(({ inputs, items, ready, isDark, label, onPreview }: { inputs: string[], items?: InputMedia[], ready: boolean, isDark: boolean, label?: string, onPreview?: (item: InputMedia) => void }) => {
+    const displayItems = items?.length ? items : inputs.map(url => ({ type: 'image' as const, url }));
+    if (!displayItems || displayItems.length === 0) return null;
     const labelColor = isDark ? 'text-zinc-500' : 'text-gray-400';
     return (
        <div className="flex flex-col items-center gap-1 pb-2">
            {label && <span className={`text-[9px] font-bold uppercase ${labelColor}`}>{label}</span>}
            <div className="flex justify-center gap-2 overflow-x-auto no-scrollbar min-h-[48px]">
-               {inputs.slice(0, 8).map((src, i) => (
-                   ready ? <LocalThumbnailItem key={src + i} src={src} index={i} isDark={isDark} /> : <div key={i} className={`relative w-[48px] h-[48px] flex-shrink-0 border rounded-lg overflow-hidden shadow-sm ${isDark ? 'border-zinc-700 bg-black/40' : 'border-gray-300 bg-gray-100'}`}><div className={`absolute inset-0 ${isDark ? 'bg-zinc-800/50' : 'bg-gray-200'}`} /></div>
+               {displayItems.slice(0, 8).map((item, i) => (
+                   ready ? <LocalThumbnailItem key={(item.url || item.text || '') + i} item={item} index={i} isDark={isDark} onPreview={onPreview} /> : <div key={i} className={`relative w-[48px] h-[48px] flex-shrink-0 border rounded-lg overflow-hidden shadow-sm ${isDark ? 'border-zinc-700 bg-black/40' : 'border-gray-300 bg-gray-100'}`}><div className={`absolute inset-0 ${isDark ? 'bg-zinc-800/50' : 'bg-gray-200'}`} /></div>
                ))}
            </div>
        </div>

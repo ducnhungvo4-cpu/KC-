@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { NodeData } from '../../types';
+import { InputMedia, NodeData } from '../../types';
 import { Icons } from '../Icons';
 import { getModelConfig, MODEL_REGISTRY, getVisibleModels } from '../../services/geminiService';
 import { VIDEO_HANDLERS } from '../../services/mode/video/configurations';
@@ -14,6 +14,8 @@ interface StartEndToVideoNodeProps {
   selected?: boolean;
   showControls?: boolean;
   inputs?: string[];
+  inputMedia?: InputMedia[];
+  onPreviewReference?: (item: InputMedia) => void;
   onMaximize?: (id: string) => void;
   onDownload?: (id: string) => void;
   isDark?: boolean;
@@ -21,7 +23,7 @@ interface StartEndToVideoNodeProps {
 }
 
 export const StartEndToVideoNode: React.FC<StartEndToVideoNodeProps> = ({
-    data, updateData, onGenerate, selected, showControls, inputs = [], onMaximize, onDownload, isDark = true, isSelecting
+    data, updateData, onGenerate, selected, showControls, inputs = [], inputMedia = [], onPreviewReference, onMaximize, onDownload, isDark = true, isSelecting
 }) => {
     const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
     const [progress, setProgress] = useState(0);
@@ -162,9 +164,9 @@ export const StartEndToVideoNode: React.FC<StartEndToVideoNodeProps> = ({
                 <div className="flex items-center gap-2">
                     <span className={`text-xs font-semibold ${labelColor}`}>首帧</span>
                     {hasStartFrame ? (
-                        <div className="w-14 h-14 rounded-lg overflow-hidden border-2 border-emerald-500/50 shadow-sm">
+                        <button className="w-14 h-14 rounded-lg overflow-hidden border-2 border-emerald-500/50 shadow-sm" onClick={() => onPreviewReference?.(inputMedia[swapped && inputs.length >= 2 ? 1 : 0] || { type: 'image', url: orderedInputs[0] })} title="查看首帧">
                             <img src={orderedInputs[0]} className="w-full h-full object-cover" alt="首帧" />
-                        </div>
+                        </button>
                     ) : (
                         <div className={`w-14 h-14 rounded-lg flex items-center justify-center ${emptyBg}`}>
                             <Icons.Frame size={18} className={warningColor} />
@@ -193,9 +195,9 @@ export const StartEndToVideoNode: React.FC<StartEndToVideoNodeProps> = ({
                 {/* End Frame */}
                 <div className="flex items-center gap-2">
                     {hasEndFrame ? (
-                        <div className="w-14 h-14 rounded-lg overflow-hidden border-2 border-emerald-500/50 shadow-sm">
+                        <button className="w-14 h-14 rounded-lg overflow-hidden border-2 border-emerald-500/50 shadow-sm" onClick={() => onPreviewReference?.(inputMedia[swapped && inputs.length >= 2 ? 0 : 1] || { type: 'image', url: orderedInputs[1] })} title="查看尾帧">
                             <img src={orderedInputs[1]} className="w-full h-full object-cover" alt="尾帧" />
-                        </div>
+                        </button>
                     ) : (
                         <div className={`w-14 h-14 rounded-lg flex items-center justify-center ${emptyBg}`}>
                             <Icons.Frame size={18} className={warningColor} />

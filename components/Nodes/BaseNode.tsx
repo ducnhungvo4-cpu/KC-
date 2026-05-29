@@ -1,5 +1,6 @@
 import React from 'react';
 import { NodeData, NodeType } from '../../types';
+import { Icons } from '../Icons';
 
 interface BaseNodeProps {
   data: NodeData;
@@ -9,6 +10,7 @@ interface BaseNodeProps {
   onConnectStart: (e: React.MouseEvent, type: 'source' | 'target') => void;
   onPortMouseUp?: (e: React.MouseEvent, nodeId: string, type: 'source' | 'target') => void;
   onResizeStart?: (e: React.MouseEvent) => void;
+  onAttachInput?: (nodeId: string) => void;
   children: React.ReactNode;
   scale: number;
   isDark?: boolean;
@@ -67,7 +69,7 @@ const ConnectionPort: React.FC<{
 };
 
 const BaseNode: React.FC<BaseNodeProps> = ({ 
-  data, selected, onMouseDown, onContextMenu, onConnectStart, onPortMouseUp, children, onResizeStart, isDark = true
+  data, selected, onMouseDown, onContextMenu, onConnectStart, onPortMouseUp, children, onResizeStart, onAttachInput, isDark = true
 }) => {
   const showInputPort = data.type !== NodeType.ORIGINAL_IMAGE;
 
@@ -88,6 +90,25 @@ const BaseNode: React.FC<BaseNodeProps> = ({
       {/* Main Content Area */}
       <div className="relative w-full h-full">
           {children}
+
+          {onAttachInput && (
+            <button
+              className={`absolute left-1/2 top-0 -translate-x-1/2 -translate-y-[calc(100%+10px)] z-[80] h-9 px-3 rounded-full border backdrop-blur-xl shadow-lg flex items-center gap-2 text-xs font-semibold opacity-0 translate-y-[-6px] pointer-events-none transition-all duration-200 group-hover:opacity-100 group-hover:pointer-events-auto group-hover:translate-y-0 ${
+                isDark
+                  ? 'bg-zinc-950/90 border-zinc-700 text-zinc-200 hover:border-cyan-400 hover:text-white'
+                  : 'bg-white/95 border-gray-200 text-gray-700 hover:border-cyan-400 hover:text-gray-950'
+              }`}
+              title="上传本地素材作为当前节点入参"
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                onAttachInput(data.id);
+              }}
+            >
+              <Icons.Upload size={14} />
+              <span>本地入参</span>
+            </button>
+          )}
 
           {/* Connection Ports */}
           {showInputPort && (

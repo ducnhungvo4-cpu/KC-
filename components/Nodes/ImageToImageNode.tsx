@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { NodeData } from '../../types';
+import { InputMedia, NodeData } from '../../types';
 import { Icons } from '../Icons';
 import { getModelConfig, MODEL_REGISTRY, getVisibleModels } from '../../services/geminiService';
 import { IMAGE_HANDLERS } from '../../services/mode/image/configurations';
@@ -13,6 +13,8 @@ interface ImageToImageNodeProps {
   selected?: boolean;
   showControls?: boolean;
   inputs?: string[];
+  inputMedia?: InputMedia[];
+  onPreviewReference?: (item: InputMedia) => void;
   onMaximize?: (id: string) => void;
   onDownload?: (id: string) => void;
   isDark?: boolean;
@@ -20,7 +22,7 @@ interface ImageToImageNodeProps {
 }
 
 export const ImageToImageNode: React.FC<ImageToImageNodeProps> = ({
-    data, updateData, onGenerate, selected, showControls, inputs = [], onMaximize, onDownload, isDark = true, isSelecting
+    data, updateData, onGenerate, selected, showControls, inputs = [], inputMedia = [], onPreviewReference, onMaximize, onDownload, isDark = true, isSelecting
 }) => {
     const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
     const [deferredInputs, setDeferredInputs] = useState(false);
@@ -133,7 +135,7 @@ export const ImageToImageNode: React.FC<ImageToImageNodeProps> = ({
 
         {isSelectedAndStable && showControls && (
             <div className="absolute top-full left-1/2 -translate-x-1/2 w-full min-w-[400px] pt-3 z-[70] pointer-events-auto" onMouseDown={(e) => e.stopPropagation()}>
-                 {inputs.length > 0 && <LocalInputThumbnails inputs={inputs} ready={deferredInputs} isDark={isDark} label="参考图" />}
+                  {inputMedia.length > 0 && <LocalInputThumbnails inputs={inputs} items={inputMedia} ready={deferredInputs} isDark={isDark} label="参考图" onPreview={onPreviewReference} />}
                  {!hasInputImage && (
                      <div className={`mb-2 px-3 py-2 rounded-lg border flex items-center gap-2 text-[10px] ${isDark ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' : 'bg-amber-50 border-amber-200 text-amber-600'}`}>
                          <Icons.AlertCircle size={12} />

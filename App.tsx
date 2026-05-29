@@ -151,8 +151,8 @@ const CanvasWithSidebar: React.FC = () => {
       }
   }, []);
 
-  // Default to light theme (white)
-  const [canvasBg, setCanvasBg] = useState('#F5F7FA');
+  // Default to dark theme.
+  const [canvasBg, setCanvasBg] = useState('#0B0C0E');
   const isDark = canvasBg === '#0B0C0E';
   
   // Sync body class for CSS variables
@@ -168,6 +168,7 @@ const CanvasWithSidebar: React.FC = () => {
   const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null);
   const [suggestedNodes, setSuggestedNodes] = useState<NodeData[]>([]);
   const [previewMedia, setPreviewMedia] = useState<{ url: string, type: 'image' | 'video' } | null>(null);
+  const [previewText, setPreviewText] = useState<{ title: string, text: string } | null>(null);
   const [cropTarget, setCropTarget] = useState<{ nodeId: string; imageSrc: string; title: string; aspectRatio: string } | null>(null);
   
   // Quick Add Menu State
@@ -196,7 +197,9 @@ const CanvasWithSidebar: React.FC = () => {
   const workflowInputRef = useRef<HTMLInputElement>(null);
   const assetInputRef = useRef<HTMLInputElement>(null);
   const replaceImageRef = useRef<HTMLInputElement>(null);
+  const attachInputRef = useRef<HTMLInputElement>(null);
   const nodeToReplaceRef = useRef<string | null>(null);
+  const nodeToAttachInputRef = useRef<string | null>(null);
 
   const spacePressed = useRef(false);
 
@@ -226,11 +229,13 @@ const CanvasWithSidebar: React.FC = () => {
         map[node.id] = connections
             .filter(c => c.targetId === node.id)
             .map(c => nodes.find(n => n.id === c.sourceId))
-            .filter((n): n is NodeData => Boolean(n && (n.imageSrc || n.videoSrc)))
-            .map(n => ({
-                type: n.videoSrc ? 'video' : 'image',
-                url: n.videoSrc || n.imageSrc || '',
-            }));
+            .filter((n): n is NodeData => Boolean(n && (n.imageSrc || n.videoSrc || n.prompt || n.optimizedPrompt)))
+            .map(n => {
+                if (n.videoSrc) return { type: 'video', url: n.videoSrc, title: n.title } satisfies InputMedia;
+                if (n.imageSrc) return { type: 'image', url: n.imageSrc, title: n.title } satisfies InputMedia;
+                const text = n.optimizedPrompt || n.prompt || '';
+                return { type: 'text', url: `text://${n.id}`, text, title: n.title } satisfies InputMedia;
+            });
     });
     return map;
   }, [nodes, connections]);
@@ -622,6 +627,7 @@ const CanvasWithSidebar: React.FC = () => {
         
         if (e.key === 'Escape') {
             if (previewMedia) setPreviewMedia(null);
+            if (previewText) setPreviewText(null);
             if (contextMenu) setContextMenu(null);
             if (quickAddMenu) setQuickAddMenu(null);
             if (showNewWorkflowDialog) setShowNewWorkflowDialog(false);
@@ -637,7 +643,7 @@ const CanvasWithSidebar: React.FC = () => {
         window.removeEventListener('keydown', handleKeyDown);
         window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [selectedNodeIds, selectedConnectionId, previewMedia, contextMenu, nodes, connections, quickAddMenu, showNewWorkflowDialog, isStorageOpen, isExportImportOpen, handleAlign]);
+  }, [selectedNodeIds, selectedConnectionId, previewMedia, previewText, contextMenu, nodes, connections, quickAddMenu, showNewWorkflowDialog, isStorageOpen, isExportImportOpen, handleAlign]);
 
   useEffect(() => {
     // Load storage directory name for the top-right indicator
@@ -755,7 +761,7 @@ const CanvasWithSidebar: React.FC = () => {
   const handleAnalyzeMedia = async (nodeId: string) => {
       const node = nodes.find(n => n.id === nodeId);
       if (!node) return;
-      const inputMedia = getInputMedia(node.id);
+      const inputMedia = getInputMedia(node.id).filter(item => item.type === 'image' || item.type === 'video');
       if (!inputMedia.length) {
           alert("请先把图片或视频节点连接到文本节点前面");
           return;
@@ -804,6 +810,14 @@ const CanvasWithSidebar: React.FC = () => {
   };
   
   const handleHistoryPreview = (url: string, type: 'image' | 'video') => setPreviewMedia({ url, type });
+
+  const handlePreviewReference = (item: InputMedia) => {
+      if (item.type === 'text') {
+          setPreviewText({ title: item.title || '参考文本', text: item.text || '' });
+          return;
+      }
+      setPreviewMedia({ url: item.url, type: item.type });
+  };
 
   const handleCropStart = (nodeId: string) => {
       const node = nodes.find(n => n.id === nodeId);
@@ -988,6 +1002,113 @@ const CanvasWithSidebar: React.FC = () => {
       }
       if (replaceImageRef.current) replaceImageRef.current.value = '';
       nodeToReplaceRef.current = null;
+  };
+
+  const triggerAttachInput = (nodeId: string) => {
+      nodeToAttachInputRef.current = nodeId;
+      attachInputRef.current?.click();
+  };
+
+  const addInputSourceNode = (targetId: string, source: NodeData) => {
+      const target = nodes.find(n => n.id === targetId);
+      const upstreamCount = connections.filter(c => c.targetId === targetId).length;
+      const x = target ? target.x - source.width - 90 : source.x;
+      const y = target ? target.y + upstreamCount * 80 : source.y;
+      const sourceNode = { ...source, x, y };
+      setNodes(prev => [...prev, sourceNode]);
+      setConnections(prev => [...prev, { id: generateId(), sourceId: sourceNode.id, targetId }]);
+      setSelectedNodeIds(new Set([targetId]));
+  };
+
+  const handleAttachInputAsset = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      const targetId = nodeToAttachInputRef.current;
+      if (!file || !targetId) {
+          if (attachInputRef.current) attachInputRef.current.value = '';
+          nodeToAttachInputRef.current = null;
+          return;
+      }
+
+      const baseTitle = file.name || `本地素材_${new Date().toLocaleTimeString()}`;
+      if (file.type.startsWith('image/')) {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+              const img = new Image();
+              img.onload = () => {
+                  const aspectRatio = getClosestAspectRatio(img.width, img.height, IMAGE_ASPECT_RATIOS);
+                  const { width, height } = getNodeSizeForAspectRatio(aspectRatio);
+                  const src = event.target?.result as string;
+                  addInputSourceNode(targetId, {
+                      id: generateId(),
+                      type: NodeType.TEXT_TO_IMAGE,
+                      x: 0,
+                      y: 0,
+                      width,
+                      height,
+                      title: baseTitle,
+                      imageSrc: src,
+                      aspectRatio,
+                      model: 'Seedream 5.0',
+                      resolution: '1k',
+                      count: 1,
+                      prompt: '',
+                      outputArtifacts: [src],
+                  });
+              };
+              img.src = event.target?.result as string;
+          };
+          reader.readAsDataURL(file);
+      } else if (file.type.startsWith('video/')) {
+          const url = URL.createObjectURL(file);
+          const video = document.createElement('video');
+          video.preload = 'metadata';
+          video.onloadedmetadata = () => {
+              const aspectRatio = getClosestAspectRatio(video.videoWidth, video.videoHeight, VIDEO_ASPECT_RATIOS);
+              const { width, height } = getNodeSizeForAspectRatio(aspectRatio, VIDEO_NODE_BASE_HEIGHT);
+              addInputSourceNode(targetId, {
+                  id: generateId(),
+                  type: NodeType.TEXT_TO_VIDEO,
+                  x: 0,
+                  y: 0,
+                  width,
+                  height,
+                  title: baseTitle,
+                  videoSrc: url,
+                  aspectRatio,
+                  model: 'Seedance 1.5 Pro',
+                  resolution: '720p',
+                  duration: '5s',
+                  count: 1,
+                  prompt: '',
+                  outputArtifacts: [url],
+              });
+          };
+          video.src = url;
+      } else {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+              const text = String(event.target?.result || '');
+              addInputSourceNode(targetId, {
+                  id: generateId(),
+                  type: NodeType.CREATIVE_DESC,
+                  x: 0,
+                  y: 0,
+                  width: 520,
+                  height: 520,
+                  title: baseTitle,
+                  aspectRatio: '1:1',
+                  model: 'Xiaomi MiMo 2.5 Pro',
+                  count: 1,
+                  prompt: text,
+                  optimizedPrompt: text,
+                  outputArtifacts: [],
+              });
+          };
+          reader.readAsText(file, 'utf-8');
+      }
+
+      if (attachInputRef.current) attachInputRef.current.value = '';
+      nodeToAttachInputRef.current = null;
   };
 
   const handleSaveWorkflow = () => {
@@ -1506,6 +1627,7 @@ const CanvasWithSidebar: React.FC = () => {
         <input type="file" ref={workflowInputRef} hidden accept=".aistudio-flow,.json" onChange={handleLoadWorkflow} />
         <input type="file" ref={assetInputRef} hidden accept="image/*,video/*" onChange={handleImportAsset} />
         <input type="file" ref={replaceImageRef} hidden accept="image/*,video/*" onChange={handleReplaceImage} />
+        <input type="file" ref={attachInputRef} hidden accept="image/*,video/*,.txt,.md,text/plain" onChange={handleAttachInputAsset} />
         <div 
             ref={containerRef}
             className={`flex-1 w-full h-full relative grid-pattern select-none ${dragMode === 'PAN' ? 'cursor-grabbing' : 'cursor-grab'}`}
@@ -1557,9 +1679,10 @@ const CanvasWithSidebar: React.FC = () => {
                     const isSelected = selectedConnectionId === conn.id;
                     
                     // 连接线颜色
-                    const lineColor = isSelected ? "#3b82f6" : (isDark ? "#6b7280" : "#9ca3af");
+                    const lineColor = isSelected ? "#3b82f6" : (isDark ? "#475569" : "#8b5cf6");
                     const gradientId = `connection-gradient-${conn.id.replace(/[^a-zA-Z0-9_-]/g, '-')}`;
-                    const gradientAccent = isSelected ? "#93c5fd" : (isDark ? "#f8fafc" : "#2563eb");
+                    const gradientAccent = isSelected ? "#c084fc" : (isDark ? "#22d3ee" : "#2563eb");
+                    const gradientAccentAlt = isDark ? "#a855f7" : "#7c3aed";
                     
                     // 计算贝塞尔曲线上 t=0.5 的实际中点位置
                     const t = 0.5;
@@ -1594,16 +1717,16 @@ const CanvasWithSidebar: React.FC = () => {
                                     gradientUnits="userSpaceOnUse"
                                 >
                                     <stop offset="0%" stopColor={lineColor} stopOpacity="0.65" />
-                                    <stop offset="45%" stopColor={lineColor} stopOpacity="0.9" />
+                                    <stop offset="38%" stopColor={gradientAccentAlt} stopOpacity="0.92" />
                                     <stop offset="50%" stopColor={gradientAccent} stopOpacity="1" />
-                                    <stop offset="55%" stopColor={lineColor} stopOpacity="0.9" />
+                                    <stop offset="62%" stopColor={gradientAccentAlt} stopOpacity="0.92" />
                                     <stop offset="100%" stopColor={lineColor} stopOpacity="0.65" />
                                     <animateTransform
                                         attributeName="gradientTransform"
                                         type="translate"
                                         from={`${-svgWidth} 0`}
                                         to={`${svgWidth} 0`}
-                                        dur="1.8s"
+                                        dur="1.05s"
                                         repeatCount="indefinite"
                                     />
                                 </linearGradient>
@@ -1748,6 +1871,7 @@ const CanvasWithSidebar: React.FC = () => {
                         onConnectStart={(e, type) => handleConnectStart(e, node.id, type)}
                         onPortMouseUp={handlePortMouseUp}
                         onResizeStart={(e) => handleResizeStart(e, node.id)}
+                        onAttachInput={triggerAttachInput}
                         scale={transform.k}
                         isDark={isDark}
                     >
@@ -1759,6 +1883,7 @@ const CanvasWithSidebar: React.FC = () => {
                             showControls={selectedNodeIds.size === 1}
                             inputs={getInputImages(node.id)}
                             inputMedia={getInputMedia(node.id)}
+                            onPreviewReference={handlePreviewReference}
                             onMaximize={handleMaximize}
                             onDownload={handleDownload}
                             onUpload={triggerReplaceImage}
@@ -1904,6 +2029,20 @@ const CanvasWithSidebar: React.FC = () => {
                     <div className="relative max-w-[90vw] max-h-[90vh] bg-black rounded-lg shadow-2xl overflow-hidden border border-zinc-700" onClick={(e) => e.stopPropagation()}>
                          <button className="absolute top-2 right-2 bg-black/50 text-white p-2 rounded-full hover:bg-red-500 transition-colors z-10" onClick={() => setPreviewMedia(null)}><Icons.X size={20} /></button>
                          {previewMedia.type === 'video' ? <video src={previewMedia.url} controls autoPlay className="max-w-full max-h-[90vh]" /> : <img src={previewMedia.url} alt="Preview" className="max-w-full max-h-[90vh] object-contain" />}
+                    </div>
+                </div>
+            )}
+            {previewText && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md animate-in fade-in duration-200" onClick={() => setPreviewText(null)}>
+                    <div className={`relative w-[min(760px,92vw)] max-h-[86vh] rounded-2xl shadow-2xl border overflow-hidden ${isDark ? 'bg-[#18181b] border-zinc-700 text-zinc-100' : 'bg-white border-gray-200 text-gray-900'}`} onClick={(e) => e.stopPropagation()}>
+                        <div className={`h-14 px-5 flex items-center justify-between border-b ${isDark ? 'border-zinc-800' : 'border-gray-100'}`}>
+                            <div className="flex items-center gap-2 min-w-0">
+                                <Icons.FileText size={18} />
+                                <span className="font-semibold truncate">{previewText.title}</span>
+                            </div>
+                            <button className={`w-9 h-9 rounded-full flex items-center justify-center ${isDark ? 'hover:bg-zinc-800 text-zinc-400 hover:text-white' : 'hover:bg-gray-100 text-gray-500 hover:text-gray-900'}`} onClick={() => setPreviewText(null)}><Icons.X size={20} /></button>
+                        </div>
+                        <pre className={`max-h-[calc(86vh-56px)] overflow-auto whitespace-pre-wrap break-words p-5 text-sm leading-7 ${isDark ? 'text-zinc-200' : 'text-gray-700'}`}>{previewText.text}</pre>
                     </div>
                 </div>
             )}

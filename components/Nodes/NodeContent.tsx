@@ -20,6 +20,7 @@ interface NodeContentProps {
   onMultiAngle?: (nodeId: string, options: MultiAngleOptions) => void;
   onAnalyzeMedia?: (nodeId: string) => void;
   onAnalyzeScript?: (nodeId: string) => void;
+  onPreviewReference?: (item: InputMedia) => void;
   isSelecting?: boolean;
   onDelete?: (id: string) => void;
   isDark?: boolean;

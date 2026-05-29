@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { NodeData } from '../../types';
+import { InputMedia, NodeData } from '../../types';
 import { Icons } from '../Icons';
-import { LocalCustomDropdown } from './Shared/LocalNodeComponents';
+import { LocalCustomDropdown, LocalInputThumbnails } from './Shared/LocalNodeComponents';
 
 interface CreativeDescNodeProps {
   data: NodeData;
@@ -9,17 +9,18 @@ interface CreativeDescNodeProps {
   onGenerate: (id: string) => void;
   onAnalyzeMedia?: (id: string) => void;
   onAnalyzeScript?: (id: string) => void;
+  onPreviewReference?: (item: InputMedia) => void;
   selected?: boolean;
   showControls?: boolean;
   isDark?: boolean;
   isSelecting?: boolean;
-  inputMedia?: { type: 'image' | 'video'; url: string }[];
+  inputMedia?: InputMedia[];
 }
 
 const TEXT_MODELS = ['Xiaomi MiMo 2.5 Pro', 'Xiaomi MiMo 2.5', 'Prompt Helper'];
 
 export const CreativeDescNode: React.FC<CreativeDescNodeProps> = ({
-    data, updateData, onGenerate, onAnalyzeMedia, onAnalyzeScript, selected, showControls, isDark = true, isSelecting, inputMedia = []
+    data, updateData, onGenerate, onAnalyzeMedia, onAnalyzeScript, onPreviewReference, selected, showControls, isDark = true, isSelecting, inputMedia = []
 }) => {
     const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
     const [isEditingBody, setIsEditingBody] = useState(false);
@@ -36,6 +37,7 @@ export const CreativeDescNode: React.FC<CreativeDescNodeProps> = ({
         ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white'
         : 'border-gray-200 text-gray-600 hover:bg-gray-100 hover:text-gray-900';
     const disabledButton = 'opacity-45 cursor-not-allowed hover:bg-transparent';
+    const mediaInputCount = inputMedia.filter(item => item.type === 'image' || item.type === 'video').length;
 
     useEffect(() => {
         if (isEditingBody) {
@@ -101,6 +103,7 @@ export const CreativeDescNode: React.FC<CreativeDescNodeProps> = ({
 
             {isSelectedAndStable && (
                 <div className="absolute top-full left-1/2 -translate-x-1/2 min-w-[760px] pt-7 z-[70] pointer-events-auto" onMouseDown={(event) => event.stopPropagation()}>
+                    {inputMedia.length > 0 && <LocalInputThumbnails inputs={[]} items={inputMedia} ready={true} isDark={isDark} label="参考内容" onPreview={onPreviewReference} />}
                     <div className={`${panelBg} rounded-[22px] border p-4 flex flex-col gap-4`}>
                         <textarea
                             className={`w-full min-h-[96px] resize-none bg-transparent text-base leading-relaxed outline-none no-scrollbar ${inputText}`}
@@ -123,9 +126,9 @@ export const CreativeDescNode: React.FC<CreativeDescNodeProps> = ({
                             />
                             <button
                                 onClick={() => onAnalyzeMedia?.(data.id)}
-                                disabled={data.isLoading || inputMedia.length === 0}
-                                className={`h-8 px-3 rounded-lg border text-xs font-medium flex items-center gap-2 transition-colors ${actionButton} ${inputMedia.length === 0 ? disabledButton : ''}`}
-                                title={inputMedia.length === 0 ? '连接图片或视频节点后可分析' : '分析前置图片/视频并生成复刻提示词或分镜表'}
+                                disabled={data.isLoading || mediaInputCount === 0}
+                                className={`h-8 px-3 rounded-lg border text-xs font-medium flex items-center gap-2 transition-colors ${actionButton} ${mediaInputCount === 0 ? disabledButton : ''}`}
+                                title={mediaInputCount === 0 ? '连接图片或视频节点后可分析' : '分析前置图片/视频并生成复刻提示词或分镜表'}
                             >
                                 <Icons.Scan size={14} />
                                 分析图片/视频

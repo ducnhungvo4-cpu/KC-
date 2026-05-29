@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { NodeData } from '../../types';
+import { InputMedia, NodeData } from '../../types';
 import { Icons } from '../Icons';
 import { getModelConfig, MODEL_REGISTRY, getVisibleModels } from '../../services/geminiService';
 import { VIDEO_HANDLERS } from '../../services/mode/video/configurations';
@@ -14,6 +14,8 @@ interface TextToVideoNodeProps {
   selected?: boolean;
   showControls?: boolean;
   inputs?: string[];
+  inputMedia?: InputMedia[];
+  onPreviewReference?: (item: InputMedia) => void;
   onMaximize?: (id: string) => void;
   onDownload?: (id: string) => void;
   isDark?: boolean;
@@ -21,7 +23,7 @@ interface TextToVideoNodeProps {
 }
 
 export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
-    data, updateData, onGenerate, selected, showControls, inputs = [], onMaximize, onDownload, isDark = true, isSelecting
+    data, updateData, onGenerate, selected, showControls, inputs = [], inputMedia = [], onPreviewReference, onMaximize, onDownload, isDark = true, isSelecting
 }) => {
     const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
     const [deferredInputs, setDeferredInputs] = useState(false);
@@ -218,7 +220,7 @@ export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
         {/* Control Panel */}
         {isSelectedAndStable && showControls && (
           <div className="absolute top-full left-1/2 -translate-x-1/2 min-w-[580px] pt-4 z-[70] pointer-events-auto" onMouseDown={(e) => e.stopPropagation()}>
-               {inputs.length > 0 && <LocalInputThumbnails inputs={inputs} ready={deferredInputs} isDark={isDark} />}
+               {inputMedia.length > 0 && <LocalInputThumbnails inputs={inputs} items={inputMedia} ready={deferredInputs} isDark={isDark} onPreview={onPreviewReference} />}
               <div className={`${controlPanelBg} rounded-2xl p-4 flex flex-col gap-3 border`}>
                   {/* Prompt Input */}
                   <textarea 

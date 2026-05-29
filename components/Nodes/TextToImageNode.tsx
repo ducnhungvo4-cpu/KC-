@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { MultiAngleOptions, NodeData } from '../../types';
+import { InputMedia, MultiAngleOptions, NodeData } from '../../types';
 import { Icons } from '../Icons';
 import { getModelConfig, MODEL_REGISTRY, getVisibleModels } from '../../services/geminiService';
 import { IMAGE_HANDLERS } from '../../services/mode/image/configurations';
@@ -13,6 +13,8 @@ interface TextToImageNodeProps {
   selected?: boolean;
   showControls?: boolean;
   inputs?: string[];
+  inputMedia?: InputMedia[];
+  onPreviewReference?: (item: InputMedia) => void;
   onMaximize?: (id: string) => void;
   onDownload?: (id: string) => void;
   onCrop?: (id: string) => void;
@@ -22,7 +24,7 @@ interface TextToImageNodeProps {
 }
 
 export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
-    data, updateData, onGenerate, selected, showControls, inputs = [], onMaximize, onDownload, onCrop, onMultiAngle, isDark = true, isSelecting
+    data, updateData, onGenerate, selected, showControls, inputs = [], inputMedia = [], onPreviewReference, onMaximize, onDownload, onCrop, onMultiAngle, isDark = true, isSelecting
 }) => {
     const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
     const [deferredInputs, setDeferredInputs] = useState(false);
@@ -213,7 +215,7 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
         {/* Control Panel */}
         {isSelectedAndStable && showControls && (
             <div className="absolute top-full left-1/2 -translate-x-1/2 min-w-[520px] pt-4 z-[70] pointer-events-auto" onMouseDown={(e) => e.stopPropagation()}>
-                 {inputs.length > 0 && <LocalInputThumbnails inputs={inputs} ready={deferredInputs} isDark={isDark} />}
+                 {inputMedia.length > 0 && <LocalInputThumbnails inputs={inputs} items={inputMedia} ready={deferredInputs} isDark={isDark} onPreview={onPreviewReference} />}
                  <div className={`${controlPanelBg} rounded-2xl p-4 flex flex-col gap-3 border`}>
                       {/* Prompt Input */}
                       <textarea 
