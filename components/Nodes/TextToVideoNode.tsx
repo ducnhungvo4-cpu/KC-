@@ -154,10 +154,23 @@ export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
     const emptyStateIconColor = isDark ? 'bg-zinc-800/50 text-zinc-500' : 'bg-gray-100 text-gray-400';
     const emptyStateTextColor = isDark ? 'text-zinc-500' : 'text-gray-400';
     const hasResult = !!data.videoSrc && !data.isLoading;
+    const hasShotContext = Boolean(data.shotId);
+    const shotLabel = hasShotContext
+        ? `第${data.episodeNo || '-'}集 / 第${data.sceneNo || '-'}场 / 分镜${String(data.shotNo || '-').padStart(2, '0')}`
+        : '';
 
     return (
       <>
         <div className={`w-full h-full relative rounded-2xl border ${containerBorder} ${containerBg} ${data.isStackOpen ? 'overflow-visible' : 'overflow-hidden'} shadow-xl group transition-all duration-200`}>
+            {hasShotContext && (
+                <div className={`absolute left-3 top-3 z-10 max-w-[calc(100%-24px)] rounded-xl border px-3 py-2 shadow-lg backdrop-blur-md pointer-events-none ${isDark ? 'bg-black/45 border-white/10 text-zinc-100' : 'bg-white/85 border-gray-200 text-gray-800'}`}>
+                    <div className="flex items-center gap-1.5 text-[11px] font-semibold">
+                        <Icons.Clapperboard size={13} />
+                        <span className="truncate">{shotLabel}</span>
+                    </div>
+                    <div className={`mt-0.5 text-[10px] truncate ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>{data.shotId}</div>
+                </div>
+            )}
             {hasResult ? (
                  <>
                      <LocalMediaStack data={data} updateData={updateData} currentSrc={data.videoSrc} onMaximize={onMaximize} isDark={isDark} selected={selected} />
@@ -196,8 +209,10 @@ export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
                     <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-4 ${emptyStateIconColor}`}>
                         <Icons.Film size={28} className="opacity-60"/>
                     </div>
-                    <span className="text-sm font-medium opacity-60">生视频</span>
-                    <span className="text-xs opacity-40 mt-1">选中节点开始创作</span>
+                    <span className="text-sm font-medium opacity-70">{hasShotContext ? data.shotName || data.title : '生视频'}</span>
+                    <span className="text-xs opacity-45 mt-1 px-8 text-center line-clamp-2">
+                        {hasShotContext ? data.shotDescription : '选中节点开始创作'}
+                    </span>
                 </div>
             )}
             
@@ -245,6 +260,32 @@ export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
           <div className="absolute top-full left-1/2 min-w-[580px] pt-4 z-[70] pointer-events-auto" style={panelTransform} onMouseDown={(e) => e.stopPropagation()}>
                {inputMedia.length > 0 && <LocalInputThumbnails inputs={inputs} items={inputMedia} ready={deferredInputs} isDark={isDark} onPreview={onPreviewReference} />}
               <div className={`${controlPanelBg} rounded-2xl p-4 flex flex-col gap-3 border`}>
+                  {hasShotContext && (
+                      <div className={`rounded-xl border px-3 py-2.5 ${isDark ? 'bg-zinc-900/70 border-zinc-800' : 'bg-gray-50 border-gray-200'}`}>
+                          <div className="flex items-center justify-between gap-3">
+                              <div className="min-w-0">
+                                  <div className={`text-xs font-semibold flex items-center gap-1.5 ${isDark ? 'text-zinc-100' : 'text-gray-900'}`}>
+                                      <Icons.Clapperboard size={14} />
+                                      <span className="truncate">{shotLabel}</span>
+                                  </div>
+                                  <div className={`mt-1 text-[11px] truncate ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>
+                                      {data.shotDescription || '已从线性分镜页带入，可继续在画布中精修。'}
+                                  </div>
+                              </div>
+                              <div className="shrink-0 flex items-center gap-2">
+                                  <span className={`rounded-lg px-2 py-1 text-[11px] font-semibold ${isDark ? 'bg-amber-500/10 text-amber-300' : 'bg-amber-50 text-amber-700'}`}>
+                                      预计 {data.creditEstimate || 0} 积分
+                                  </span>
+                                  <button
+                                      className={`rounded-lg px-2 py-1 text-[11px] font-semibold ${isDark ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'}`}
+                                      onClick={() => alert('原型演示：正式系统会跳回线性系统对应分镜页。')}
+                                  >
+                                      打开线性页
+                                  </button>
+                              </div>
+                          </div>
+                      </div>
+                  )}
                   {/* Prompt Input */}
                   <textarea 
                       className={`w-full border rounded-xl px-4 py-3 text-sm leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-purple-500/20 min-h-[72px] no-scrollbar transition-all ${inputBg}`} 

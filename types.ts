@@ -38,6 +38,22 @@ export interface NodeData {
   // Creative Desc specific
   optimizedPrompt?: string;
 
+  // Project / linear shot context. These fields are optional so existing nodes
+  // keep working unchanged; video nodes can carry shot data when imported from the linear pipeline.
+  projectId?: string;
+  directorGroupName?: string;
+  source?: 'canvas' | 'linear_pipeline' | 'asset_library' | 'material_library' | 'local_upload';
+  sourceRefId?: string;
+  shotId?: string;
+  episodeNo?: number;
+  sceneNo?: number;
+  shotNo?: number;
+  shotName?: string;
+  shotDescription?: string;
+  linearPageUrl?: string;
+  creditEstimate?: number;
+  creditStatus?: 'idle' | 'estimated' | 'reserved' | 'confirmed' | 'failed' | 'refunded';
+
   // UI State
   activeToolbarItem?: string;
 }

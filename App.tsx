@@ -22,6 +22,31 @@ const IMAGE_NODE_BASE_SIZE = 400;
 const VIDEO_NODE_BASE_HEIGHT = 400;
 const IMAGE_ASPECT_RATIOS = ['1:1', '3:4', '4:3', '9:16', '16:9'];
 const VIDEO_ASPECT_RATIOS = ['1:1', '3:4', '4:3', '9:16', '16:9', '21:9', '9:21'];
+const DEMO_PROJECT_META = {
+    id: 'KC-DRAMA-001',
+    name: '《隐秘回响》',
+    directorGroup: 'A组导演组',
+    lastSavedAt: '刚刚已保存',
+};
+
+const DEMO_LINEAR_SHOT = {
+    projectId: DEMO_PROJECT_META.id,
+    directorGroupName: DEMO_PROJECT_META.directorGroup,
+    shotId: 'shot_ep01_sc02_003',
+    episodeNo: 1,
+    sceneNo: 2,
+    shotNo: 3,
+    shotName: '第1集 第2场 分镜03',
+    shotDescription: '男主推门进入废弃仓库，看到远处闪烁的蓝色光源，镜头从背后缓慢推近。',
+    prompt: '废弃仓库内，男主推门进入，远处蓝色光源闪烁，低角度跟拍，悬疑短剧质感，冷色调，细节清晰，电影感灯光。',
+    model: 'Seedance 1.5 Pro',
+    aspectRatio: '16:9',
+    resolution: '720p',
+    duration: '5s',
+    creditEstimate: 14,
+    creditStatus: 'estimated' as const,
+    linearPageUrl: '#linear-shot-demo',
+};
 
 // 节点媒体类别：正向/反向连接共用同一套合法性校验规则。
 type MediaCategory = 'image' | 'video' | 'text';
@@ -109,7 +134,7 @@ const CanvasWithSidebar: React.FC = () => {
   const [showNewWorkflowDialog, setShowNewWorkflowDialog] = useState(false);
   
   // Project Name State
-  const [projectName, setProjectName] = useState('KC画布 MVP 试用项目');
+  const [projectName, setProjectName] = useState(`${DEMO_PROJECT_META.name} 无限画布`);
   const [isEditingProjectName, setIsEditingProjectName] = useState(false);
   
   const [isStorageOpen, setIsStorageOpen] = useState(false);
@@ -441,6 +466,7 @@ const CanvasWithSidebar: React.FC = () => {
     const isVideoType = type === NodeType.TEXT_TO_VIDEO;
     
     const newNode: NodeData = {
+      ...dataOverride,
       id: generateId(),
       type,
       x,
@@ -532,6 +558,63 @@ const CanvasWithSidebar: React.FC = () => {
       setNodes(prev => [...prev, newNode]);
       setConnections(prev => [...prev, newConnection]);
       setQuickAddMenu(null);
+  };
+
+  const focusNodeInViewport = (node: NodeData) => {
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      setTransform({
+          x: rect.width / 2 - (node.x + node.width / 2) * transform.k,
+          y: rect.height / 2 - (node.y + node.height / 2) * transform.k,
+          k: transform.k,
+      });
+  };
+
+  const handleImportDemoShot = () => {
+      const existing = nodes.find(node => node.shotId === DEMO_LINEAR_SHOT.shotId);
+      if (existing) {
+          setSelectedNodeIds(new Set([existing.id]));
+          focusNodeInViewport(existing);
+          return;
+      }
+
+      const width = 400 * (16 / 9);
+      const height = 400;
+      const rect = containerRef.current?.getBoundingClientRect();
+      const center = rect ? screenToWorld(rect.width / 2, rect.height / 2) : { x: 0, y: 0 };
+      const newNode: NodeData = {
+          id: generateId(),
+          type: NodeType.TEXT_TO_VIDEO,
+          x: center.x - width / 2,
+          y: center.y - height / 2,
+          width,
+          height,
+          title: DEMO_LINEAR_SHOT.shotName,
+          prompt: DEMO_LINEAR_SHOT.prompt,
+          aspectRatio: DEMO_LINEAR_SHOT.aspectRatio,
+          model: DEMO_LINEAR_SHOT.model,
+          resolution: DEMO_LINEAR_SHOT.resolution,
+          duration: DEMO_LINEAR_SHOT.duration,
+          count: 1,
+          outputArtifacts: [],
+          source: 'linear_pipeline',
+          sourceRefId: DEMO_LINEAR_SHOT.shotId,
+          projectId: DEMO_LINEAR_SHOT.projectId,
+          directorGroupName: DEMO_LINEAR_SHOT.directorGroupName,
+          shotId: DEMO_LINEAR_SHOT.shotId,
+          episodeNo: DEMO_LINEAR_SHOT.episodeNo,
+          sceneNo: DEMO_LINEAR_SHOT.sceneNo,
+          shotNo: DEMO_LINEAR_SHOT.shotNo,
+          shotName: DEMO_LINEAR_SHOT.shotName,
+          shotDescription: DEMO_LINEAR_SHOT.shotDescription,
+          linearPageUrl: DEMO_LINEAR_SHOT.linearPageUrl,
+          creditEstimate: DEMO_LINEAR_SHOT.creditEstimate,
+          creditStatus: DEMO_LINEAR_SHOT.creditStatus,
+      };
+
+      setProjectName(`${DEMO_PROJECT_META.name} 无限画布`);
+      setNodes(prev => [...prev, newNode]);
+      setSelectedNodeIds(new Set([newNode.id]));
   };
 
   const handlePaste = useCallback(async (e: ClipboardEvent) => {
@@ -959,7 +1042,7 @@ const CanvasWithSidebar: React.FC = () => {
                           type: NodeType.TEXT_TO_VIDEO,
                           videoSrc: url,
                           imageSrc: undefined,
-                          title: file.name,
+                          title: node.shotId ? node.title : file.name,
                           width: nodeSize.width,
                           height: nodeSize.height,
                           aspectRatio,
@@ -987,7 +1070,7 @@ const CanvasWithSidebar: React.FC = () => {
                             type: NodeType.TEXT_TO_IMAGE,
                             imageSrc: src,
                             videoSrc: undefined,
-                            title: file.name || node.title,
+                            title: node.shotId ? node.title : (file.name || node.title),
                             width, height,
                             aspectRatio,
                             model: node.model || 'Seedream 5.0',
@@ -1050,7 +1133,7 @@ const CanvasWithSidebar: React.FC = () => {
                       type: NodeType.TEXT_TO_IMAGE,
                       width,
                       height,
-                      title: baseTitle,
+                      title: target.shotId ? target.title : baseTitle,
                       imageSrc: src,
                       videoSrc: undefined,
                       aspectRatio,
@@ -1077,7 +1160,7 @@ const CanvasWithSidebar: React.FC = () => {
                   type: NodeType.TEXT_TO_VIDEO,
                   width,
                   height,
-                  title: baseTitle,
+                  title: target.shotId ? target.title : baseTitle,
                   videoSrc: url,
                   imageSrc: undefined,
                   aspectRatio,
@@ -1098,7 +1181,7 @@ const CanvasWithSidebar: React.FC = () => {
               const text = String(event.target?.result || '');
               updateNodeData(targetId, {
                   type: target.type === NodeType.CREATIVE_DESC ? NodeType.CREATIVE_DESC : target.type,
-                  title: baseTitle,
+                  title: target.shotId ? target.title : baseTitle,
                   prompt: text,
                   optimizedPrompt: target.type === NodeType.CREATIVE_DESC ? text : target.optimizedPrompt,
               });
@@ -1133,7 +1216,7 @@ const CanvasWithSidebar: React.FC = () => {
     setNodes([]);
     setConnections([]);
     setTransform({ x: 0, y: 0, k: 1 });
-    setProjectName('KC画布 MVP 试用项目');
+    setProjectName(`${DEMO_PROJECT_META.name} 无限画布`);
     setShowNewWorkflowDialog(false);
     setSelectedNodeIds(new Set());
     setSelectionBox(null);
@@ -1977,45 +2060,66 @@ const CanvasWithSidebar: React.FC = () => {
             
             {/* Top Left Project Name */}
             <div className="absolute top-4 left-4 z-50">
-                <div className={`flex items-center gap-2.5 px-2 py-1.5 rounded-2xl backdrop-blur-xl border transition-all duration-300 ${
+                <div className={`flex items-center gap-3 px-2.5 py-2 rounded-2xl backdrop-blur-xl border transition-all duration-300 ${
                     isDark 
                         ? 'bg-[#18181b]/90 border-zinc-800 shadow-xl' 
                         : 'bg-white/90 border-gray-200 shadow-lg'
                 }`}>
                     {/* Logo */}
-                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
                         isDark ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-100 text-blue-600'
                     }`}>
                         <Icons.Sparkles size={16} />
                     </div>
                     
-                    {/* Project Name */}
-                    {isEditingProjectName ? (
-                        <input
-                            type="text"
-                            value={projectName}
-                            onChange={(e) => setProjectName(e.target.value)}
-                            onBlur={() => setIsEditingProjectName(false)}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter') setIsEditingProjectName(false);
-                                if (e.key === 'Escape') setIsEditingProjectName(false);
-                            }}
-                            autoFocus
-                            className={`w-36 px-2 py-1 rounded-lg text-sm font-medium border-0 outline-none bg-transparent ${
-                                isDark ? 'text-white' : 'text-gray-900'
-                            }`}
-                            placeholder="项目名称..."
-                        />
-                    ) : (
-                        <button
-                            onClick={() => setIsEditingProjectName(true)}
-                            className={`text-sm font-medium max-w-[140px] truncate transition-colors ${
-                                isDark ? 'text-gray-200 hover:text-white' : 'text-gray-800 hover:text-black'
-                            }`}
-                        >
-                            {projectName}
-                        </button>
-                    )}
+                    <div className="min-w-0">
+                        {isEditingProjectName ? (
+                            <input
+                                type="text"
+                                value={projectName}
+                                onChange={(e) => setProjectName(e.target.value)}
+                                onBlur={() => setIsEditingProjectName(false)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') setIsEditingProjectName(false);
+                                    if (e.key === 'Escape') setIsEditingProjectName(false);
+                                }}
+                                autoFocus
+                                className={`w-48 px-2 py-1 rounded-lg text-sm font-medium border-0 outline-none bg-transparent ${
+                                    isDark ? 'text-white' : 'text-gray-900'
+                                }`}
+                                placeholder="项目名称..."
+                            />
+                        ) : (
+                            <button
+                                onClick={() => setIsEditingProjectName(true)}
+                                className={`block text-left text-sm font-semibold max-w-[220px] truncate transition-colors ${
+                                    isDark ? 'text-gray-100 hover:text-white' : 'text-gray-900 hover:text-black'
+                                }`}
+                            >
+                                {projectName}
+                            </button>
+                        )}
+                        <div className={`mt-0.5 flex items-center gap-2 text-[10px] whitespace-nowrap ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>
+                            <span>{DEMO_PROJECT_META.id}</span>
+                            <span className={`w-1 h-1 rounded-full ${isDark ? 'bg-zinc-700' : 'bg-gray-300'}`} />
+                            <span>{DEMO_PROJECT_META.directorGroup}</span>
+                            <span className={`w-1 h-1 rounded-full ${isDark ? 'bg-zinc-700' : 'bg-gray-300'}`} />
+                            <span>{DEMO_PROJECT_META.lastSavedAt}</span>
+                        </div>
+                    </div>
+
+                    <button
+                        onClick={handleImportDemoShot}
+                        className={`h-8 px-3 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all border ${
+                            isDark
+                                ? 'bg-blue-500/10 border-blue-500/20 text-blue-300 hover:bg-blue-500/20 hover:text-blue-100'
+                                : 'bg-blue-50 border-blue-100 text-blue-600 hover:bg-blue-100'
+                        }`}
+                        title="模拟从线性分镜页带入当前画布"
+                    >
+                        <Icons.Clapperboard size={14} />
+                        <span>导入分镜</span>
+                    </button>
                 </div>
             </div>
 
