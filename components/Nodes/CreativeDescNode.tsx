@@ -39,6 +39,13 @@ export const CreativeDescNode: React.FC<CreativeDescNodeProps> = ({
         : 'border-gray-200 text-gray-600 hover:bg-gray-100 hover:text-gray-900';
     const disabledButton = 'opacity-45 cursor-not-allowed hover:bg-transparent';
     const mediaInputCount = inputMedia.filter(item => item.type === 'image' || item.type === 'video').length;
+    const creditLabel = data.creditStatus === 'reserved'
+        ? '已预扣'
+        : data.creditStatus === 'confirmed'
+            ? '已扣减'
+            : data.creditStatus === 'refunded'
+                ? '已返还'
+                : '预计';
     const panelScale = 1 / Math.max(canvasScale, 0.1);
     const panelTransform: React.CSSProperties = {
         transform: `translateX(-50%) scale(${panelScale})`,
@@ -149,6 +156,17 @@ export const CreativeDescNode: React.FC<CreativeDescNodeProps> = ({
                                 剧本角色表
                             </button>
                             <div className="flex-1" />
+                            <div className={`hidden sm:flex h-8 items-center rounded-lg border px-2.5 text-[11px] font-semibold ${
+                                data.creditStatus === 'confirmed'
+                                    ? (isDark ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300' : 'border-emerald-100 bg-emerald-50 text-emerald-700')
+                                    : data.creditStatus === 'reserved'
+                                        ? (isDark ? 'border-blue-500/20 bg-blue-500/10 text-blue-300' : 'border-blue-100 bg-blue-50 text-blue-700')
+                                        : data.creditStatus === 'refunded'
+                                            ? (isDark ? 'border-zinc-700 bg-zinc-800 text-zinc-300' : 'border-gray-200 bg-gray-50 text-gray-600')
+                                            : (isDark ? 'border-zinc-700 bg-zinc-900/60 text-zinc-400' : 'border-gray-200 bg-gray-50 text-gray-500')
+                            }`}>
+                                {creditLabel} {data.creditEstimate || 1} 积分
+                            </div>
                             <button
                                 className={`w-8 h-8 rounded-lg flex items-center justify-center ${isDark ? 'text-zinc-300 hover:bg-zinc-800' : 'text-gray-500 hover:bg-gray-100'}`}
                                 title="语音输入"

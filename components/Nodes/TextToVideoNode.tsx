@@ -158,6 +158,13 @@ export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
     const shotLabel = hasShotContext
         ? `第${data.episodeNo || '-'}集 / 第${data.sceneNo || '-'}场 / 分镜${String(data.shotNo || '-').padStart(2, '0')}`
         : '';
+    const creditLabel = data.creditStatus === 'reserved'
+        ? '已预扣'
+        : data.creditStatus === 'confirmed'
+            ? '已扣减'
+            : data.creditStatus === 'refunded'
+                ? '已返还'
+                : '预计';
 
     return (
       <>
@@ -274,7 +281,7 @@ export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
                               </div>
                               <div className="shrink-0 flex items-center gap-2">
                                   <span className={`rounded-lg px-2 py-1 text-[11px] font-semibold ${isDark ? 'bg-amber-500/10 text-amber-300' : 'bg-amber-50 text-amber-700'}`}>
-                                      预计 {data.creditEstimate || 0} 积分
+                                      {creditLabel} {data.creditEstimate || 0} 积分
                                   </span>
                                   <button
                                       className={`rounded-lg px-2 py-1 text-[11px] font-semibold ${isDark ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'}`}
@@ -330,6 +337,18 @@ export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
                        
                        {/* Spacer */}
                        <div className="flex-1" />
+
+                       <div className={`hidden sm:flex h-8 items-center rounded-lg border px-2.5 text-[11px] font-semibold ${
+                           data.creditStatus === 'confirmed'
+                               ? (isDark ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300' : 'border-emerald-100 bg-emerald-50 text-emerald-700')
+                               : data.creditStatus === 'reserved'
+                                   ? (isDark ? 'border-blue-500/20 bg-blue-500/10 text-blue-300' : 'border-blue-100 bg-blue-50 text-blue-700')
+                                   : data.creditStatus === 'refunded'
+                                       ? (isDark ? 'border-zinc-700 bg-zinc-800 text-zinc-300' : 'border-gray-200 bg-gray-50 text-gray-600')
+                                       : (isDark ? 'border-zinc-700 bg-zinc-900/60 text-zinc-400' : 'border-gray-200 bg-gray-50 text-gray-500')
+                       }`}>
+                           {creditLabel} {data.creditEstimate || 14} 积分
+                       </div>
                        
                        {/* Generate Button */}
                        <button 

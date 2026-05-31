@@ -58,6 +58,18 @@ export interface NodeData {
   activeToolbarItem?: string;
 }
 
+export type AssetLibraryType = 'role' | 'scene' | 'prop';
+
+export interface AssetLibraryItem {
+  id: string;
+  type: AssetLibraryType;
+  name: string;
+  version: string;
+  updatedAt: string;
+  previewUrl: string;
+  description: string;
+}
+
 export interface MultiAngleOptions {
   angles: string[];
   prompt?: string;

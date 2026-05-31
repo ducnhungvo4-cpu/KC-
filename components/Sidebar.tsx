@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, memo, useMemo } from 'react';
 import { Icons } from './Icons';
-import { NodeType, NodeData } from '../types';
+import { AssetLibraryItem, AssetLibraryType, NodeType, NodeData } from '../types';
 
 interface SidebarProps {
   onAddNode: (type: NodeType) => void;
@@ -12,10 +12,12 @@ interface SidebarProps {
   onSaveAsset: (url: string, type: 'image' | 'video', title: string) => void;
   onCopyAsset: (url: string, type: 'image' | 'video') => void;
   onDeleteAsset: (nodeId: string, url: string, type: 'image' | 'video') => void;
+  assetLibrary: AssetLibraryItem[];
+  onAddAssetToCanvas: (asset: AssetLibraryItem) => void;
   isDark?: boolean;
 }
 
-type ActivePanel = 'ADD' | 'HISTORY' | 'ASSETS' | 'PROJECT' | null;
+type ActivePanel = 'ADD' | 'HISTORY' | 'ASSET_LIBRARY' | 'ASSETS' | 'PROJECT' | null;
 type AssetItem = {
     id: string;
     nodeId: string;
@@ -77,10 +79,14 @@ const Sidebar: React.FC<SidebarProps> = ({
   onSaveAsset,
   onCopyAsset,
   onDeleteAsset,
+  assetLibrary,
+  onAddAssetToCanvas,
   isDark = true
 }) => {
   const [activePanel, setActivePanel] = useState<ActivePanel>(null);
   const [historyTab, setHistoryTab] = useState<'image' | 'video'>('image');
+  const [assetTab, setAssetTab] = useState<AssetLibraryType | 'all'>('all');
+  const [assetSearch, setAssetSearch] = useState('');
   const [assetMenu, setAssetMenu] = useState<{ x: number; y: number; item: AssetItem } | null>(null);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -127,6 +133,15 @@ const Sidebar: React.FC<SidebarProps> = ({
       });
       return Array.from(map.values());
   }, [uniqueNodes]);
+
+  const filteredAssetLibrary = useMemo(() => {
+      const keyword = assetSearch.trim().toLowerCase();
+      return assetLibrary.filter(item => {
+          const matchType = assetTab === 'all' || item.type === assetTab;
+          const matchKeyword = !keyword || `${item.name} ${item.description} ${item.version}`.toLowerCase().includes(keyword);
+          return matchType && matchKeyword;
+      });
+  }, [assetLibrary, assetSearch, assetTab]);
 
   // Close panel when clicking outside
   useEffect(() => {
@@ -278,6 +293,107 @@ const Sidebar: React.FC<SidebarProps> = ({
       </button>
     </div>
   );
+
+  const renderAssetLibraryPanel = () => {
+    const tabs: { key: AssetLibraryType | 'all'; label: string }[] = [
+      { key: 'all', label: '全部' },
+      { key: 'role', label: '角色' },
+      { key: 'scene', label: '场景' },
+      { key: 'prop', label: '道具' },
+    ];
+    const typeLabel: Record<AssetLibraryType, string> = {
+      role: '角色',
+      scene: '场景',
+      prop: '道具',
+    };
+
+    return (
+      <div className="h-full flex flex-col gap-3">
+        <div className={`flex items-center gap-2 rounded-xl border px-3 py-2 ${isDark ? 'border-zinc-800 bg-zinc-950/40' : 'border-gray-200 bg-gray-50'}`}>
+          <Icons.Search size={15} className={textMuted} />
+          <input
+            value={assetSearch}
+            onChange={(event) => setAssetSearch(event.target.value)}
+            placeholder="搜索角色、场景、道具"
+            className={`min-w-0 flex-1 bg-transparent text-xs outline-none ${isDark ? 'text-zinc-100 placeholder:text-zinc-600' : 'text-gray-900 placeholder:text-gray-400'}`}
+          />
+        </div>
+
+        <div className="flex gap-1">
+          {tabs.map(tab => (
+            <button
+              key={tab.key}
+              className={`h-8 flex-1 rounded-lg text-xs font-semibold transition-all ${
+                assetTab === tab.key
+                  ? (isDark ? 'bg-blue-500/20 text-blue-300' : 'bg-blue-50 text-blue-600')
+                  : (isDark ? 'text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800')
+              }`}
+              onClick={() => setAssetTab(tab.key)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 space-y-3">
+          {filteredAssetLibrary.length === 0 ? (
+            <div className={`h-full flex flex-col items-center justify-center ${textMuted}`}>
+              <Icons.Database size={28} className="opacity-40" />
+              <p className="mt-3 text-sm font-medium">没有匹配资产</p>
+            </div>
+          ) : (
+            filteredAssetLibrary.map(asset => (
+              <div
+                key={asset.id}
+                draggable
+                onDragStart={(event) => {
+                  event.dataTransfer.setData('application/kc-asset', asset.id);
+                  event.dataTransfer.effectAllowed = 'copy';
+                }}
+                className={`group rounded-2xl border p-2 transition-all cursor-grab active:cursor-grabbing ${
+                  isDark ? 'border-zinc-800 bg-zinc-950/35 hover:border-zinc-700 hover:bg-zinc-900/70' : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
+                }`}
+              >
+                <div className="flex gap-3">
+                  <button
+                    className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl"
+                    onClick={() => onPreviewMedia(asset.previewUrl, 'image')}
+                    title="查看资产预览"
+                  >
+                    <img src={asset.previewUrl} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" decoding="async" />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/15 transition-colors" />
+                  </button>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className={`truncate text-sm font-semibold ${textMain}`}>{asset.name}</span>
+                      <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold ${isDark ? 'bg-zinc-800 text-zinc-300' : 'bg-gray-100 text-gray-600'}`}>{asset.version}</span>
+                    </div>
+                    <div className={`mt-1 flex items-center gap-2 text-[10px] ${textMuted}`}>
+                      <span>{typeLabel[asset.type]}</span>
+                      <span className={`h-1 w-1 rounded-full ${isDark ? 'bg-zinc-700' : 'bg-gray-300'}`} />
+                      <span>{asset.updatedAt}</span>
+                    </div>
+                    <p className={`mt-2 line-clamp-2 text-[11px] leading-4 ${textSub}`}>{asset.description}</p>
+                  </div>
+                </div>
+                <div className="mt-2 flex items-center justify-between">
+                  <span className={`text-[10px] ${textMuted}`}>拖到画布或点击放入</span>
+                  <button
+                    className={`h-7 rounded-lg px-2.5 text-xs font-semibold transition-all ${
+                      isDark ? 'bg-blue-500/15 text-blue-300 hover:bg-blue-500/25' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'
+                    }`}
+                    onClick={() => onAddAssetToCanvas(asset)}
+                  >
+                    放到画布
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    );
+  };
 
   const renderAssetsPanel = () => (
     <div className="h-full flex flex-col">
@@ -431,6 +547,10 @@ const Sidebar: React.FC<SidebarProps> = ({
         title = '项目';
         content = renderProjectPanel();
         break;
+      case 'ASSET_LIBRARY':
+        title = '资产库';
+        content = renderAssetLibraryPanel();
+        break;
       case 'ASSETS':
         title = '素材库';
         content = renderAssetsPanel();
@@ -440,7 +560,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     return (
       <div 
         ref={panelRef}
-        className={`fixed left-[76px] top-1/2 -translate-y-1/2 ${activePanel === 'ASSETS' ? 'w-80 h-[70vh]' : 'w-64 max-h-[80vh]'} ${bgMain} backdrop-blur-xl border ${borderColor} rounded-2xl z-[190] flex flex-col shadow-xl animate-in slide-in-from-left-2 duration-200`}
+        className={`fixed left-[76px] top-1/2 -translate-y-1/2 ${activePanel === 'ASSETS' || activePanel === 'ASSET_LIBRARY' ? 'w-80 h-[70vh]' : 'w-64 max-h-[80vh]'} ${bgMain} backdrop-blur-xl border ${borderColor} rounded-2xl z-[190] flex flex-col shadow-xl animate-in slide-in-from-left-2 duration-200`}
       >
         {/* Panel Header */}
         <div className={`px-4 py-3 border-b ${borderColor} flex items-center justify-between shrink-0`}>
@@ -473,6 +593,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         <div className={`w-8 h-px my-1 ${isDark ? 'bg-zinc-800' : 'bg-gray-200'}`} />
         
         <SidebarButton icon={Icons.Clock} panel="HISTORY" tooltip="生成历史" />
+        <SidebarButton icon={Icons.Database} panel="ASSET_LIBRARY" tooltip="资产库" />
         <SidebarButton icon={Icons.Images} panel="ASSETS" tooltip="素材库" />
         <SidebarButton icon={Icons.Upload} tooltip="导入素材" onClick={onImportAsset} />
         

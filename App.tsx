@@ -1,7 +1,7 @@
 
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import Sidebar from './components/Sidebar';
-import { InputMedia, MultiAngleOptions, NodeData, Connection, CanvasTransform, Point, DragMode, NodeType } from './types';
+import { AssetLibraryItem, InputMedia, MultiAngleOptions, NodeData, Connection, CanvasTransform, Point, DragMode, NodeType } from './types';
 import BaseNode from './components/Nodes/BaseNode';
 import { NodeContent } from './components/Nodes/NodeContent';
 import { Icons } from './components/Icons';
@@ -22,6 +22,72 @@ const IMAGE_NODE_BASE_SIZE = 400;
 const VIDEO_NODE_BASE_HEIGHT = 400;
 const IMAGE_ASPECT_RATIOS = ['1:1', '3:4', '4:3', '9:16', '16:9'];
 const VIDEO_ASPECT_RATIOS = ['1:1', '3:4', '4:3', '9:16', '16:9', '21:9', '9:21'];
+const createDemoAssetPreview = (label: string, accent: string, background: string) => {
+    const svg = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="640" height="480" viewBox="0 0 640 480">
+        <defs>
+          <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+            <stop offset="0%" stop-color="${background}"/>
+            <stop offset="100%" stop-color="#111827"/>
+          </linearGradient>
+        </defs>
+        <rect width="640" height="480" fill="url(#bg)"/>
+        <rect x="52" y="52" width="536" height="376" rx="36" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.24)" stroke-width="2"/>
+        <circle cx="320" cy="198" r="76" fill="${accent}" opacity="0.88"/>
+        <rect x="186" y="298" width="268" height="48" rx="24" fill="rgba(255,255,255,0.14)"/>
+        <text x="320" y="328" text-anchor="middle" fill="#f8fafc" font-size="28" font-family="Arial, sans-serif" font-weight="700">${label}</text>
+      </svg>`;
+    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+};
+
+const DEMO_ASSET_LIBRARY: AssetLibraryItem[] = [
+    {
+        id: 'asset_role_001',
+        type: 'role',
+        name: '男主-陆沉',
+        version: 'v4',
+        updatedAt: '今天 10:24',
+        previewUrl: createDemoAssetPreview('角色 / 陆沉', '#60a5fa', '#172554'),
+        description: '25-30岁，冷静克制，深色外套，短剧男主核心资产。',
+    },
+    {
+        id: 'asset_role_002',
+        type: 'role',
+        name: '女主-林夏',
+        version: 'v3',
+        updatedAt: '昨天 18:10',
+        previewUrl: createDemoAssetPreview('角色 / 林夏', '#f472b6', '#4a044e'),
+        description: '24岁，干练敏感，浅色风衣，主要情绪线角色。',
+    },
+    {
+        id: 'asset_scene_001',
+        type: 'scene',
+        name: '废弃仓库',
+        version: 'v2',
+        updatedAt: '昨天 16:32',
+        previewUrl: createDemoAssetPreview('场景 / 仓库', '#f59e0b', '#422006'),
+        description: '大空间、冷色光、远处蓝色光源，适合悬疑段落。',
+    },
+    {
+        id: 'asset_scene_002',
+        type: 'scene',
+        name: '雨夜街口',
+        version: 'v1',
+        updatedAt: '05-30 21:08',
+        previewUrl: createDemoAssetPreview('场景 / 街口', '#38bdf8', '#082f49'),
+        description: '夜景、湿地反光、霓虹灯，适合追逐和对峙。',
+    },
+    {
+        id: 'asset_prop_001',
+        type: 'prop',
+        name: '蓝色芯片',
+        version: 'v5',
+        updatedAt: '今天 09:40',
+        previewUrl: createDemoAssetPreview('道具 / 芯片', '#34d399', '#064e3b'),
+        description: '核心线索道具，半透明蓝色发光材质。',
+    },
+];
+
 const DEMO_PROJECT_META = {
     id: 'KC-DRAMA-001',
     name: '《隐秘回响》',
@@ -617,6 +683,24 @@ const CanvasWithSidebar: React.FC = () => {
       setSelectedNodeIds(new Set([newNode.id]));
   };
 
+  const handleAddAssetToCanvas = (asset: AssetLibraryItem, position?: Point) => {
+      const { width, height } = getNodeSizeForAspectRatio('4:3', 300);
+      const rect = containerRef.current?.getBoundingClientRect();
+      const center = position || (rect ? screenToWorld(rect.width / 2, rect.height / 2) : { x: 0, y: 0 });
+      addNode(NodeType.ORIGINAL_IMAGE, center.x - width / 2, center.y - height / 2, {
+          width,
+          height,
+          title: asset.name,
+          imageSrc: asset.previewUrl,
+          aspectRatio: '4:3',
+          source: 'asset_library',
+          sourceRefId: asset.id,
+          projectId: DEMO_PROJECT_META.id,
+          directorGroupName: DEMO_PROJECT_META.directorGroup,
+          outputArtifacts: [asset.previewUrl],
+      });
+  };
+
   const handlePaste = useCallback(async (e: ClipboardEvent) => {
     const activeElement = document.activeElement;
     const isInputFocused = activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement;
@@ -775,10 +859,19 @@ const CanvasWithSidebar: React.FC = () => {
     setNodes(prev => prev.map(n => n.id === id ? { ...n, ...updates } : n));
   }, []);
 
+  const getEstimatedCredits = (node: NodeData) => {
+      const count = node.count || 1;
+      if (node.type === NodeType.TEXT_TO_VIDEO || node.type === NodeType.START_END_TO_VIDEO) return 14 * count;
+      if (node.type === NodeType.TEXT_TO_IMAGE) return 2 * count;
+      if (node.type === NodeType.CREATIVE_DESC) return 1;
+      return 0;
+  };
+
   const handleGenerate = async (nodeId: string) => {
     const node = nodes.find(n => n.id === nodeId);
     if (!node) return;
-    updateNodeData(nodeId, { isLoading: true });
+    const creditEstimate = node.creditEstimate || getEstimatedCredits(node);
+    updateNodeData(nodeId, { isLoading: true, creditEstimate, creditStatus: 'reserved' });
     
     const inputs = getInputImages(node.id);
     
@@ -788,7 +881,7 @@ const CanvasWithSidebar: React.FC = () => {
     try {
       if (node.type === NodeType.CREATIVE_DESC) {
         const res = await generateCreativeDescription(node.prompt || '', node.model === 'TEXT_TO_VIDEO' ? 'VIDEO' : 'IMAGE', node.model);
-        updateNodeData(nodeId, { optimizedPrompt: res, isLoading: false });
+        updateNodeData(nodeId, { optimizedPrompt: res, isLoading: false, creditEstimate, creditStatus: 'confirmed' });
       } else {
           let results: string[] = [];
           
@@ -821,7 +914,7 @@ const CanvasWithSidebar: React.FC = () => {
               if (node.videoSrc && !currentArtifacts.includes(node.videoSrc)) currentArtifacts.push(node.videoSrc);
               const newArtifacts = [...results, ...currentArtifacts];
               
-              const updates: Partial<NodeData> = { isLoading: false, outputArtifacts: newArtifacts };
+              const updates: Partial<NodeData> = { isLoading: false, outputArtifacts: newArtifacts, creditEstimate, creditStatus: 'confirmed' };
               
               // Set output based on node type
               if (node.type === NodeType.TEXT_TO_IMAGE) {
@@ -838,7 +931,7 @@ const CanvasWithSidebar: React.FC = () => {
     } catch (e) {
       console.error(e);
       alert(`生成失败: ${(e as Error).message}`);
-      updateNodeData(nodeId, { isLoading: false });
+      updateNodeData(nodeId, { isLoading: false, creditEstimate, creditStatus: 'refunded' });
     }
   };
 
@@ -851,18 +944,21 @@ const CanvasWithSidebar: React.FC = () => {
           return;
       }
 
-      updateNodeData(nodeId, { isLoading: true });
+      const creditEstimate = node.creditEstimate || getEstimatedCredits(node);
+      updateNodeData(nodeId, { isLoading: true, creditEstimate, creditStatus: 'reserved' });
       try {
           const text = await analyzeConnectedMedia(node.prompt || '', inputMedia, node.model);
           updateNodeData(nodeId, {
               optimizedPrompt: text,
               prompt: node.prompt || text,
-              isLoading: false
+              isLoading: false,
+              creditEstimate,
+              creditStatus: 'confirmed'
           });
       } catch (e) {
           console.error(e);
           alert(`分析失败: ${(e as Error).message}`);
-          updateNodeData(nodeId, { isLoading: false });
+          updateNodeData(nodeId, { isLoading: false, creditEstimate, creditStatus: 'refunded' });
       }
   };
 
@@ -874,14 +970,15 @@ const CanvasWithSidebar: React.FC = () => {
           return;
       }
 
-      updateNodeData(nodeId, { isLoading: true });
+      const creditEstimate = node.creditEstimate || getEstimatedCredits(node);
+      updateNodeData(nodeId, { isLoading: true, creditEstimate, creditStatus: 'reserved' });
       try {
           const text = await analyzeScriptAssets(node.prompt, node.model);
-          updateNodeData(nodeId, { optimizedPrompt: text, isLoading: false });
+          updateNodeData(nodeId, { optimizedPrompt: text, isLoading: false, creditEstimate, creditStatus: 'confirmed' });
       } catch (e) {
           console.error(e);
           alert(`剧本分析失败: ${(e as Error).message}`);
-          updateNodeData(nodeId, { isLoading: false });
+          updateNodeData(nodeId, { isLoading: false, creditEstimate, creditStatus: 'refunded' });
       }
   };
 
@@ -1384,6 +1481,12 @@ const CanvasWithSidebar: React.FC = () => {
 
   const handleDrop = (e: React.DragEvent) => {
       e.preventDefault(); e.stopPropagation();
+      const assetId = e.dataTransfer.getData('application/kc-asset');
+      if (assetId) {
+          const asset = DEMO_ASSET_LIBRARY.find(item => item.id === assetId);
+          if (asset) handleAddAssetToCanvas(asset, screenToWorld(e.clientX, e.clientY));
+          return;
+      }
       const files: File[] = Array.from(e.dataTransfer.files); 
       if (files.length === 0) return;
       const worldPos = screenToWorld(e.clientX, e.clientY);
@@ -1775,6 +1878,8 @@ const CanvasWithSidebar: React.FC = () => {
           onSaveAsset={saveAssetFile}
           onCopyAsset={copyAssetToClipboard}
           onDeleteAsset={deleteAssetFromLibrary}
+          assetLibrary={DEMO_ASSET_LIBRARY}
+          onAddAssetToCanvas={handleAddAssetToCanvas}
           isDark={isDark}
         />
         <input type="file" ref={workflowInputRef} hidden accept=".aistudio-flow,.json" onChange={handleLoadWorkflow} />
