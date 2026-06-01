@@ -1885,17 +1885,67 @@ const CanvasWithSidebar: React.FC = () => {
       });
   };
 
-  const handleWheel = (e: React.WheelEvent) => {
-    if (e.ctrlKey || e.metaKey) e.preventDefault();
-    const zoomIntensity = 0.1;
-    const direction = e.deltaY > 0 ? -1 : 1;
-    let newK = transform.k + direction * zoomIntensity;
-    newK = Math.min(Math.max(0.4, newK), 2); 
-    const rect = containerRef.current!.getBoundingClientRect();
-    const worldX = (e.clientX - rect.left - transform.x) / transform.k;
-    const worldY = (e.clientY - rect.top - transform.y) / transform.k;
-    setTransform({ x: (e.clientX - rect.left) - worldX * newK, y: (e.clientY - rect.top) - worldY * newK, k: newK });
-  };
+  // 画布容器只有在“已登录 + 已打开项目”后才渲染，手势监听需在此之后再挂载。
+  const isCanvasMounted = isAuthenticated && !!currentProject;
+
+  // 触控板手势：双指滑动平移画布，双指捏合(张开放大/收拢缩小)缩放。
+  // 采用原生非 passive 监听以真正阻止浏览器默认的页面滚动/缩放/前进后退（React 的 onWheel 默认 passive，preventDefault 无效）。
+  // 用 requestAnimationFrame 把高频手势事件合并到每帧只计算一次，避免大组件逐事件重渲染导致卡顿。
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    let rafId: number | null = null;
+    let panX = 0;
+    let panY = 0;
+    let zoomFactor = 1;
+    let anchorX = 0;
+    let anchorY = 0;
+
+    const flush = () => {
+      rafId = null;
+      const dPanX = panX, dPanY = panY, dZoom = zoomFactor, ax = anchorX, ay = anchorY;
+      panX = 0; panY = 0; zoomFactor = 1;
+      setTransform(prev => {
+        let { x, y, k } = prev;
+        if (dZoom !== 1) {
+          const newK = Math.min(Math.max(0.4, k * dZoom), 2);
+          const worldX = (ax - x) / k;
+          const worldY = (ay - y) / k;
+          x = ax - worldX * newK;
+          y = ay - worldY * newK;
+          k = newK;
+        }
+        if (dPanX !== 0 || dPanY !== 0) {
+          x += dPanX;
+          y += dPanY;
+        }
+        return { x, y, k };
+      });
+    };
+
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const rect = el.getBoundingClientRect();
+      if (e.ctrlKey || e.metaKey) {
+        // 捏合缩放：deltaY<0 张开放大，deltaY>0 收拢缩小；以光标位置为锚点
+        zoomFactor *= Math.exp(-e.deltaY * 0.01);
+        anchorX = e.clientX - rect.left;
+        anchorY = e.clientY - rect.top;
+      } else {
+        // 双指滑动平移
+        panX -= e.deltaX;
+        panY -= e.deltaY;
+      }
+      if (rafId == null) rafId = requestAnimationFrame(flush);
+    };
+
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => {
+      el.removeEventListener('wheel', onWheel);
+      if (rafId != null) cancelAnimationFrame(rafId);
+    };
+  }, [isCanvasMounted]);
 
   const zoomCanvas = (direction: 1 | -1) => {
       const rect = containerRef.current?.getBoundingClientRect();
@@ -3069,7 +3119,6 @@ const CanvasWithSidebar: React.FC = () => {
                 backgroundColor: canvasBg,
                 '--grid-color': isDark ? '#27272a' : '#E4E4E7'
             } as React.CSSProperties}
-            onWheel={handleWheel}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
