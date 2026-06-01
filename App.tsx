@@ -107,6 +107,22 @@ type ProjectDashboardItem = {
     lastSavedAt: string;
 };
 
+type CreditRow = {
+    id: string;
+    projectId: string;
+    project: string;
+    group: string;
+    user: string;
+    type: string;
+    model: string;
+    credit: number;
+    status: NonNullable<NodeData['creditStatus']> | 'estimated';
+    nodeTitle: string;
+};
+
+const USER_CREDIT_LIMIT = 1200;
+const CURRENT_USER_NAME = '导演A';
+
 const KC_PROJECT_STORAGE_PREFIX = 'KC_CANVAS_PROJECT_';
 const KC_PROJECT_SUMMARIES_KEY = 'KC_CANVAS_PROJECT_SUMMARIES';
 
@@ -332,6 +348,12 @@ const CanvasWithSidebar: React.FC = () => {
     }
   }, [isDark]);
 
+  useEffect(() => {
+    if (currentProject) {
+      setCreditProjectId(currentProject.id);
+    }
+  }, [currentProject?.id]);
+
   const [selectionBox, setSelectionBox] = useState<{ x: number, y: number, w: number, h: number } | null>(null);
   const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null);
   const [suggestedNodes, setSuggestedNodes] = useState<NodeData[]>([]);
@@ -345,6 +367,9 @@ const CanvasWithSidebar: React.FC = () => {
   const [saveTargetAssetId, setSaveTargetAssetId] = useState(DEMO_ASSET_LIBRARY[0]?.id || '');
   const [saveResultNote, setSaveResultNote] = useState('');
   const [isCreditDashboardOpen, setIsCreditDashboardOpen] = useState(false);
+  const [creditProjectId, setCreditProjectId] = useState('');
+  const [isUserCreditOpen, setIsUserCreditOpen] = useState(false);
+  const [isMiniMapOpen, setIsMiniMapOpen] = useState(false);
   
   // Quick Add Menu State
   const [quickAddMenu, setQuickAddMenu] = useState<{ sourceId: string, x: number, y: number, worldX: number, worldY: number, direction?: 'forward' | 'backward' } | null>(null);
@@ -948,6 +973,70 @@ const CanvasWithSidebar: React.FC = () => {
       if (node.type === NodeType.TEXT_TO_IMAGE) return 2 * count;
       if (node.type === NodeType.CREATIVE_DESC) return 1;
       return 0;
+  };
+
+  const getCreditRows = (): CreditRow[] => {
+      const activeProjectId = currentProject?.id || DEMO_PROJECT_META.id;
+      const activeProjectName = currentProject?.name || projectName;
+      const activeGroup = currentProject?.directorGroup || DEMO_PROJECT_META.directorGroup;
+      const taskRows: CreditRow[] = nodes
+          .filter(node => node.creditEstimate || node.creditStatus)
+          .map((node, index) => ({
+              id: node.id,
+              projectId: node.projectId || activeProjectId,
+              project: activeProjectName,
+              group: currentProject?.directorGroup || node.directorGroupName || activeGroup,
+              user: index % 2 === 0 ? CURRENT_USER_NAME : '制片助理B',
+              type: node.type === NodeType.CREATIVE_DESC ? '文本分析' : node.type === NodeType.TEXT_TO_IMAGE ? '图片生成' : '视频生成',
+              model: node.model || '-',
+              credit: node.creditEstimate || getEstimatedCredits(node),
+              status: node.creditStatus || 'estimated',
+              nodeTitle: node.title,
+          }));
+
+      const projectRows = projects.flatMap((project, index): CreditRow[] => {
+          if (project.id === activeProjectId && taskRows.length > 0) return [];
+          return [
+              {
+                  id: `${project.id}_credit_image`,
+                  projectId: project.id,
+                  project: project.name,
+                  group: project.directorGroup,
+                  user: CURRENT_USER_NAME,
+                  type: '图片生成',
+                  model: 'Seedream 5.0',
+                  credit: 2 + index,
+                  status: index % 2 === 0 ? 'confirmed' : 'reserved',
+                  nodeTitle: '角色/场景参考图',
+              },
+              {
+                  id: `${project.id}_credit_video`,
+                  projectId: project.id,
+                  project: project.name,
+                  group: project.directorGroup,
+                  user: index % 2 === 0 ? CURRENT_USER_NAME : '制片助理B',
+                  type: '视频生成',
+                  model: 'Seedance 1.5 Pro',
+                  credit: 14 + index * 2,
+                  status: 'confirmed',
+                  nodeTitle: '分镜视频',
+              },
+          ];
+      });
+
+      return [...taskRows, ...projectRows];
+  };
+
+  const getUserCreditStats = () => {
+      const rows = getCreditRows().filter(row => row.user === CURRENT_USER_NAME);
+      const used = rows
+          .filter(row => row.status === 'confirmed' || row.status === 'reserved')
+          .reduce((sum, row) => sum + row.credit, 0);
+      return {
+          rows,
+          used,
+          available: Math.max(0, USER_CREDIT_LIMIT - used),
+      };
   };
 
   const handleGenerate = async (nodeId: string) => {
@@ -1764,6 +1853,142 @@ const CanvasWithSidebar: React.FC = () => {
     setTransform({ x: (e.clientX - rect.left) - worldX * newK, y: (e.clientY - rect.top) - worldY * newK, k: newK });
   };
 
+  const zoomCanvas = (direction: 1 | -1) => {
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const nextK = Math.min(Math.max(0.4, transform.k + direction * 0.1), 2);
+      const anchorX = rect.width / 2;
+      const anchorY = rect.height / 2;
+      const worldX = (anchorX - transform.x) / transform.k;
+      const worldY = (anchorY - transform.y) / transform.k;
+      setTransform({
+          x: anchorX - worldX * nextK,
+          y: anchorY - worldY * nextK,
+          k: nextK,
+      });
+  };
+
+  const arrangeCanvasNodes = () => {
+      const targetIds = selectedNodeIds.size > 0 ? selectedNodeIds : new Set(nodes.map(node => node.id));
+      if (targetIds.size === 0) return;
+
+      setNodes(prev => {
+          const targetNodes = prev.filter(node => targetIds.has(node.id));
+          if (targetNodes.length === 0) return prev;
+
+          const sorted = [...targetNodes].sort((a, b) => (a.y - b.y) || (a.x - b.x));
+          const minX = Math.min(...sorted.map(node => node.x));
+          const minY = Math.min(...sorted.map(node => node.y));
+          const maxWidth = Math.max(...sorted.map(node => node.width));
+          const maxHeight = Math.max(...sorted.map(node => node.height));
+          const columns = Math.min(4, Math.ceil(Math.sqrt(sorted.length)));
+          const gapX = 88;
+          const gapY = 72;
+          const positionMap = new Map<string, Point>();
+
+          sorted.forEach((node, index) => {
+              const col = index % columns;
+              const row = Math.floor(index / columns);
+              positionMap.set(node.id, {
+                  x: minX + col * (maxWidth + gapX),
+                  y: minY + row * (maxHeight + gapY),
+              });
+          });
+
+          return prev.map(node => {
+              const next = positionMap.get(node.id);
+              return next ? { ...node, x: next.x, y: next.y } : node;
+          });
+      });
+  };
+
+  const getMiniMapMetrics = () => {
+      const miniWidth = 220;
+      const miniHeight = 126;
+      const rect = containerRef.current?.getBoundingClientRect();
+      const view = rect
+          ? {
+              x: -transform.x / transform.k,
+              y: -transform.y / transform.k,
+              width: rect.width / transform.k,
+              height: rect.height / transform.k,
+          }
+          : { x: -500, y: -320, width: 1000, height: 640 };
+
+      const nodeBounds = nodes.length
+          ? {
+              minX: Math.min(...nodes.map(node => node.x)),
+              minY: Math.min(...nodes.map(node => node.y)),
+              maxX: Math.max(...nodes.map(node => node.x + node.width)),
+              maxY: Math.max(...nodes.map(node => node.y + node.height)),
+          }
+          : {
+              minX: view.x - 400,
+              minY: view.y - 280,
+              maxX: view.x + view.width + 400,
+              maxY: view.y + view.height + 280,
+          };
+
+      const padding = 160;
+      const minX = Math.min(nodeBounds.minX, view.x) - padding;
+      const minY = Math.min(nodeBounds.minY, view.y) - padding;
+      const maxX = Math.max(nodeBounds.maxX, view.x + view.width) + padding;
+      const maxY = Math.max(nodeBounds.maxY, view.y + view.height) + padding;
+      const width = Math.max(1, maxX - minX);
+      const height = Math.max(1, maxY - minY);
+      const scale = Math.min((miniWidth - 20) / width, (miniHeight - 18) / height);
+      const offsetX = (miniWidth - width * scale) / 2;
+      const offsetY = (miniHeight - height * scale) / 2;
+
+      const toMini = (x: number, y: number) => ({
+          x: offsetX + (x - minX) * scale,
+          y: offsetY + (y - minY) * scale,
+      });
+
+      return {
+          miniWidth,
+          miniHeight,
+          minX,
+          minY,
+          scale,
+          offsetX,
+          offsetY,
+          view,
+          nodeRects: nodes.map(node => {
+              const point = toMini(node.x, node.y);
+              return {
+                  id: node.id,
+                  x: point.x,
+                  y: point.y,
+                  width: Math.max(4, node.width * scale),
+                  height: Math.max(4, node.height * scale),
+                  selected: selectedNodeIds.has(node.id),
+              };
+          }),
+          viewportRect: {
+              ...toMini(view.x, view.y),
+              width: Math.max(8, view.width * scale),
+              height: Math.max(8, view.height * scale),
+          },
+      };
+  };
+
+  const jumpToMiniMapPoint = (event: React.MouseEvent<HTMLDivElement>) => {
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const mapRect = event.currentTarget.getBoundingClientRect();
+      const metrics = getMiniMapMetrics();
+      const localX = event.clientX - mapRect.left;
+      const localY = event.clientY - mapRect.top;
+      const worldX = metrics.minX + (localX - metrics.offsetX) / metrics.scale;
+      const worldY = metrics.minY + (localY - metrics.offsetY) / metrics.scale;
+      setTransform({
+          x: rect.width / 2 - worldX * transform.k,
+          y: rect.height / 2 - worldY * transform.k,
+          k: transform.k,
+      });
+  };
+
   const handleMouseDown = (e: React.MouseEvent) => {
     if (contextMenu) setContextMenu(null);
     if (quickAddMenu) setQuickAddMenu(null);
@@ -2377,6 +2602,249 @@ const CanvasWithSidebar: React.FC = () => {
       );
   };
 
+  const renderCreditDashboardV2 = () => {
+      if (!isCreditDashboardOpen) return null;
+      const statusText: Record<string, string> = {
+          estimated: '预计',
+          reserved: '已预扣',
+          confirmed: '已扣除',
+          refunded: '已返还',
+          failed: '异常',
+          idle: '未开始',
+      };
+      const rows = getCreditRows();
+      const activeProjectId = creditProjectId || currentProject?.id || projects[0]?.id || 'all';
+      const visibleRows = activeProjectId === 'all' ? rows : rows.filter(row => row.projectId === activeProjectId);
+      const total = visibleRows.reduce((sum, row) => sum + row.credit, 0);
+      const confirmed = visibleRows.filter(row => row.status === 'confirmed').reduce((sum, row) => sum + row.credit, 0);
+      const reserved = visibleRows.filter(row => row.status === 'reserved').reduce((sum, row) => sum + row.credit, 0);
+      const refunded = visibleRows.filter(row => row.status === 'refunded').reduce((sum, row) => sum + row.credit, 0);
+      const projectSummaries = projects.map(project => {
+          const projectRows = rows.filter(row => row.projectId === project.id);
+          return {
+              ...project,
+              total: projectRows.reduce((sum, row) => sum + row.credit, 0),
+              confirmed: projectRows.filter(row => row.status === 'confirmed').reduce((sum, row) => sum + row.credit, 0),
+              reserved: projectRows.filter(row => row.status === 'reserved').reduce((sum, row) => sum + row.credit, 0),
+          };
+      });
+
+      return (
+          <div className="fixed inset-0 z-[250] bg-black/70 backdrop-blur-md p-6" onClick={() => setIsCreditDashboardOpen(false)}>
+              <div className={`mx-auto flex h-full max-w-6xl flex-col rounded-3xl border shadow-2xl ${isDark ? 'border-zinc-800 bg-[#121417] text-zinc-100' : 'border-gray-200 bg-white text-gray-900'}`} onClick={(event) => event.stopPropagation()}>
+                  <div className={`flex items-center gap-4 border-b px-6 py-4 ${isDark ? 'border-zinc-800' : 'border-gray-100'}`}>
+                      <div className="min-w-0 flex-1">
+                          <h3 className="text-xl font-bold">项目积分看板</h3>
+                          <p className={`mt-1 text-sm ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>查看所有项目的大体消耗，默认展开当前项目明细。</p>
+                      </div>
+                      <select
+                          value={activeProjectId}
+                          onChange={(event) => setCreditProjectId(event.target.value)}
+                          className={`h-10 rounded-xl border px-3 text-sm outline-none ${isDark ? 'border-zinc-700 bg-zinc-950 text-zinc-200' : 'border-gray-200 bg-white text-gray-700'}`}
+                      >
+                          <option value="all">全部项目</option>
+                          {projects.map(project => (
+                              <option key={project.id} value={project.id}>{project.name}</option>
+                          ))}
+                      </select>
+                      <button className={`h-10 w-10 rounded-full flex items-center justify-center ${isDark ? 'hover:bg-zinc-800 text-zinc-400 hover:text-white' : 'hover:bg-gray-100 text-gray-500 hover:text-gray-900'}`} onClick={() => setIsCreditDashboardOpen(false)}>
+                          <Icons.X size={22} />
+                      </button>
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-4 px-6 pt-6">
+                      {[
+                          ['当前查看消耗', total],
+                          ['已确认扣除', confirmed],
+                          ['当前预扣', reserved],
+                          ['失败返还', refunded],
+                      ].map(([label, value]) => (
+                          <div key={String(label)} className={`rounded-2xl border p-4 ${isDark ? 'border-zinc-800 bg-zinc-950/45' : 'border-gray-200 bg-gray-50'}`}>
+                              <div className={`text-xs ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>{label}</div>
+                              <div className="mt-2 text-2xl font-bold tabular-nums">{value}</div>
+                              <div className={`mt-1 text-[11px] ${isDark ? 'text-zinc-600' : 'text-gray-400'}`}>积分</div>
+                          </div>
+                      ))}
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-3 px-6 py-4">
+                      {projectSummaries.map(project => (
+                          <button
+                              key={project.id}
+                              onClick={() => setCreditProjectId(project.id)}
+                              className={`rounded-2xl border p-3 text-left transition-all ${
+                                  activeProjectId === project.id
+                                      ? (isDark ? 'border-blue-500/60 bg-blue-500/10' : 'border-blue-300 bg-blue-50')
+                                      : (isDark ? 'border-zinc-800 bg-zinc-950/35 hover:border-zinc-700' : 'border-gray-200 bg-gray-50 hover:border-gray-300')
+                              }`}
+                          >
+                              <div className="truncate text-sm font-bold">{project.name}</div>
+                              <div className={`mt-1 truncate text-xs ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>{project.directorGroup}</div>
+                              <div className="mt-3 flex items-center justify-between text-xs">
+                                  <span className={isDark ? 'text-zinc-500' : 'text-gray-500'}>总消耗</span>
+                                  <span className="font-bold tabular-nums">{project.total}</span>
+                              </div>
+                          </button>
+                      ))}
+                  </div>
+
+                  <div className="flex-1 overflow-auto px-6 pb-6">
+                      <table className="w-full border-separate border-spacing-y-2 text-sm">
+                          <thead>
+                              <tr className={isDark ? 'text-zinc-500' : 'text-gray-500'}>
+                                  {['项目', '导演组', '人员', '任务类型', '模型', '节点', '积分', '状态'].map(head => (
+                                      <th key={head} className="px-3 py-2 text-left text-xs font-semibold">{head}</th>
+                                  ))}
+                              </tr>
+                          </thead>
+                          <tbody>
+                              {visibleRows.map(row => (
+                                  <tr key={row.id} className={isDark ? 'bg-zinc-950/55 text-zinc-200' : 'bg-gray-50 text-gray-800'}>
+                                      <td className="rounded-l-xl px-3 py-3">{row.project}</td>
+                                      <td className="px-3 py-3">{row.group}</td>
+                                      <td className="px-3 py-3">{row.user}</td>
+                                      <td className="px-3 py-3">{row.type}</td>
+                                      <td className="px-3 py-3">{row.model}</td>
+                                      <td className="px-3 py-3">{row.nodeTitle}</td>
+                                      <td className="px-3 py-3 font-semibold tabular-nums">{row.credit}</td>
+                                      <td className="rounded-r-xl px-3 py-3">
+                                          <span className={`rounded-lg px-2 py-1 text-xs font-semibold ${
+                                              row.status === 'confirmed'
+                                                  ? (isDark ? 'bg-emerald-500/10 text-emerald-300' : 'bg-emerald-50 text-emerald-700')
+                                                  : row.status === 'reserved'
+                                                      ? (isDark ? 'bg-blue-500/10 text-blue-300' : 'bg-blue-50 text-blue-700')
+                                                      : row.status === 'refunded'
+                                                          ? (isDark ? 'bg-zinc-800 text-zinc-300' : 'bg-gray-100 text-gray-600')
+                                                          : (isDark ? 'bg-amber-500/10 text-amber-300' : 'bg-amber-50 text-amber-700')
+                                          }`}>
+                                              {statusText[row.status] || row.status}
+                                          </span>
+                                      </td>
+                                  </tr>
+                              ))}
+                          </tbody>
+                      </table>
+                  </div>
+              </div>
+          </div>
+      );
+  };
+
+  const renderUserCreditPopover = () => {
+      if (!isUserCreditOpen) return null;
+      const stats = getUserCreditStats();
+      const confirmed = stats.rows.filter(row => row.status === 'confirmed').reduce((sum, row) => sum + row.credit, 0);
+      const reserved = stats.rows.filter(row => row.status === 'reserved').reduce((sum, row) => sum + row.credit, 0);
+
+      return (
+          <div
+              className={`absolute right-4 top-16 z-[120] w-80 rounded-2xl border p-4 shadow-2xl backdrop-blur-xl ${isDark ? 'border-zinc-800 bg-[#18181b]/95 text-zinc-100' : 'border-gray-200 bg-white/95 text-gray-900'}`}
+              onMouseDown={(event) => event.stopPropagation()}
+          >
+              <div className="flex items-center justify-between">
+                  <div>
+                      <div className="text-sm font-bold">当前用户积分</div>
+                      <div className={`mt-1 text-xs ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>{CURRENT_USER_NAME} 的可用额度和使用明细</div>
+                  </div>
+                  <button className={`h-8 w-8 rounded-lg flex items-center justify-center ${isDark ? 'hover:bg-zinc-800 text-zinc-500' : 'hover:bg-gray-100 text-gray-500'}`} onClick={() => setIsUserCreditOpen(false)}>
+                      <Icons.X size={16} />
+                  </button>
+              </div>
+              <div className="mt-4 grid grid-cols-3 gap-2">
+                  {[
+                      ['可用', stats.available],
+                      ['已扣', confirmed],
+                      ['预扣', reserved],
+                  ].map(([label, value]) => (
+                      <div key={String(label)} className={`rounded-xl border p-3 ${isDark ? 'border-zinc-800 bg-zinc-950/45' : 'border-gray-200 bg-gray-50'}`}>
+                          <div className={`text-[11px] ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>{label}</div>
+                          <div className="mt-1 text-lg font-bold tabular-nums">{value}</div>
+                      </div>
+                  ))}
+              </div>
+              <div className="mt-3 max-h-56 overflow-y-auto custom-scrollbar space-y-2">
+                  {stats.rows.slice(0, 6).map(row => (
+                      <div key={row.id} className={`rounded-xl px-3 py-2 text-xs ${isDark ? 'bg-zinc-950/55' : 'bg-gray-50'}`}>
+                          <div className="flex items-center justify-between gap-3">
+                              <span className="truncate font-semibold">{row.nodeTitle}</span>
+                              <span className="tabular-nums">{row.credit}</span>
+                          </div>
+                          <div className={`mt-1 truncate ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>{row.project} / {row.type}</div>
+                      </div>
+                  ))}
+              </div>
+          </div>
+      );
+  };
+
+  const renderCanvasNavigator = () => {
+      const metrics = getMiniMapMetrics();
+      const panelClass = isDark ? 'border-zinc-800 bg-[#18181b]/95 text-zinc-100' : 'border-gray-200 bg-white/95 text-gray-900';
+      const buttonClass = isDark ? 'text-zinc-400 hover:bg-white/5 hover:text-white' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900';
+
+      return (
+          <div className="absolute bottom-4 left-4 z-50 flex flex-col gap-2">
+              {isMiniMapOpen && (
+                  <div className={`rounded-2xl border p-2 shadow-2xl backdrop-blur-xl ${panelClass}`}>
+                      <div
+                          className={`relative overflow-hidden rounded-xl border cursor-crosshair ${isDark ? 'border-zinc-700 bg-zinc-950/70' : 'border-gray-200 bg-gray-50'}`}
+                          style={{ width: metrics.miniWidth, height: metrics.miniHeight }}
+                          onMouseDown={(event) => {
+                              event.stopPropagation();
+                              jumpToMiniMapPoint(event);
+                          }}
+                          title="点击小地图快速移动画布"
+                      >
+                          <svg width={metrics.miniWidth} height={metrics.miniHeight} className="absolute inset-0">
+                              {metrics.nodeRects.map(rect => (
+                                  <rect
+                                      key={rect.id}
+                                      x={rect.x}
+                                      y={rect.y}
+                                      width={rect.width}
+                                      height={rect.height}
+                                      rx={2}
+                                      fill={rect.selected ? '#60a5fa' : (isDark ? '#71717a' : '#9ca3af')}
+                                      opacity={rect.selected ? 0.9 : 0.55}
+                                  />
+                              ))}
+                              <rect
+                                  x={metrics.viewportRect.x}
+                                  y={metrics.viewportRect.y}
+                                  width={metrics.viewportRect.width}
+                                  height={metrics.viewportRect.height}
+                                  fill="transparent"
+                                  stroke={isDark ? '#e5e7eb' : '#111827'}
+                                  strokeWidth={1.5}
+                                  strokeDasharray="4 3"
+                              />
+                          </svg>
+                      </div>
+                  </div>
+              )}
+              <div className={`flex items-center gap-1 rounded-2xl border px-2 py-1.5 shadow-xl backdrop-blur-xl ${panelClass}`}>
+                  <button className={`h-9 w-9 rounded-xl flex items-center justify-center ${buttonClass}`} title="小地图" onClick={() => setIsMiniMapOpen(prev => !prev)}>
+                      <Icons.Map size={17} />
+                  </button>
+                  <button className={`h-9 w-9 rounded-xl flex items-center justify-center ${buttonClass}`} title="整理画布" onClick={arrangeCanvasNodes}>
+                      <Icons.LayoutGrid size={17} />
+                  </button>
+                  <button className={`h-9 w-9 rounded-xl flex items-center justify-center ${buttonClass}`} title={isDark ? '切换亮色' : '切换暗色'} onClick={() => toggleTheme(!isDark)}>
+                      {isDark ? <Icons.Moon size={17} /> : <Icons.Sun size={17} />}
+                  </button>
+                  <div className={`mx-1 h-5 w-px ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`} />
+                  <button className={`h-9 w-9 rounded-xl flex items-center justify-center ${buttonClass}`} title="缩小" onClick={() => zoomCanvas(-1)}>
+                      <Icons.Minus size={16} />
+                  </button>
+                  <span className={`min-w-12 text-center text-sm font-semibold tabular-nums ${isDark ? 'text-zinc-200' : 'text-gray-700'}`}>{Math.round(transform.k * 100)}%</span>
+                  <button className={`h-9 w-9 rounded-xl flex items-center justify-center ${buttonClass}`} title="放大" onClick={() => zoomCanvas(1)}>
+                      <Icons.Plus size={18} />
+                  </button>
+              </div>
+          </div>
+      );
+  };
+
   const renderContextMenu = () => {
     if (!contextMenu) return null;
     return (
@@ -2534,6 +3002,7 @@ const CanvasWithSidebar: React.FC = () => {
           onNewWorkflow={handleNewWorkflow}
           onSaveProject={() => handleSaveProject()}
           onBackToProjects={returnToProjectManagement}
+          onOpenCreditDashboard={() => setIsCreditDashboardOpen(true)}
           onImportAsset={() => assetInputRef.current?.click()}
           onOpenExportImport={() => setIsExportImportOpen(true)}
           nodes={[...nodes, ...deletedNodes]}
@@ -2902,16 +3371,28 @@ const CanvasWithSidebar: React.FC = () => {
                         : 'bg-white/90 border-gray-200 shadow-lg'
                 }`}>
                     {/* Zoom */}
-                    <span className={`px-3 py-1.5 text-sm font-medium tabular-nums ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                    <span className={`hidden px-3 py-1.5 text-sm font-medium tabular-nums ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
                         {Math.round(transform.k * 100)}%
                     </span>
                     
-                    <div className={`w-px h-5 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`} />
+                    <div className={`hidden w-px h-5 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`} />
+
+                    <button
+                        onClick={() => setIsUserCreditOpen(prev => !prev)}
+                        title="当前用户积分余额"
+                        className={`flex h-9 items-center gap-1.5 rounded-xl px-3 text-sm font-semibold transition-all ${
+                            isDark ? 'bg-amber-500/10 text-amber-200 hover:bg-amber-500/20' : 'bg-amber-50 text-amber-700 hover:bg-amber-100'
+                        }`}
+                    >
+                        <Icons.Coins size={15} />
+                        <span className="tabular-nums">{getUserCreditStats().available}</span>
+                    </button>
                     
                     {/* Download */}
                     <button
                         onClick={() => handleSaveProject()}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-all ${
+                        title={saveStatus === 'saved' ? '已保存' : '保存项目'}
+                        className={`flex h-9 w-9 items-center justify-center rounded-xl text-sm font-medium transition-all ${
                             saveStatus === 'saved'
                                 ? (isDark ? 'text-emerald-400 hover:bg-emerald-500/10' : 'text-emerald-600 hover:bg-emerald-50')
                                 : saveStatus === 'failed'
@@ -2920,7 +3401,7 @@ const CanvasWithSidebar: React.FC = () => {
                         }`}
                     >
                         {saveStatus === 'saving' ? <Icons.Loader2 size={15} className="animate-spin" /> : <Icons.Save size={15} />}
-                        <span>{saveStatus === 'saved' ? '已保存' : '保存项目'}</span>
+                        <span className="sr-only">{saveStatus === 'saved' ? '已保存' : '保存项目'}</span>
                     </button>
 
                     <div className={`w-px h-5 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`} />
@@ -2928,12 +3409,13 @@ const CanvasWithSidebar: React.FC = () => {
                     {/* Download backup */}
                     <button
                         onClick={() => setIsExportImportOpen(true)}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-all ${
+                        title="下载备份"
+                        className={`flex h-9 w-9 items-center justify-center rounded-xl text-sm font-medium transition-all ${
                             isDark ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                         }`}
                     >
                         <Icons.Download size={15} />
-                        <span>下载备份</span>
+                        <span className="sr-only">下载备份</span>
                     </button>
                     
                     <div className={`w-px h-5 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`} />
@@ -2941,7 +3423,7 @@ const CanvasWithSidebar: React.FC = () => {
                     {/* Credit dashboard */}
                     <button
                         onClick={() => setIsCreditDashboardOpen(true)}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-all ${
+                        className={`hidden items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-all ${
                             isDark ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                         }`}
                     >
@@ -2949,12 +3431,12 @@ const CanvasWithSidebar: React.FC = () => {
                         <span>积分看板</span>
                     </button>
 
-                    <div className={`w-px h-5 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`} />
+                    <div className={`hidden w-px h-5 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`} />
                     
                     {/* Theme */}
                     <button
                         onClick={() => toggleTheme(!isDark)}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-all ${
+                        className={`hidden items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-all ${
                             isDark ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                         }`}
                     >
@@ -2965,15 +3447,17 @@ const CanvasWithSidebar: React.FC = () => {
                     {/* Clear */}
                     <button
                         onClick={handleNewWorkflow}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-all ${
+                        title="清空画布"
+                        className={`flex h-9 w-9 items-center justify-center rounded-xl text-sm font-medium transition-all ${
                             isDark ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                         }`}
                     >
-                        <span>清空</span>
+                        <Icons.Trash2 size={15} />
+                        <span className="sr-only">清空画布</span>
                     </button>
                     <button
                         onClick={returnToProjectManagement}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-all ${
+                        className={`hidden items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-all ${
                             isDark ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                         }`}
                     >
@@ -2986,23 +3470,26 @@ const CanvasWithSidebar: React.FC = () => {
                     {/* Storage */}
                     <button
                         onClick={handleOpenStorageSettings}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-all ${
+                        title="存储设置"
+                        className={`flex h-9 w-9 items-center justify-center rounded-xl text-sm font-medium transition-all ${
                             storageDirName 
                                 ? (isDark ? 'text-emerald-400 hover:bg-emerald-500/10' : 'text-emerald-600 hover:bg-emerald-50')
                                 : (isDark ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100')
                         }`}
                     >
                         <Icons.FolderOpen size={15} />
-                        <span>存储</span>
+                        <span className="sr-only">存储设置</span>
                     </button>
                     
                 </div>
             </div>
+            {renderCanvasNavigator()}
+            {renderUserCreditPopover()}
             {renderContextMenu()}
             {renderQuickAddMenu()}
             {renderNewWorkflowDialog()}
             {renderSaveResultModal()}
-            {renderCreditDashboard()}
+            {renderCreditDashboardV2()}
             {previewMedia && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md animate-in fade-in duration-200" onClick={() => setPreviewMedia(null)}>
                     <div className="relative max-w-[90vw] max-h-[90vh] bg-black rounded-lg shadow-2xl overflow-hidden border border-zinc-700" onClick={(e) => e.stopPropagation()}>

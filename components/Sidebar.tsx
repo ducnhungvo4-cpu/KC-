@@ -7,6 +7,7 @@ interface SidebarProps {
   onNewWorkflow: () => void;
   onSaveProject: () => void;
   onBackToProjects: () => void;
+  onOpenCreditDashboard: () => void;
   onImportAsset: () => void;
   onOpenExportImport: () => void;
   nodes: NodeData[];
@@ -77,6 +78,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onNewWorkflow,
   onSaveProject,
   onBackToProjects,
+  onOpenCreditDashboard,
   onImportAsset,
   onOpenExportImport,
   nodes,
@@ -196,6 +198,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     
     return (
       <button 
+        title={tooltip}
         className={`relative w-11 h-11 flex items-center justify-center rounded-xl transition-all duration-200 group ${
           isActive ? activeBg : `${textSub} ${hoverBg}`
         }`}
@@ -625,6 +628,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         <div className={`w-8 h-px my-1 ${isDark ? 'bg-zinc-800' : 'bg-gray-200'}`} />
         
         <SidebarButton icon={Icons.Clock} panel="HISTORY" tooltip="生成历史" />
+        <SidebarButton icon={Icons.Coins} tooltip="积分看板" onClick={onOpenCreditDashboard} />
         <SidebarButton icon={Icons.Database} panel="ASSET_LIBRARY" tooltip="资产库" />
         <SidebarButton icon={Icons.Images} panel="ASSETS" tooltip="素材库" />
         <SidebarButton icon={Icons.Upload} tooltip="导入素材" onClick={onImportAsset} />
