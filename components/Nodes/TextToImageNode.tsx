@@ -268,19 +268,19 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
 
         {isSelectedAndStable && showControls && hasResult && (
             <div className={`absolute bottom-full left-1/2 mb-4 z-[75] flex items-center gap-1.5 rounded-2xl border px-3 py-2 shadow-2xl backdrop-blur-xl pointer-events-auto ${isDark ? 'bg-[#202020]/95 border-zinc-700 text-zinc-100' : 'bg-white/95 border-gray-200 text-gray-900'}`} style={panelTransform} onMouseDown={(e) => e.stopPropagation()}>
-                <button className={`h-9 px-3 rounded-xl text-sm font-semibold flex items-center gap-2 transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => setIsAngleEditorOpen(true)} title="多角度控制">
+                <button className={`h-9 px-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => setIsAngleEditorOpen(true)} title="多角度控制">
                     <Icons.RefreshCw size={16} />
                     <span>多角度</span>
                 </button>
-                <button className={`h-9 px-3 rounded-xl text-sm font-semibold flex items-center gap-2 transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onCrop?.(data.id)} title="图片裁剪">
+                <button className={`h-9 px-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onCrop?.(data.id)} title="图片裁剪">
                     <Icons.Crop size={16} />
                     <span>裁剪</span>
                 </button>
-                <button className={`h-9 px-3 rounded-xl text-sm font-semibold flex items-center gap-2 transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onUpload?.(data.id)} title="上传替换当前图片">
+                <button className={`h-9 px-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onUpload?.(data.id)} title="上传替换当前图片">
                     <Icons.Upload size={16} />
                     <span>上传</span>
                 </button>
-                <button className={`h-9 px-3 rounded-xl text-sm font-semibold flex items-center gap-2 transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onSaveResult?.(data.id)} title="保存到项目素材或更新资产">
+                <button className={`h-9 px-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onSaveResult?.(data.id)} title="保存到项目素材或更新资产">
                     <Icons.Save size={16} />
                     <span>保存</span>
                 </button>
@@ -361,14 +361,14 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
                                               onClick={() => { setIsFunctionMenuOpen(false); setIsAngleEditorOpen(true); }}
                                           >
                                               <Icons.RefreshCw size={14} />
-                                              <span>多角度控制</span>
+                                              <span>多角度</span>
                                           </button>
                                           <button
                                               className={`w-full h-8 px-2 rounded-lg text-xs font-semibold flex items-center gap-2 transition-colors ${isDark ? 'text-zinc-300 hover:bg-zinc-800 hover:text-white' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`}
                                               onClick={() => { setIsFunctionMenuOpen(false); onCrop?.(data.id); }}
                                           >
                                               <Icons.Crop size={14} />
-                                              <span>图片裁剪</span>
+                                              <span>裁剪</span>
                                           </button>
                                       </div>
                                   )}
@@ -378,7 +378,7 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
                           {/* Spacer */}
                           <div className="flex-1" />
 
-                          <div className={`hidden sm:flex h-8 items-center rounded-lg border px-2.5 text-[11px] font-semibold ${
+                          <div className={`hidden sm:flex h-8 items-center rounded-lg border px-2.5 text-[11px] font-semibold whitespace-nowrap ${
                               data.creditStatus === 'confirmed'
                                   ? (isDark ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300' : 'border-emerald-100 bg-emerald-50 text-emerald-700')
                                   : data.creditStatus === 'reserved'
@@ -387,7 +387,7 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
                                           ? (isDark ? 'border-zinc-700 bg-zinc-800 text-zinc-300' : 'border-gray-200 bg-gray-50 text-gray-600')
                                           : (isDark ? 'border-zinc-700 bg-zinc-900/60 text-zinc-400' : 'border-gray-200 bg-gray-50 text-gray-500')
                           }`}>
-                              {creditLabel} {data.creditEstimate || ((data.count || 1) * 2)} 积分
+                              {data.creditEstimate || ((data.count || 1) * 2)}分
                           </div>
                           
                           {/* Generate Button */}

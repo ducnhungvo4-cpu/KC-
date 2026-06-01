@@ -249,11 +249,11 @@ export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
 
         {isSelectedAndStable && showControls && hasResult && (
             <div className={`absolute bottom-full left-1/2 mb-4 z-[75] flex items-center gap-1.5 rounded-2xl border px-3 py-2 shadow-2xl backdrop-blur-xl pointer-events-auto ${isDark ? 'bg-[#202020]/95 border-zinc-700 text-zinc-100' : 'bg-white/95 border-gray-200 text-gray-900'}`} style={panelTransform} onMouseDown={(e) => e.stopPropagation()}>
-                <button className={`h-9 px-3 rounded-xl text-sm font-semibold flex items-center gap-2 transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onUpload?.(data.id)} title="上传替换当前视频">
+                <button className={`h-9 px-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onUpload?.(data.id)} title="上传替换当前视频">
                     <Icons.Upload size={16} />
                     <span>上传</span>
                 </button>
-                <button className={`h-9 px-3 rounded-xl text-sm font-semibold flex items-center gap-2 transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onSaveResult?.(data.id)} title="保存到项目素材或更新资产">
+                <button className={`h-9 px-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onSaveResult?.(data.id)} title="保存到项目素材或更新资产">
                     <Icons.Save size={16} />
                     <span>保存</span>
                 </button>
@@ -286,7 +286,7 @@ export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
                               </div>
                               <div className="shrink-0 flex items-center gap-2">
                                   <span className={`rounded-lg px-2 py-1 text-[11px] font-semibold ${isDark ? 'bg-amber-500/10 text-amber-300' : 'bg-amber-50 text-amber-700'}`}>
-                                      {creditLabel} {data.creditEstimate || 0} 积分
+                                      {data.creditEstimate || 0}分
                                   </span>
                                   <button
                                       className={`rounded-lg px-2 py-1 text-[11px] font-semibold ${isDark ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'}`}
@@ -343,7 +343,7 @@ export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
                        {/* Spacer */}
                        <div className="flex-1" />
 
-                       <div className={`hidden sm:flex h-8 items-center rounded-lg border px-2.5 text-[11px] font-semibold ${
+                       <div className={`hidden sm:flex h-8 items-center rounded-lg border px-2.5 text-[11px] font-semibold whitespace-nowrap ${
                            data.creditStatus === 'confirmed'
                                ? (isDark ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300' : 'border-emerald-100 bg-emerald-50 text-emerald-700')
                                : data.creditStatus === 'reserved'
@@ -352,7 +352,7 @@ export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
                                        ? (isDark ? 'border-zinc-700 bg-zinc-800 text-zinc-300' : 'border-gray-200 bg-gray-50 text-gray-600')
                                        : (isDark ? 'border-zinc-700 bg-zinc-900/60 text-zinc-400' : 'border-gray-200 bg-gray-50 text-gray-500')
                        }`}>
-                           {creditLabel} {data.creditEstimate || 14} 积分
+                           {data.creditEstimate || 14}分
                        </div>
                        
                        {/* Generate Button */}

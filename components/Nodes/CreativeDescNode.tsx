@@ -144,7 +144,7 @@ export const CreativeDescNode: React.FC<CreativeDescNodeProps> = ({
                                 title={mediaInputCount === 0 ? '连接图片或视频节点后可分析' : '分析前置图片/视频并生成复刻提示词或分镜表'}
                             >
                                 <Icons.Scan size={14} />
-                                分析图片/视频
+                                媒体分析
                             </button>
                             <button
                                 onClick={() => onAnalyzeScript?.(data.id)}
@@ -153,10 +153,10 @@ export const CreativeDescNode: React.FC<CreativeDescNodeProps> = ({
                                 title="基于剧本生成角色资产表"
                             >
                                 <Icons.BookOpen size={14} />
-                                剧本角色表
+                                角色表
                             </button>
                             <div className="flex-1" />
-                            <div className={`hidden sm:flex h-8 items-center rounded-lg border px-2.5 text-[11px] font-semibold ${
+                            <div className={`hidden sm:flex h-8 items-center rounded-lg border px-2.5 text-[11px] font-semibold whitespace-nowrap ${
                                 data.creditStatus === 'confirmed'
                                     ? (isDark ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300' : 'border-emerald-100 bg-emerald-50 text-emerald-700')
                                     : data.creditStatus === 'reserved'
@@ -165,7 +165,7 @@ export const CreativeDescNode: React.FC<CreativeDescNodeProps> = ({
                                             ? (isDark ? 'border-zinc-700 bg-zinc-800 text-zinc-300' : 'border-gray-200 bg-gray-50 text-gray-600')
                                             : (isDark ? 'border-zinc-700 bg-zinc-900/60 text-zinc-400' : 'border-gray-200 bg-gray-50 text-gray-500')
                             }`}>
-                                {creditLabel} {data.creditEstimate || 1} 积分
+                                {data.creditEstimate || 1}分
                             </div>
                             <button
                                 className={`w-8 h-8 rounded-lg flex items-center justify-center ${isDark ? 'text-zinc-300 hover:bg-zinc-800' : 'text-gray-500 hover:bg-gray-100'}`}

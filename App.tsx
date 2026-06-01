@@ -44,6 +44,7 @@ const DEMO_ASSET_LIBRARY: AssetLibraryItem[] = [
     {
         id: 'asset_role_001',
         type: 'role',
+        scope: 'project',
         name: '男主-陆沉',
         version: 'v4',
         updatedAt: '今天 10:24',
@@ -53,6 +54,7 @@ const DEMO_ASSET_LIBRARY: AssetLibraryItem[] = [
     {
         id: 'asset_role_002',
         type: 'role',
+        scope: 'project',
         name: '女主-林夏',
         version: 'v3',
         updatedAt: '昨天 18:10',
@@ -62,6 +64,7 @@ const DEMO_ASSET_LIBRARY: AssetLibraryItem[] = [
     {
         id: 'asset_scene_001',
         type: 'scene',
+        scope: 'project',
         name: '废弃仓库',
         version: 'v2',
         updatedAt: '昨天 16:32',
@@ -71,6 +74,7 @@ const DEMO_ASSET_LIBRARY: AssetLibraryItem[] = [
     {
         id: 'asset_scene_002',
         type: 'scene',
+        scope: 'public',
         name: '雨夜街口',
         version: 'v1',
         updatedAt: '05-30 21:08',
@@ -80,6 +84,7 @@ const DEMO_ASSET_LIBRARY: AssetLibraryItem[] = [
     {
         id: 'asset_prop_001',
         type: 'prop',
+        scope: 'public',
         name: '蓝色芯片',
         version: 'v5',
         updatedAt: '今天 09:40',
@@ -401,6 +406,7 @@ const CanvasWithSidebar: React.FC = () => {
   const nodeToReplaceRef = useRef<string | null>(null);
   const nodeToAttachInputRef = useRef<string | null>(null);
   const assetImportPositionRef = useRef<Point | null>(null);
+  const assetImportConnectionRef = useRef<{ sourceId: string; direction?: 'forward' | 'backward' } | null>(null);
 
   const spacePressed = useRef(false);
 
@@ -662,6 +668,7 @@ const CanvasWithSidebar: React.FC = () => {
     
     setNodes(prev => [...prev, newNode]);
     setSelectedNodeIds(new Set([newNode.id]));
+    return newNode.id;
   };
 
   const handleQuickAddNode = (type: NodeType) => {
@@ -795,16 +802,18 @@ const CanvasWithSidebar: React.FC = () => {
       const { width, height } = getNodeSizeForAspectRatio('4:3', 300);
       const rect = containerRef.current?.getBoundingClientRect();
       const center = position || (rect ? screenToWorld(rect.width / 2, rect.height / 2) : { x: 0, y: 0 });
-      addNode(NodeType.ORIGINAL_IMAGE, center.x - width / 2, center.y - height / 2, {
+      addNode(NodeType.TEXT_TO_IMAGE, center.x - width / 2, center.y - height / 2, {
           width,
           height,
           title: asset.name,
           imageSrc: asset.previewUrl,
           aspectRatio: '4:3',
+          model: 'Seedream 5.0',
+          resolution: '1k',
           source: 'asset_library',
           sourceRefId: asset.id,
-          projectId: DEMO_PROJECT_META.id,
-          directorGroupName: DEMO_PROJECT_META.directorGroup,
+          projectId: currentProject?.id || DEMO_PROJECT_META.id,
+          directorGroupName: currentProject?.directorGroup || DEMO_PROJECT_META.directorGroup,
           outputArtifacts: [asset.previewUrl],
       });
   };
@@ -1753,10 +1762,98 @@ const CanvasWithSidebar: React.FC = () => {
       setDeletedNodes(prev => updateList(prev).filter(node => node.imageSrc || node.videoSrc || node.outputArtifacts?.length));
   };
 
+  const connectImportedNodeIfNeeded = (nodeId: string) => {
+      const connection = assetImportConnectionRef.current;
+      if (!connection) return;
+
+      const isBackward = connection.direction === 'backward';
+      setConnections(prev => [
+          ...prev,
+          {
+              id: generateId(),
+              sourceId: isBackward ? nodeId : connection.sourceId,
+              targetId: isBackward ? connection.sourceId : nodeId,
+          },
+      ]);
+      assetImportConnectionRef.current = null;
+  };
+
+  const addUploadedFileNode = (file: File, center: Point) => {
+      if (file.type.startsWith('image/')) {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+              const src = event.target?.result as string;
+              const img = new Image();
+              img.onload = () => {
+                  const aspectRatio = getClosestAspectRatio(img.width, img.height, IMAGE_ASPECT_RATIOS);
+                  const { width, height } = getNodeSizeForAspectRatio(aspectRatio);
+                  const nodeId = addNode(NodeType.TEXT_TO_IMAGE, center.x - width / 2, center.y - height / 2, {
+                      width,
+                      height,
+                      imageSrc: src,
+                      title: file.name,
+                      aspectRatio,
+                      model: 'Seedream 5.0',
+                      resolution: '1k',
+                      source: 'local_upload',
+                      outputArtifacts: [src],
+                  });
+                  connectImportedNodeIfNeeded(nodeId);
+              };
+              img.src = src;
+          };
+          reader.readAsDataURL(file);
+          return;
+      }
+
+      if (file.type.startsWith('video/')) {
+          const url = URL.createObjectURL(file);
+          const video = document.createElement('video');
+          video.preload = 'metadata';
+          video.onloadedmetadata = () => {
+              const aspectRatio = getClosestAspectRatio(video.videoWidth, video.videoHeight, VIDEO_ASPECT_RATIOS);
+              const { width, height } = getNodeSizeForAspectRatio(aspectRatio, VIDEO_NODE_BASE_HEIGHT);
+              const nodeId = addNode(NodeType.TEXT_TO_VIDEO, center.x - width / 2, center.y - height / 2, {
+                  width,
+                  height,
+                  videoSrc: url,
+                  title: file.name,
+                  aspectRatio,
+                  model: 'Seedance 1.5 Pro',
+                  resolution: '720p',
+                  duration: '5s',
+                  source: 'local_upload',
+                  outputArtifacts: [url],
+              });
+              connectImportedNodeIfNeeded(nodeId);
+          };
+          video.src = url;
+          return;
+      }
+
+      if (file.type.startsWith('text/') || /\.(txt|md|markdown)$/i.test(file.name)) {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+              const text = String(event.target?.result || '');
+              const nodeId = addNode(NodeType.CREATIVE_DESC, center.x - 260, center.y - 260, {
+                  width: 520,
+                  height: 520,
+                  title: file.name,
+                  prompt: text,
+                  model: 'Xiaomi MiMo 2.5 Pro',
+                  source: 'local_upload',
+              });
+              connectImportedNodeIfNeeded(nodeId);
+          };
+          reader.readAsText(file);
+      }
+  };
+
   const handleImportAsset = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) {
         assetImportPositionRef.current = null;
+        assetImportConnectionRef.current = null;
         return;
     }
     
@@ -1764,34 +1861,7 @@ const CanvasWithSidebar: React.FC = () => {
     const center = assetImportPositionRef.current || (rect ? screenToWorld(rect.width / 2, rect.height / 2) : { x: 0, y: 0 });
     assetImportPositionRef.current = null;
     
-    if (file.type.startsWith('image/')) {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            const img = new Image();
-            img.onload = () => {
-                 const aspectRatio = getClosestAspectRatio(img.width, img.height, IMAGE_ASPECT_RATIOS);
-                 const { width, height } = getNodeSizeForAspectRatio(aspectRatio);
-                 const src = event.target?.result as string;
-                 addNode(NodeType.TEXT_TO_IMAGE, center.x - width/2, center.y - height/2, {
-                     width, height, imageSrc: src, title: file.name, aspectRatio, model: 'Seedream 5.0', resolution: '1k', outputArtifacts: [src]
-                 });
-            };
-            img.src = event.target?.result as string;
-        };
-        reader.readAsDataURL(file);
-    } else if (file.type.startsWith('video/')) {
-        const url = URL.createObjectURL(file);
-        const video = document.createElement('video');
-        video.preload = 'metadata';
-        video.onloadedmetadata = () => {
-            const aspectRatio = getClosestAspectRatio(video.videoWidth, video.videoHeight, VIDEO_ASPECT_RATIOS);
-            const { width, height } = getNodeSizeForAspectRatio(aspectRatio, VIDEO_NODE_BASE_HEIGHT);
-            addNode(NodeType.TEXT_TO_VIDEO, center.x - width/2, center.y - height/2, {
-                width, height, videoSrc: url, title: file.name, aspectRatio, model: 'Seedance 1.5 Pro', resolution: '720p', duration: '5s', outputArtifacts: [url]
-            });
-        };
-        video.src = url;
-    }
+    addUploadedFileNode(file, center);
     e.target.value = '';
   };
 
@@ -1808,36 +1878,10 @@ const CanvasWithSidebar: React.FC = () => {
       const files: File[] = Array.from(e.dataTransfer.files); 
       if (files.length === 0) return;
       const worldPos = screenToWorld(e.clientX, e.clientY);
+      assetImportConnectionRef.current = null;
       files.forEach((file, index) => {
           const offsetX = index * 20; const offsetY = index * 20;
-          if (file.type.startsWith('image/')) {
-              const reader = new FileReader();
-              reader.onload = (event) => {
-                  const src = event.target?.result as string;
-                  const img = new Image();
-                  img.onload = () => {
-                       const aspectRatio = getClosestAspectRatio(img.width, img.height, IMAGE_ASPECT_RATIOS);
-                       const { width, height } = getNodeSizeForAspectRatio(aspectRatio);
-                       addNode(NodeType.TEXT_TO_IMAGE, worldPos.x - width/2 + offsetX, worldPos.y - height/2 + offsetY, {
-                           width, height, imageSrc: src, title: file.name, aspectRatio, model: 'Seedream 5.0', resolution: '1k', outputArtifacts: [src]
-                       });
-                  };
-                  img.src = src;
-              };
-              reader.readAsDataURL(file);
-          } else if (file.type.startsWith('video/')) {
-              const url = URL.createObjectURL(file);
-              const video = document.createElement('video');
-              video.preload = 'metadata';
-              video.onloadedmetadata = () => {
-                  const aspectRatio = getClosestAspectRatio(video.videoWidth, video.videoHeight, VIDEO_ASPECT_RATIOS);
-                  const { width, height } = getNodeSizeForAspectRatio(aspectRatio, VIDEO_NODE_BASE_HEIGHT);
-                  addNode(NodeType.TEXT_TO_VIDEO, worldPos.x - width/2 + offsetX, worldPos.y - height/2 + offsetY, {
-                       width, height, videoSrc: url, title: file.name, aspectRatio, model: 'Seedance 1.5 Pro', resolution: '720p', duration: '5s', outputArtifacts: [url]
-                   });
-              };
-              video.src = url;
-          }
+          addUploadedFileNode(file, { x: worldPos.x + offsetX, y: worldPos.y + offsetY });
       });
   };
 
@@ -2852,7 +2896,6 @@ const CanvasWithSidebar: React.FC = () => {
             {contextMenu.type === 'NODE' && contextMenu.nodeId && (() => {
                 const menuItemClass = `text-left px-3 py-2 text-xs transition-all duration-150 flex items-center gap-2.5 rounded-md mx-1 ${isDark ? 'text-gray-300 hover:bg-zinc-800/80 hover:text-white' : 'text-gray-700 hover:bg-gray-100 hover:text-black'}`;
                 const node = nodes.find(n => n.id === contextMenu.nodeId);
-                const canToggleVideoType = node?.type === NodeType.TEXT_TO_VIDEO || node?.type === NodeType.START_END_TO_VIDEO;
                 
                 return (
                     <>
@@ -2862,11 +2905,6 @@ const CanvasWithSidebar: React.FC = () => {
                         {contextMenu.nodeType === NodeType.ORIGINAL_IMAGE && (
                             <button className={menuItemClass} onClick={() => { triggerReplaceImage(contextMenu.nodeId!); setContextMenu(null); }}>
                                 <Icons.Upload size={14}/> 替换素材
-                            </button>
-                        )}
-                        {canToggleVideoType && (
-                            <button className={menuItemClass} onClick={() => { if (contextMenu.nodeId) { const newNode = nodes.find(n => n.id === contextMenu.nodeId); if (newNode) { const newType = newNode.type === NodeType.TEXT_TO_VIDEO ? NodeType.START_END_TO_VIDEO : NodeType.TEXT_TO_VIDEO; updateNodeData(contextMenu.nodeId, { type: newType, title: newType === NodeType.START_END_TO_VIDEO ? '首尾帧视频' : '生视频' }); } setContextMenu(null); } }}>
-                                <Icons.RefreshCw size={14}/> {node?.type === NodeType.TEXT_TO_VIDEO ? '切换为首尾帧模式' : '切换为普通视频模式'}
                             </button>
                         )}
                         <button className={menuItemClass} onClick={() => { if (contextMenu.nodeId) copyImageToClipboard(contextMenu.nodeId); setContextMenu(null); }}>
@@ -2886,7 +2924,7 @@ const CanvasWithSidebar: React.FC = () => {
                         <button className={`${menuItemClass} ${!internalClipboard ? 'opacity-40 cursor-not-allowed' : ''}`} onClick={() => { performPaste({ x: contextMenu.worldX, y: contextMenu.worldY }); setContextMenu(null); }} disabled={!internalClipboard}>
                             <Icons.Copy size={14}/> 粘贴
                         </button>
-                        <button className={menuItemClass} onClick={() => { assetImportPositionRef.current = { x: contextMenu.worldX, y: contextMenu.worldY }; assetInputRef.current?.click(); setContextMenu(null); }}>
+                        <button className={menuItemClass} onClick={() => { assetImportPositionRef.current = { x: contextMenu.worldX, y: contextMenu.worldY }; assetImportConnectionRef.current = null; assetInputRef.current?.click(); setContextMenu(null); }}>
                             <Icons.Upload size={14}/> 本地上传
                         </button>
                         <div className={`h-px my-1.5 mx-2 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`}></div>
@@ -2903,9 +2941,9 @@ const CanvasWithSidebar: React.FC = () => {
                             <div className="w-5 h-5 rounded bg-purple-500/10 flex items-center justify-center"><Icons.Video size={12} className="text-purple-400"/></div>
                             <span>生视频</span>
                         </button>
-                        <button className={menuItemClass} onClick={() => { addNode(NodeType.START_END_TO_VIDEO, contextMenu.worldX, contextMenu.worldY); setContextMenu(null); }}>
-                            <div className="w-5 h-5 rounded bg-emerald-500/10 flex items-center justify-center"><Icons.Frame size={12} className="text-emerald-400"/></div>
-                            <span>首尾帧视频</span>
+                        <button className={menuItemClass} onClick={() => { assetImportPositionRef.current = { x: contextMenu.worldX, y: contextMenu.worldY }; assetImportConnectionRef.current = null; assetInputRef.current?.click(); setContextMenu(null); }}>
+                            <div className="w-5 h-5 rounded bg-emerald-500/10 flex items-center justify-center"><Icons.Upload size={12} className="text-emerald-400"/></div>
+                            <span>上传</span>
                         </button>
                     </>
                 );
@@ -2943,9 +2981,14 @@ const CanvasWithSidebar: React.FC = () => {
                 <div className="w-6 h-6 rounded-md bg-purple-500/10 flex items-center justify-center"><Icons.Video size={14} className="text-purple-400"/></div>
                 <span>生视频</span>
             </button>
-            <button className={menuItemClass} onClick={() => handleQuickAddNode(NodeType.START_END_TO_VIDEO)}>
-                <div className="w-6 h-6 rounded-md bg-emerald-500/10 flex items-center justify-center"><Icons.Frame size={14} className="text-emerald-400"/></div>
-                <span>首尾帧视频</span>
+            <button className={menuItemClass} onClick={() => {
+                assetImportPositionRef.current = { x: quickAddMenu.worldX, y: quickAddMenu.worldY };
+                assetImportConnectionRef.current = { sourceId: quickAddMenu.sourceId, direction: quickAddMenu.direction };
+                assetInputRef.current?.click();
+                setQuickAddMenu(null);
+            }}>
+                <div className="w-6 h-6 rounded-md bg-emerald-500/10 flex items-center justify-center"><Icons.Upload size={14} className="text-emerald-400"/></div>
+                <span>上传</span>
             </button>
             
         </div>
@@ -3016,7 +3059,7 @@ const CanvasWithSidebar: React.FC = () => {
           isDark={isDark}
         />
         <input type="file" ref={workflowInputRef} hidden accept=".aistudio-flow,.json" onChange={handleLoadWorkflow} />
-        <input type="file" ref={assetInputRef} hidden accept="image/*,video/*" onChange={handleImportAsset} />
+        <input type="file" ref={assetInputRef} hidden accept="image/*,video/*,.txt,.md,.markdown,text/plain" onChange={handleImportAsset} />
         <input type="file" ref={replaceImageRef} hidden accept="image/*,video/*" onChange={handleReplaceImage} />
         <input type="file" ref={attachInputRef} hidden accept="image/*,video/*,.txt,.md,text/plain" onChange={handleAttachInputAsset} />
         <div 
@@ -3409,13 +3452,13 @@ const CanvasWithSidebar: React.FC = () => {
                     {/* Download backup */}
                     <button
                         onClick={() => setIsExportImportOpen(true)}
-                        title="下载备份"
+                        title="导入/导出备份"
                         className={`flex h-9 w-9 items-center justify-center rounded-xl text-sm font-medium transition-all ${
                             isDark ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                         }`}
                     >
                         <Icons.Download size={15} />
-                        <span className="sr-only">下载备份</span>
+                        <span className="sr-only">导入/导出备份</span>
                     </button>
                     
                     <div className={`w-px h-5 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`} />

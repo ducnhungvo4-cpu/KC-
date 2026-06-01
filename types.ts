@@ -59,10 +59,12 @@ export interface NodeData {
 }
 
 export type AssetLibraryType = 'role' | 'scene' | 'prop';
+export type AssetLibraryScope = 'project' | 'public';
 
 export interface AssetLibraryItem {
   id: string;
   type: AssetLibraryType;
+  scope?: AssetLibraryScope;
   name: string;
   version: string;
   updatedAt: string;

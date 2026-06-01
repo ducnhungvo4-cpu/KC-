@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, memo, useMemo } from 'react';
 import { Icons } from './Icons';
-import { AssetLibraryItem, AssetLibraryType, NodeType, NodeData } from '../types';
+import { AssetLibraryItem, AssetLibraryScope, AssetLibraryType, NodeType, NodeData } from '../types';
 
 interface SidebarProps {
   onAddNode: (type: NodeType) => void;
@@ -93,6 +93,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const [activePanel, setActivePanel] = useState<ActivePanel>(null);
   const [historyTab, setHistoryTab] = useState<'image' | 'video'>('image');
+  const [assetScope, setAssetScope] = useState<AssetLibraryScope | 'all'>('project');
   const [assetTab, setAssetTab] = useState<AssetLibraryType | 'all'>('all');
   const [assetSearch, setAssetSearch] = useState('');
   const [assetMenu, setAssetMenu] = useState<{ x: number; y: number; item: AssetItem } | null>(null);
@@ -145,11 +146,13 @@ const Sidebar: React.FC<SidebarProps> = ({
   const filteredAssetLibrary = useMemo(() => {
       const keyword = assetSearch.trim().toLowerCase();
       return assetLibrary.filter(item => {
+          const scope = item.scope || 'project';
+          const matchScope = assetScope === 'all' || scope === assetScope;
           const matchType = assetTab === 'all' || item.type === assetTab;
           const matchKeyword = !keyword || `${item.name} ${item.description} ${item.version}`.toLowerCase().includes(keyword);
-          return matchType && matchKeyword;
+          return matchScope && matchType && matchKeyword;
       });
-  }, [assetLibrary, assetSearch, assetTab]);
+  }, [assetLibrary, assetScope, assetSearch, assetTab]);
 
   // Close panel when clicking outside
   useEffect(() => {
@@ -330,6 +333,11 @@ const Sidebar: React.FC<SidebarProps> = ({
   );
 
   const renderAssetLibraryPanel = () => {
+    const scopeTabs: { key: AssetLibraryScope | 'all'; label: string }[] = [
+      { key: 'project', label: '项目库' },
+      { key: 'public', label: '公共库' },
+      { key: 'all', label: '全部' },
+    ];
     const tabs: { key: AssetLibraryType | 'all'; label: string }[] = [
       { key: 'all', label: '全部' },
       { key: 'role', label: '角色' },
@@ -352,6 +360,22 @@ const Sidebar: React.FC<SidebarProps> = ({
             placeholder="搜索角色、场景、道具"
             className={`min-w-0 flex-1 bg-transparent text-xs outline-none ${isDark ? 'text-zinc-100 placeholder:text-zinc-600' : 'text-gray-900 placeholder:text-gray-400'}`}
           />
+        </div>
+
+        <div className={`grid grid-cols-3 gap-1 rounded-xl p-1 ${isDark ? 'bg-zinc-950/45' : 'bg-gray-100'}`}>
+          {scopeTabs.map(tab => (
+            <button
+              key={tab.key}
+              className={`h-8 rounded-lg text-xs font-semibold transition-all ${
+                assetScope === tab.key
+                  ? (isDark ? 'bg-blue-500/20 text-blue-300' : 'bg-white text-blue-600 shadow-sm')
+                  : (isDark ? 'text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200' : 'text-gray-500 hover:bg-white/70 hover:text-gray-800')
+              }`}
+              onClick={() => setAssetScope(tab.key)}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
         <div className="flex gap-1">
@@ -633,9 +657,6 @@ const Sidebar: React.FC<SidebarProps> = ({
         <SidebarButton icon={Icons.Images} panel="ASSETS" tooltip="素材库" />
         <SidebarButton icon={Icons.Upload} tooltip="导入素材" onClick={onImportAsset} />
         
-        <div className={`w-8 h-px my-1 ${isDark ? 'bg-zinc-800' : 'bg-gray-200'}`} />
-        
-        <SidebarButton icon={Icons.Folder} panel="PROJECT" tooltip="项目" />
       </div>
 
       {/* Panel */}
