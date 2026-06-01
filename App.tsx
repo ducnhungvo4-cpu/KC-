@@ -1,7 +1,7 @@
 
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import Sidebar from './components/Sidebar';
-import { AssetLibraryItem, InputMedia, MultiAngleOptions, NodeData, Connection, CanvasTransform, Point, DragMode, NodeType } from './types';
+import { AssetLibraryItem, AssetLibraryType, InputMedia, MultiAngleOptions, NodeData, Connection, CanvasTransform, Point, DragMode, NodeType } from './types';
 import BaseNode from './components/Nodes/BaseNode';
 import { NodeContent } from './components/Nodes/NodeContent';
 import { Icons } from './components/Icons';
@@ -326,6 +326,13 @@ const CanvasWithSidebar: React.FC = () => {
   const [previewMedia, setPreviewMedia] = useState<{ url: string, type: 'image' | 'video' } | null>(null);
   const [previewText, setPreviewText] = useState<{ title: string, text: string } | null>(null);
   const [cropTarget, setCropTarget] = useState<{ nodeId: string; imageSrc: string; title: string; aspectRatio: string } | null>(null);
+  const [saveResultTarget, setSaveResultTarget] = useState<{ nodeId: string; url: string; type: 'image' | 'video'; title: string } | null>(null);
+  const [saveResultMode, setSaveResultMode] = useState<'material' | 'new_asset' | 'update_asset'>('material');
+  const [saveResultName, setSaveResultName] = useState('');
+  const [saveAssetType, setSaveAssetType] = useState<AssetLibraryType>('role');
+  const [saveTargetAssetId, setSaveTargetAssetId] = useState(DEMO_ASSET_LIBRARY[0]?.id || '');
+  const [saveResultNote, setSaveResultNote] = useState('');
+  const [isCreditDashboardOpen, setIsCreditDashboardOpen] = useState(false);
   
   // Quick Add Menu State
   const [quickAddMenu, setQuickAddMenu] = useState<{ sourceId: string, x: number, y: number, worldX: number, worldY: number, direction?: 'forward' | 'backward' } | null>(null);
@@ -1053,6 +1060,60 @@ const CanvasWithSidebar: React.FC = () => {
       else if (node.imageSrc) setPreviewMedia({ url: node.imageSrc, type: 'image' });
       else alert("没有可预览的内容");
   };
+
+  const openSaveResultModal = (nodeId: string) => {
+      const node = nodes.find(n => n.id === nodeId) || deletedNodes.find(n => n.id === nodeId);
+      if (!node) return;
+      const url = node.videoSrc || node.imageSrc;
+      if (!url) {
+          alert('当前节点没有可保存的结果');
+          return;
+      }
+      const type = node.videoSrc ? 'video' : 'image';
+      setSaveResultTarget({ nodeId, url, type, title: node.title });
+      setSaveResultName(node.title || (type === 'video' ? '视频素材' : '图片素材'));
+      setSaveResultMode('material');
+      setSaveAssetType('role');
+      setSaveTargetAssetId(DEMO_ASSET_LIBRARY[0]?.id || '');
+      setSaveResultNote('');
+  };
+
+  const handleConfirmSaveResult = () => {
+      if (!saveResultTarget) return;
+      const selectedAsset = DEMO_ASSET_LIBRARY.find(asset => asset.id === saveTargetAssetId);
+      const title = saveResultName.trim() || saveResultTarget.title;
+      const updates: Partial<NodeData> = {
+          title,
+          outputArtifacts: [
+              saveResultTarget.url,
+              ...((nodes.find(node => node.id === saveResultTarget.nodeId) || deletedNodes.find(node => node.id === saveResultTarget.nodeId))?.outputArtifacts || []).filter(item => item !== saveResultTarget.url),
+          ],
+      };
+
+      if (saveResultMode === 'new_asset') {
+          updates.source = 'asset_library';
+          updates.sourceRefId = `new_${saveAssetType}_${Date.now()}`;
+      }
+      if (saveResultMode === 'update_asset' && selectedAsset) {
+          updates.source = 'asset_library';
+          updates.sourceRefId = selectedAsset.id;
+      }
+
+      const nextNodes = nodes.map(node => node.id === saveResultTarget.nodeId ? { ...node, ...updates } : node);
+      if (nextNodes.some(node => node.id === saveResultTarget.nodeId)) {
+          setNodes(nextNodes);
+          handleSaveProject(currentProject, nextNodes);
+      } else {
+          handleSaveProject();
+      }
+      const actionText = saveResultMode === 'material'
+          ? '已保存到项目素材'
+          : saveResultMode === 'new_asset'
+              ? '已保存为新资产'
+              : `已更新资产版本：${selectedAsset?.name || '未选择资产'}`;
+      alert(`${actionText}\n\n原型说明：当前为前端演示保存状态，正式系统会调用素材库/资产库接口并保留历史版本。`);
+      setSaveResultTarget(null);
+  };
   
   const handleHistoryPreview = (url: string, type: 'image' | 'video') => setPreviewMedia({ url, type });
 
@@ -1363,7 +1424,7 @@ const CanvasWithSidebar: React.FC = () => {
       }
   };
 
-  const handleSaveProject = (project = currentProject) => {
+  const handleSaveProject = (project = currentProject, snapshotNodes = nodes) => {
       if (!project) return false;
       setSaveStatus('saving');
       try {
@@ -1374,7 +1435,7 @@ const CanvasWithSidebar: React.FC = () => {
               minute: '2-digit',
           });
           const projectSnapshot = {
-              nodes,
+              nodes: snapshotNodes,
               connections,
               transform,
               projectName,
@@ -1975,6 +2036,220 @@ const CanvasWithSidebar: React.FC = () => {
       );
   };
 
+  const renderSaveResultModal = () => {
+      if (!saveResultTarget) return null;
+      const modeButtonClass = (mode: typeof saveResultMode) => `rounded-xl border px-3 py-2 text-left transition-all ${
+          saveResultMode === mode
+              ? (isDark ? 'border-blue-500 bg-blue-500/15 text-blue-200' : 'border-blue-500 bg-blue-50 text-blue-700')
+              : (isDark ? 'border-zinc-800 bg-zinc-950/45 text-zinc-400 hover:border-zinc-700 hover:text-zinc-100' : 'border-gray-200 bg-gray-50 text-gray-600 hover:border-gray-300 hover:text-gray-900')
+      }`;
+      const inputClass = `w-full rounded-xl border px-3 py-2 text-sm outline-none ${
+          isDark ? 'border-zinc-800 bg-zinc-950/60 text-zinc-100 placeholder:text-zinc-600 focus:border-blue-500' : 'border-gray-200 bg-white text-gray-900 placeholder:text-gray-400 focus:border-blue-500'
+      }`;
+
+      return (
+          <div className="fixed inset-0 z-[260] flex items-center justify-center bg-black/70 backdrop-blur-md" onClick={() => setSaveResultTarget(null)}>
+              <div className={`w-[720px] max-w-[92vw] rounded-3xl border shadow-2xl ${isDark ? 'border-zinc-800 bg-[#15171b] text-zinc-100' : 'border-gray-200 bg-white text-gray-900'}`} onClick={(event) => event.stopPropagation()}>
+                  <div className={`flex items-center justify-between border-b px-6 py-4 ${isDark ? 'border-zinc-800' : 'border-gray-100'}`}>
+                      <div>
+                          <h3 className="text-lg font-bold">保存结果</h3>
+                          <p className={`mt-1 text-xs ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>保存到项目素材，或作为资产版本沉淀给线性系统复用。</p>
+                      </div>
+                      <button className={`h-9 w-9 rounded-full flex items-center justify-center ${isDark ? 'hover:bg-zinc-800 text-zinc-400 hover:text-white' : 'hover:bg-gray-100 text-gray-500 hover:text-gray-900'}`} onClick={() => setSaveResultTarget(null)}>
+                          <Icons.X size={20} />
+                      </button>
+                  </div>
+
+                  <div className="grid grid-cols-[220px_1fr] gap-5 p-6">
+                      <div className={`overflow-hidden rounded-2xl border ${isDark ? 'border-zinc-800 bg-zinc-950' : 'border-gray-200 bg-gray-50'}`}>
+                          <div className="aspect-video w-full">
+                              {saveResultTarget.type === 'video'
+                                  ? <video src={saveResultTarget.url} className="h-full w-full object-cover" muted controls preload="metadata" />
+                                  : <img src={saveResultTarget.url} className="h-full w-full object-cover" alt="保存预览" />}
+                          </div>
+                          <div className="p-3">
+                              <div className={`text-xs ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>当前项目</div>
+                              <div className="mt-1 truncate text-sm font-semibold">{currentProject?.name || projectName}</div>
+                          </div>
+                      </div>
+
+                      <div className="space-y-4">
+                          <div>
+                              <label className={`text-xs font-semibold ${isDark ? 'text-zinc-400' : 'text-gray-600'}`}>名称</label>
+                              <input className={`${inputClass} mt-1.5`} value={saveResultName} onChange={(event) => setSaveResultName(event.target.value)} placeholder="输入素材或资产名称" />
+                          </div>
+
+                          <div className="grid grid-cols-3 gap-2">
+                              <button className={modeButtonClass('material')} onClick={() => setSaveResultMode('material')}>
+                                  <div className="text-sm font-semibold">项目素材</div>
+                                  <div className="mt-1 text-[11px] opacity-70">只保存到当前项目素材库</div>
+                              </button>
+                              <button className={modeButtonClass('new_asset')} onClick={() => setSaveResultMode('new_asset')}>
+                                  <div className="text-sm font-semibold">新资产</div>
+                                  <div className="mt-1 text-[11px] opacity-70">创建角色/场景/道具资产</div>
+                              </button>
+                              <button className={modeButtonClass('update_asset')} onClick={() => setSaveResultMode('update_asset')}>
+                                  <div className="text-sm font-semibold">更新资产</div>
+                                  <div className="mt-1 text-[11px] opacity-70">追加为已有资产新版本</div>
+                              </button>
+                          </div>
+
+                          {saveResultMode === 'new_asset' && (
+                              <div>
+                                  <label className={`text-xs font-semibold ${isDark ? 'text-zinc-400' : 'text-gray-600'}`}>资产类型</label>
+                                  <div className="mt-1.5 flex gap-2">
+                                      {[
+                                          ['role', '角色'],
+                                          ['scene', '场景'],
+                                          ['prop', '道具'],
+                                      ].map(([value, label]) => (
+                                          <button
+                                              key={value}
+                                              className={`h-9 flex-1 rounded-xl border text-sm font-semibold ${saveAssetType === value ? (isDark ? 'border-blue-500 bg-blue-500/15 text-blue-200' : 'border-blue-500 bg-blue-50 text-blue-700') : (isDark ? 'border-zinc-800 text-zinc-400 hover:bg-zinc-900' : 'border-gray-200 text-gray-600 hover:bg-gray-50')}`}
+                                              onClick={() => setSaveAssetType(value as AssetLibraryType)}
+                                          >
+                                              {label}
+                                          </button>
+                                      ))}
+                                  </div>
+                              </div>
+                          )}
+
+                          {saveResultMode === 'update_asset' && (
+                              <div>
+                                  <label className={`text-xs font-semibold ${isDark ? 'text-zinc-400' : 'text-gray-600'}`}>选择要更新的资产</label>
+                                  <select className={`${inputClass} mt-1.5`} value={saveTargetAssetId} onChange={(event) => setSaveTargetAssetId(event.target.value)}>
+                                      {DEMO_ASSET_LIBRARY.map(asset => (
+                                          <option key={asset.id} value={asset.id}>{asset.name} / {asset.version}</option>
+                                      ))}
+                                  </select>
+                                  <p className={`mt-1 text-[11px] ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>正式系统会保留历史版本，不覆盖旧结果。</p>
+                              </div>
+                          )}
+
+                          <div>
+                              <label className={`text-xs font-semibold ${isDark ? 'text-zinc-400' : 'text-gray-600'}`}>备注</label>
+                              <textarea className={`${inputClass} mt-1.5 min-h-[70px] resize-none`} value={saveResultNote} onChange={(event) => setSaveResultNote(event.target.value)} placeholder="可填写本次优化原因、适用分镜或版本说明" />
+                          </div>
+                      </div>
+                  </div>
+
+                  <div className={`flex items-center justify-between border-t px-6 py-4 ${isDark ? 'border-zinc-800' : 'border-gray-100'}`}>
+                      <div className={`text-xs ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>当前为原型演示，后续接项目素材库/资产库接口。</div>
+                      <div className="flex gap-2">
+                          <button className={`h-10 rounded-xl px-4 text-sm font-semibold ${isDark ? 'text-zinc-400 hover:bg-zinc-900 hover:text-white' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`} onClick={() => setSaveResultTarget(null)}>取消</button>
+                          <button className="h-10 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-500" onClick={handleConfirmSaveResult}>确认保存</button>
+                      </div>
+                  </div>
+              </div>
+          </div>
+      );
+  };
+
+  const renderCreditDashboard = () => {
+      if (!isCreditDashboardOpen) return null;
+      const statusText: Record<string, string> = {
+          estimated: '预计',
+          reserved: '已预扣',
+          confirmed: '已扣减',
+          refunded: '已返还',
+          failed: '异常',
+          idle: '未开始',
+      };
+      const taskRows = nodes
+          .filter(node => node.creditEstimate || node.creditStatus)
+          .map((node, index) => ({
+              id: node.id,
+              project: currentProject?.name || projectName,
+              group: currentProject?.directorGroup || node.directorGroupName || '-',
+              user: index % 2 === 0 ? '导演A' : '制片助理B',
+              type: node.type === NodeType.CREATIVE_DESC ? '文本分析' : node.type === NodeType.TEXT_TO_IMAGE ? '图片生成' : '视频生成',
+              model: node.model || '-',
+              credit: node.creditEstimate || getEstimatedCredits(node),
+              status: node.creditStatus || 'estimated',
+              nodeTitle: node.title,
+          }));
+      const fallbackRows = [
+          { id: 'mock_1', project: currentProject?.name || '演示项目', group: currentProject?.directorGroup || 'A组导演组', user: '导演A', type: '视频生成', model: 'Seedance 1.5 Pro', credit: 14, status: 'confirmed', nodeTitle: '第1集 第2场 分镜03' },
+          { id: 'mock_2', project: currentProject?.name || '演示项目', group: currentProject?.directorGroup || 'A组导演组', user: '制片助理B', type: '图片生成', model: 'Seedream 5.0', credit: 2, status: 'reserved', nodeTitle: '角色参考图' },
+          { id: 'mock_3', project: currentProject?.name || '演示项目', group: currentProject?.directorGroup || 'A组导演组', user: '导演A', type: '文本分析', model: 'Xiaomi MiMo 2.5 Pro', credit: 1, status: 'refunded', nodeTitle: '剧本角色表' },
+      ];
+      const rows = taskRows.length ? taskRows : fallbackRows;
+      const total = rows.reduce((sum, row) => sum + row.credit, 0);
+      const confirmed = rows.filter(row => row.status === 'confirmed').reduce((sum, row) => sum + row.credit, 0);
+      const reserved = rows.filter(row => row.status === 'reserved').reduce((sum, row) => sum + row.credit, 0);
+      const refunded = rows.filter(row => row.status === 'refunded').reduce((sum, row) => sum + row.credit, 0);
+
+      return (
+          <div className="fixed inset-0 z-[250] bg-black/70 backdrop-blur-md p-6" onClick={() => setIsCreditDashboardOpen(false)}>
+              <div className={`mx-auto flex h-full max-w-6xl flex-col rounded-3xl border shadow-2xl ${isDark ? 'border-zinc-800 bg-[#121417] text-zinc-100' : 'border-gray-200 bg-white text-gray-900'}`} onClick={(event) => event.stopPropagation()}>
+                  <div className={`flex items-center justify-between border-b px-6 py-4 ${isDark ? 'border-zinc-800' : 'border-gray-100'}`}>
+                      <div>
+                          <h3 className="text-xl font-bold">后台积分看板</h3>
+                          <p className={`mt-1 text-sm ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>按项目、导演组、人员、模型和任务类型查看画布消耗。</p>
+                      </div>
+                      <button className={`h-10 w-10 rounded-full flex items-center justify-center ${isDark ? 'hover:bg-zinc-800 text-zinc-400 hover:text-white' : 'hover:bg-gray-100 text-gray-500 hover:text-gray-900'}`} onClick={() => setIsCreditDashboardOpen(false)}>
+                          <Icons.X size={22} />
+                      </button>
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-4 p-6">
+                      {[
+                          ['今日消耗', total],
+                          ['已确认扣减', confirmed],
+                          ['当前预扣', reserved],
+                          ['失败返还', refunded],
+                      ].map(([label, value]) => (
+                          <div key={String(label)} className={`rounded-2xl border p-4 ${isDark ? 'border-zinc-800 bg-zinc-950/45' : 'border-gray-200 bg-gray-50'}`}>
+                              <div className={`text-xs ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>{label}</div>
+                              <div className="mt-2 text-2xl font-bold tabular-nums">{value}</div>
+                              <div className={`mt-1 text-[11px] ${isDark ? 'text-zinc-600' : 'text-gray-400'}`}>积分</div>
+                          </div>
+                      ))}
+                  </div>
+
+                  <div className="flex-1 overflow-auto px-6 pb-6">
+                      <table className="w-full border-separate border-spacing-y-2 text-sm">
+                          <thead>
+                              <tr className={isDark ? 'text-zinc-500' : 'text-gray-500'}>
+                                  {['项目', '导演组', '人员', '任务类型', '模型', '节点', '积分', '状态'].map(head => (
+                                      <th key={head} className="px-3 py-2 text-left text-xs font-semibold">{head}</th>
+                                  ))}
+                              </tr>
+                          </thead>
+                          <tbody>
+                              {rows.map(row => (
+                                  <tr key={row.id} className={isDark ? 'bg-zinc-950/55 text-zinc-200' : 'bg-gray-50 text-gray-800'}>
+                                      <td className="rounded-l-xl px-3 py-3">{row.project}</td>
+                                      <td className="px-3 py-3">{row.group}</td>
+                                      <td className="px-3 py-3">{row.user}</td>
+                                      <td className="px-3 py-3">{row.type}</td>
+                                      <td className="px-3 py-3">{row.model}</td>
+                                      <td className="px-3 py-3">{row.nodeTitle}</td>
+                                      <td className="px-3 py-3 font-semibold tabular-nums">{row.credit}</td>
+                                      <td className="rounded-r-xl px-3 py-3">
+                                          <span className={`rounded-lg px-2 py-1 text-xs font-semibold ${
+                                              row.status === 'confirmed'
+                                                  ? (isDark ? 'bg-emerald-500/10 text-emerald-300' : 'bg-emerald-50 text-emerald-700')
+                                                  : row.status === 'reserved'
+                                                      ? (isDark ? 'bg-blue-500/10 text-blue-300' : 'bg-blue-50 text-blue-700')
+                                                      : row.status === 'refunded'
+                                                          ? (isDark ? 'bg-zinc-800 text-zinc-300' : 'bg-gray-100 text-gray-600')
+                                                          : (isDark ? 'bg-amber-500/10 text-amber-300' : 'bg-amber-50 text-amber-700')
+                                          }`}>
+                                              {statusText[row.status] || row.status}
+                                          </span>
+                                      </td>
+                                  </tr>
+                              ))}
+                          </tbody>
+                      </table>
+                  </div>
+              </div>
+          </div>
+      );
+  };
+
   const renderContextMenu = () => {
     if (!contextMenu) return null;
     return (
@@ -2137,6 +2412,7 @@ const CanvasWithSidebar: React.FC = () => {
           nodes={[...nodes, ...deletedNodes]}
           onPreviewMedia={handleHistoryPreview}
           onSaveAsset={saveAssetFile}
+          onOpenSaveResult={openSaveResultModal}
           onCopyAsset={copyAssetToClipboard}
           onDeleteAsset={deleteAssetFromLibrary}
           assetLibrary={DEMO_ASSET_LIBRARY}
@@ -2398,6 +2674,7 @@ const CanvasWithSidebar: React.FC = () => {
                             onMaximize={handleMaximize}
                             onDownload={handleDownload}
                             onUpload={triggerReplaceImage}
+                            onSaveResult={openSaveResultModal}
                             onCrop={handleCropStart}
                             onMultiAngle={handleMultiAngleGenerate}
                             onAnalyzeMedia={handleAnalyzeMedia}
@@ -2474,18 +2751,6 @@ const CanvasWithSidebar: React.FC = () => {
                         </div>
                     </div>
 
-                    <button
-                        onClick={handleImportDemoShot}
-                        className={`h-8 px-3 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all border ${
-                            isDark
-                                ? 'bg-blue-500/10 border-blue-500/20 text-blue-300 hover:bg-blue-500/20 hover:text-blue-100'
-                                : 'bg-blue-50 border-blue-100 text-blue-600 hover:bg-blue-100'
-                        }`}
-                        title="模拟从线性分镜页带入当前画布"
-                    >
-                        <Icons.Clapperboard size={14} />
-                        <span>导入分镜</span>
-                    </button>
                 </div>
             </div>
 
@@ -2531,6 +2796,19 @@ const CanvasWithSidebar: React.FC = () => {
                         <span>下载备份</span>
                     </button>
                     
+                    <div className={`w-px h-5 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`} />
+
+                    {/* Credit dashboard */}
+                    <button
+                        onClick={() => setIsCreditDashboardOpen(true)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-all ${
+                            isDark ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                        }`}
+                    >
+                        <Icons.Database size={15} />
+                        <span>积分看板</span>
+                    </button>
+
                     <div className={`w-px h-5 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`} />
                     
                     {/* Theme */}
@@ -2583,6 +2861,8 @@ const CanvasWithSidebar: React.FC = () => {
             {renderContextMenu()}
             {renderQuickAddMenu()}
             {renderNewWorkflowDialog()}
+            {renderSaveResultModal()}
+            {renderCreditDashboard()}
             {previewMedia && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md animate-in fade-in duration-200" onClick={() => setPreviewMedia(null)}>
                     <div className="relative max-w-[90vw] max-h-[90vh] bg-black rounded-lg shadow-2xl overflow-hidden border border-zinc-700" onClick={(e) => e.stopPropagation()}>

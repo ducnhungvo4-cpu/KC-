@@ -12,6 +12,7 @@ interface SidebarProps {
   nodes: NodeData[];
   onPreviewMedia: (url: string, type: 'image' | 'video') => void;
   onSaveAsset: (url: string, type: 'image' | 'video', title: string) => void;
+  onOpenSaveResult: (nodeId: string) => void;
   onCopyAsset: (url: string, type: 'image' | 'video') => void;
   onDeleteAsset: (nodeId: string, url: string, type: 'image' | 'video') => void;
   assetLibrary: AssetLibraryItem[];
@@ -81,6 +82,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   nodes,
   onPreviewMedia,
   onSaveAsset,
+  onOpenSaveResult,
   onCopyAsset,
   onDeleteAsset,
   assetLibrary,
@@ -642,9 +644,15 @@ const Sidebar: React.FC<SidebarProps> = ({
         >
           <button
             className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2.5 rounded-lg ${isDark ? 'text-gray-300 hover:bg-zinc-800 hover:text-white' : 'text-gray-700 hover:bg-gray-100 hover:text-black'}`}
+            onClick={() => { onOpenSaveResult(assetMenu.item.nodeId); setAssetMenu(null); }}
+          >
+            <Icons.Database size={14} /> 存入项目/更新资产
+          </button>
+          <button
+            className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2.5 rounded-lg ${isDark ? 'text-gray-300 hover:bg-zinc-800 hover:text-white' : 'text-gray-700 hover:bg-gray-100 hover:text-black'}`}
             onClick={() => { onSaveAsset(assetMenu.item.url, assetMenu.item.type, assetMenu.item.title); setAssetMenu(null); }}
           >
-            <Icons.Save size={14} /> 保存素材
+            <Icons.Save size={14} /> 保存到本地
           </button>
           <button
             className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2.5 rounded-lg ${isDark ? 'text-gray-300 hover:bg-zinc-800 hover:text-white' : 'text-gray-700 hover:bg-gray-100 hover:text-black'}`}

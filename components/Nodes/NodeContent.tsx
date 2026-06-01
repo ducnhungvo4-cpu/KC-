@@ -16,6 +16,7 @@ interface NodeContentProps {
   onMaximize?: (id: string) => void;
   onDownload?: (id: string) => void;
   onUpload?: (nodeId: string) => void;
+  onSaveResult?: (nodeId: string) => void;
   onCrop?: (nodeId: string) => void;
   onMultiAngle?: (nodeId: string, options: MultiAngleOptions) => void;
   onAnalyzeMedia?: (nodeId: string) => void;

@@ -18,6 +18,7 @@ interface TextToImageNodeProps {
   onMaximize?: (id: string) => void;
   onDownload?: (id: string) => void;
   onUpload?: (id: string) => void;
+  onSaveResult?: (id: string) => void;
   onCrop?: (id: string) => void;
   onMultiAngle?: (id: string, options: MultiAngleOptions) => void;
   isDark?: boolean;
@@ -26,7 +27,7 @@ interface TextToImageNodeProps {
 }
 
 export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
-    data, updateData, onGenerate, selected, showControls, inputs = [], inputMedia = [], onPreviewReference, onMaximize, onDownload, onUpload, onCrop, onMultiAngle, isDark = true, isSelecting, canvasScale = 1
+    data, updateData, onGenerate, selected, showControls, inputs = [], inputMedia = [], onPreviewReference, onMaximize, onDownload, onUpload, onSaveResult, onCrop, onMultiAngle, isDark = true, isSelecting, canvasScale = 1
 }) => {
     const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
     const [deferredInputs, setDeferredInputs] = useState(false);
@@ -278,6 +279,10 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
                 <button className={`h-9 px-3 rounded-xl text-sm font-semibold flex items-center gap-2 transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onUpload?.(data.id)} title="上传替换当前图片">
                     <Icons.Upload size={16} />
                     <span>上传</span>
+                </button>
+                <button className={`h-9 px-3 rounded-xl text-sm font-semibold flex items-center gap-2 transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onSaveResult?.(data.id)} title="保存到项目素材或更新资产">
+                    <Icons.Save size={16} />
+                    <span>保存</span>
                 </button>
                 <div className={`w-px h-6 mx-1 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`} />
                 <button className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onDownload?.(data.id)} title="下载">
