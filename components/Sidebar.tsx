@@ -5,6 +5,8 @@ import { AssetLibraryItem, AssetLibraryType, NodeType, NodeData } from '../types
 interface SidebarProps {
   onAddNode: (type: NodeType) => void;
   onNewWorkflow: () => void;
+  onSaveProject: () => void;
+  onBackToProjects: () => void;
   onImportAsset: () => void;
   onOpenExportImport: () => void;
   nodes: NodeData[];
@@ -72,6 +74,8 @@ const HistoryItem = memo(({ node, type, onClick, isDark }: { node: NodeData, typ
 const Sidebar: React.FC<SidebarProps> = ({ 
   onAddNode, 
   onNewWorkflow,
+  onSaveProject,
+  onBackToProjects,
   onImportAsset,
   onOpenExportImport,
   nodes,
@@ -267,15 +271,41 @@ const Sidebar: React.FC<SidebarProps> = ({
   const renderProjectPanel = () => (
     <div className="space-y-2">
       <button
-        onClick={() => { onNewWorkflow(); setActivePanel(null); }}
+        onClick={() => { onSaveProject(); setActivePanel(null); }}
         className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${hoverBg}`}
       >
         <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${isDark ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-50 text-blue-600'}`}>
+          <Icons.Save size={18} />
+        </div>
+        <div className="text-left">
+          <div className={`text-sm font-medium ${textMain}`}>保存项目</div>
+          <div className={`text-[11px] ${textMuted}`}>保存到当前项目</div>
+        </div>
+      </button>
+
+      <button
+        onClick={() => { onBackToProjects(); setActivePanel(null); }}
+        className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${hoverBg}`}
+      >
+        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${isDark ? 'bg-zinc-500/10 text-zinc-300' : 'bg-gray-100 text-gray-600'}`}>
+          <Icons.FolderOpen size={18} />
+        </div>
+        <div className="text-left">
+          <div className={`text-sm font-medium ${textMain}`}>返回项目管理</div>
+          <div className={`text-[11px] ${textMuted}`}>切换其他项目</div>
+        </div>
+      </button>
+
+      <button
+        onClick={() => { onNewWorkflow(); setActivePanel(null); }}
+        className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${hoverBg}`}
+      >
+        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${isDark ? 'bg-red-500/10 text-red-400' : 'bg-red-50 text-red-600'}`}>
           <Icons.FilePlus size={18} />
         </div>
         <div className="text-left">
-          <div className={`text-sm font-medium ${textMain}`}>新建项目</div>
-          <div className={`text-[11px] ${textMuted}`}>创建空白画布</div>
+          <div className={`text-sm font-medium ${textMain}`}>清空画布</div>
+          <div className={`text-[11px] ${textMuted}`}>保留项目，只清空节点</div>
         </div>
       </button>
       

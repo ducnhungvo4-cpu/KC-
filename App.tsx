@@ -94,6 +94,56 @@ const DEMO_PROJECT_META = {
     directorGroup: 'A组导演组',
     lastSavedAt: '刚刚已保存',
 };
+type ProjectDashboardItem = {
+    id: string;
+    name: string;
+    canvasName: string;
+    directorGroup: string;
+    status: 'active' | 'draft' | 'archived';
+    episodeCount: number;
+    shotCount: number;
+    assetCount: number;
+    lastSavedAt: string;
+};
+
+const KC_PROJECT_STORAGE_PREFIX = 'KC_CANVAS_PROJECT_';
+const KC_PROJECT_SUMMARIES_KEY = 'KC_CANVAS_PROJECT_SUMMARIES';
+
+const DEFAULT_PROJECTS: ProjectDashboardItem[] = [
+    {
+        id: DEMO_PROJECT_META.id,
+        name: DEMO_PROJECT_META.name,
+        canvasName: `${DEMO_PROJECT_META.name} 无限画布`,
+        directorGroup: DEMO_PROJECT_META.directorGroup,
+        status: 'active',
+        episodeCount: 24,
+        shotCount: 316,
+        assetCount: 42,
+        lastSavedAt: '未保存',
+    },
+    {
+        id: 'KC-DRAMA-002',
+        name: '《雾港来信》',
+        canvasName: '《雾港来信》 无限画布',
+        directorGroup: 'B组导演组',
+        status: 'draft',
+        episodeCount: 18,
+        shotCount: 208,
+        assetCount: 31,
+        lastSavedAt: '未保存',
+    },
+    {
+        id: 'KC-DRAMA-003',
+        name: '《逆光证人》',
+        canvasName: '《逆光证人》 无限画布',
+        directorGroup: 'C组导演组',
+        status: 'active',
+        episodeCount: 30,
+        shotCount: 452,
+        assetCount: 57,
+        lastSavedAt: '未保存',
+    },
+];
 
 const DEMO_LINEAR_SHOT = {
     projectId: DEMO_PROJECT_META.id,
@@ -189,6 +239,20 @@ const App: React.FC = () => {
 const CanvasWithSidebar: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [projects, setProjects] = useState<ProjectDashboardItem[]>(() => {
+      if (typeof window === 'undefined') return DEFAULT_PROJECTS;
+      try {
+          const saved = localStorage.getItem(KC_PROJECT_SUMMARIES_KEY);
+          if (!saved) return DEFAULT_PROJECTS;
+          const parsed = JSON.parse(saved) as ProjectDashboardItem[];
+          const merged = new Map(DEFAULT_PROJECTS.map(project => [project.id, project]));
+          parsed.forEach(project => merged.set(project.id, { ...(merged.get(project.id) || project), ...project }));
+          return Array.from(merged.values());
+      } catch {
+          return DEFAULT_PROJECTS;
+      }
+  });
+  const [currentProject, setCurrentProject] = useState<ProjectDashboardItem | null>(null);
   const [nodes, setNodes] = useState<NodeData[]>([]);
   const [connections, setConnections] = useState<Connection[]>([]);
   const [transform, setTransform] = useState<CanvasTransform>({ x: 0, y: 0, k: 1 });
@@ -207,6 +271,7 @@ const CanvasWithSidebar: React.FC = () => {
   const [isExportImportOpen, setIsExportImportOpen] = useState(false);
   const [isWelcomeOpen, setIsWelcomeOpen] = useState(() => !hasShownWelcome());
   const [storageDirName, setStorageDirName] = useState<string | null>(null);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'failed'>('idle');
 
   // History State (Persist deleted nodes that have content)
   const [deletedNodes, setDeletedNodes] = useState<NodeData[]>([]);
@@ -665,8 +730,8 @@ const CanvasWithSidebar: React.FC = () => {
           outputArtifacts: [],
           source: 'linear_pipeline',
           sourceRefId: DEMO_LINEAR_SHOT.shotId,
-          projectId: DEMO_LINEAR_SHOT.projectId,
-          directorGroupName: DEMO_LINEAR_SHOT.directorGroupName,
+          projectId: currentProject?.id || DEMO_LINEAR_SHOT.projectId,
+          directorGroupName: currentProject?.directorGroup || DEMO_LINEAR_SHOT.directorGroupName,
           shotId: DEMO_LINEAR_SHOT.shotId,
           episodeNo: DEMO_LINEAR_SHOT.episodeNo,
           sceneNo: DEMO_LINEAR_SHOT.sceneNo,
@@ -678,7 +743,6 @@ const CanvasWithSidebar: React.FC = () => {
           creditStatus: DEMO_LINEAR_SHOT.creditStatus,
       };
 
-      setProjectName(`${DEMO_PROJECT_META.name} 无限画布`);
       setNodes(prev => [...prev, newNode]);
       setSelectedNodeIds(new Set([newNode.id]));
   };
@@ -1290,33 +1354,124 @@ const CanvasWithSidebar: React.FC = () => {
       nodeToAttachInputRef.current = null;
   };
 
-  const handleSaveWorkflow = () => {
-    const workflowData = { nodes, connections, transform, projectName, version: "1.0" };
-    const blob = new Blob([JSON.stringify(workflowData, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    const safeName = projectName.replace(/[<>:"/\\|?*]/g, '_').trim() || '未命名项目';
-    link.download = `${safeName}.aistudio-flow`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+  const persistProjectSummaries = (nextProjects: ProjectDashboardItem[]) => {
+      setProjects(nextProjects);
+      try {
+          localStorage.setItem(KC_PROJECT_SUMMARIES_KEY, JSON.stringify(nextProjects));
+      } catch (error) {
+          console.error(error);
+      }
+  };
+
+  const handleSaveProject = (project = currentProject) => {
+      if (!project) return false;
+      setSaveStatus('saving');
+      try {
+          const savedAt = new Date().toLocaleString('zh-CN', {
+              month: '2-digit',
+              day: '2-digit',
+              hour: '2-digit',
+              minute: '2-digit',
+          });
+          const projectSnapshot = {
+              nodes,
+              connections,
+              transform,
+              projectName,
+              deletedNodes,
+              savedAt,
+              version: '1.0',
+          };
+          localStorage.setItem(`${KC_PROJECT_STORAGE_PREFIX}${project.id}`, JSON.stringify(projectSnapshot));
+          const savedProject = { ...project, canvasName: projectName, lastSavedAt: savedAt };
+          const nextProjects = projects.some(item => item.id === project.id)
+              ? projects.map(item => item.id === project.id ? savedProject : item)
+              : [savedProject, ...projects];
+          persistProjectSummaries(nextProjects);
+          setCurrentProject(prev => prev ? { ...prev, canvasName: projectName, lastSavedAt: savedAt } : prev);
+          setSaveStatus('saved');
+          window.setTimeout(() => setSaveStatus('idle'), 1400);
+          return true;
+      } catch (error) {
+          console.error(error);
+          setSaveStatus('failed');
+          return false;
+      }
+  };
+
+  const clearCanvasState = (nextProjectName = `${DEMO_PROJECT_META.name} 无限画布`) => {
+      const withContent = nodes.filter(n => n.imageSrc || n.videoSrc);
+      if (withContent.length > 0) setDeletedNodes(prev => [...prev, ...withContent]);
+      setNodes([]);
+      setConnections([]);
+      setTransform({ x: 0, y: 0, k: 1 });
+      setProjectName(nextProjectName);
+      setSelectedNodeIds(new Set());
+      setSelectionBox(null);
+      setSelectedConnectionId(null);
+  };
+
+  const openProject = (project: ProjectDashboardItem) => {
+      let loaded = false;
+      try {
+          const saved = localStorage.getItem(`${KC_PROJECT_STORAGE_PREFIX}${project.id}`);
+          if (saved) {
+              const data = JSON.parse(saved);
+              setNodes(Array.isArray(data.nodes) ? data.nodes : []);
+              setConnections(Array.isArray(data.connections) ? data.connections : []);
+              setDeletedNodes(Array.isArray(data.deletedNodes) ? data.deletedNodes : []);
+              setTransform(data.transform || { x: 0, y: 0, k: 1 });
+              setProjectName(data.projectName || project.canvasName);
+              loaded = true;
+          }
+      } catch (error) {
+          console.error(error);
+      }
+      if (!loaded) {
+          setNodes([]);
+          setConnections([]);
+          setDeletedNodes([]);
+          setTransform({ x: 0, y: 0, k: 1 });
+          setProjectName(project.canvasName);
+      }
+      setCurrentProject(project);
+      setSelectedNodeIds(new Set());
+      setSelectedConnectionId(null);
+      setSelectionBox(null);
+      setContextMenu(null);
+      setQuickAddMenu(null);
+      setSaveStatus('idle');
+  };
+
+  const createProject = () => {
+      const now = Date.now();
+      const newProject: ProjectDashboardItem = {
+          id: `KC-DRAMA-${now}`,
+          name: `新项目 ${projects.length + 1}`,
+          canvasName: `新项目 ${projects.length + 1} 无限画布`,
+          directorGroup: '未分组',
+          status: 'draft',
+          episodeCount: 0,
+          shotCount: 0,
+          assetCount: 0,
+          lastSavedAt: '未保存',
+      };
+      const nextProjects = [newProject, ...projects];
+      persistProjectSummaries(nextProjects);
+      openProject(newProject);
+  };
+
+  const returnToProjectManagement = () => {
+      handleSaveProject();
+      setCurrentProject(null);
   };
 
   const handleNewWorkflow = () => setShowNewWorkflowDialog(true);
   
   const handleConfirmNew = (shouldSave: boolean) => {
-    if (shouldSave) handleSaveWorkflow();
-    const withContent = nodes.filter(n => n.imageSrc || n.videoSrc);
-    if (withContent.length > 0) setDeletedNodes(prev => [...prev, ...withContent]);
-    setNodes([]);
-    setConnections([]);
-    setTransform({ x: 0, y: 0, k: 1 });
-    setProjectName(`${DEMO_PROJECT_META.name} 无限画布`);
+    if (shouldSave) handleSaveProject();
+    clearCanvasState(currentProject?.canvasName || `${DEMO_PROJECT_META.name} 无限画布`);
     setShowNewWorkflowDialog(false);
-    setSelectedNodeIds(new Set());
-    setSelectionBox(null);
   };
 
   const handleLoadWorkflow = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1707,16 +1862,116 @@ const CanvasWithSidebar: React.FC = () => {
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowNewWorkflowDialog(false)}>
             <div className={`w-[400px] p-6 rounded-2xl shadow-2xl border flex flex-col gap-4 transform transition-all scale-100 ${isDark ? 'bg-[#1A1D21] border-zinc-700 text-gray-200' : 'bg-white border-gray-200 text-gray-800'}`} onClick={(e) => e.stopPropagation()}>
                 <div>
-                    <h3 className="text-lg font-bold flex items-center gap-2"><Icons.FilePlus size={20} className="text-blue-500"/>新建工作流</h3>
-                    <p className={`text-xs mt-2 leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>是否在创建新工作流之前保存当前工作流？<br/>任何未保存的更改将永久丢失。</p>
+                    <h3 className="text-lg font-bold flex items-center gap-2"><Icons.FilePlus size={20} className="text-blue-500"/>清空当前画布</h3>
+                    <p className={`text-xs mt-2 leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>是否在清空画布之前保存当前项目？<br/>清空后节点和连线会从当前画布移除。</p>
                 </div>
                 <div className={`flex justify-end gap-2 mt-2 pt-4 border-t ${isDark ? 'border-zinc-800' : 'border-gray-100'}`}>
                     <button onClick={() => setShowNewWorkflowDialog(false)} className={`px-4 py-2 rounded-lg text-xs font-medium transition-colors ${isDark ? 'hover:bg-zinc-800 text-gray-400' : 'hover:bg-gray-100 text-gray-600'}`}>取消</button>
                     <button onClick={() => handleConfirmNew(false)} className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors ${isDark ? 'bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20' : 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-200'}`}>不保存</button>
-                    <button onClick={() => handleConfirmNew(true)} className={`px-4 py-2 rounded-lg text-xs font-bold text-white transition-colors shadow-lg shadow-blue-500/20 flex items-center gap-1.5 ${isDark ? 'bg-blue-600 hover:bg-blue-500' : 'bg-blue-500 hover:bg-blue-400'}`}><Icons.Save size={14}/>保存并新建</button>
+                    <button onClick={() => handleConfirmNew(true)} className={`px-4 py-2 rounded-lg text-xs font-bold text-white transition-colors shadow-lg shadow-blue-500/20 flex items-center gap-1.5 ${isDark ? 'bg-blue-600 hover:bg-blue-500' : 'bg-blue-500 hover:bg-blue-400'}`}><Icons.Save size={14}/>保存并清空</button>
                 </div>
             </div>
         </div>
+      );
+  };
+
+  const renderProjectDashboard = () => {
+      const statusClass = (status: ProjectDashboardItem['status']) => {
+          if (status === 'active') return isDark ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20' : 'bg-emerald-50 text-emerald-700 border-emerald-100';
+          if (status === 'draft') return isDark ? 'bg-amber-500/10 text-amber-300 border-amber-500/20' : 'bg-amber-50 text-amber-700 border-amber-100';
+          return isDark ? 'bg-zinc-800 text-zinc-400 border-zinc-700' : 'bg-gray-100 text-gray-500 border-gray-200';
+      };
+      const statusText: Record<ProjectDashboardItem['status'], string> = {
+          active: '制作中',
+          draft: '草稿',
+          archived: '归档',
+      };
+
+      return (
+          <div className={`min-h-screen w-full ${isDark ? 'bg-[#0b0c0e] text-zinc-100' : 'bg-[#f5f7fa] text-gray-900'}`}>
+              <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-8 py-7">
+                  <header className="flex items-center justify-between gap-6">
+                      <div className="flex items-center gap-3">
+                          <div className={`h-11 w-11 rounded-2xl flex items-center justify-center ${isDark ? 'bg-blue-500/15 text-blue-300' : 'bg-blue-100 text-blue-600'}`}>
+                              <Icons.Sparkles size={22} />
+                          </div>
+                          <div>
+                              <h1 className="text-xl font-bold">KC 无限画布项目管理</h1>
+                              <p className={`mt-1 text-sm ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>先选择项目，再进入对应画布继续创作和保存。</p>
+                          </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                          <button
+                              onClick={createProject}
+                              className={`h-10 rounded-xl px-4 text-sm font-semibold flex items-center gap-2 ${isDark ? 'bg-blue-600 text-white hover:bg-blue-500' : 'bg-blue-600 text-white hover:bg-blue-500'}`}
+                          >
+                              <Icons.FilePlus size={16} />
+                              新建项目
+                          </button>
+                          <button
+                              onClick={() => toggleTheme(!isDark)}
+                              className={`h-10 rounded-xl border px-3 text-sm font-semibold flex items-center gap-2 ${isDark ? 'border-zinc-800 text-zinc-400 hover:bg-zinc-900 hover:text-white' : 'border-gray-200 text-gray-600 hover:bg-white hover:text-gray-900'}`}
+                          >
+                              {isDark ? <Icons.Moon size={16} /> : <Icons.Sun size={16} />}
+                              {isDark ? '暗色' : '亮色'}
+                          </button>
+                      </div>
+                  </header>
+
+                  <section className="mt-8 grid grid-cols-4 gap-4">
+                      {[
+                          ['项目数', projects.length],
+                          ['制作中', projects.filter(project => project.status === 'active').length],
+                          ['分镜总数', projects.reduce((sum, project) => sum + project.shotCount, 0)],
+                          ['资产总数', projects.reduce((sum, project) => sum + project.assetCount, 0)],
+                      ].map(([label, value]) => (
+                          <div key={String(label)} className={`rounded-2xl border p-4 ${isDark ? 'border-zinc-800 bg-zinc-950/45' : 'border-gray-200 bg-white'}`}>
+                              <div className={`text-xs ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>{label}</div>
+                              <div className="mt-2 text-2xl font-bold tabular-nums">{value}</div>
+                          </div>
+                      ))}
+                  </section>
+
+                  <main className="mt-6 grid grid-cols-3 gap-4">
+                      {projects.map(project => (
+                          <button
+                              key={project.id}
+                              onClick={() => openProject(project)}
+                              className={`group rounded-2xl border p-5 text-left transition-all ${isDark ? 'border-zinc-800 bg-[#16181c] hover:border-blue-500/45 hover:bg-[#1a1d23]' : 'border-gray-200 bg-white hover:border-blue-300 hover:shadow-md'}`}
+                          >
+                              <div className="flex items-start justify-between gap-3">
+                                  <div className="min-w-0">
+                                      <div className={`inline-flex rounded-lg border px-2 py-1 text-[11px] font-semibold ${statusClass(project.status)}`}>
+                                          {statusText[project.status]}
+                                      </div>
+                                      <h2 className="mt-3 truncate text-lg font-bold">{project.name}</h2>
+                                      <p className={`mt-1 truncate text-sm ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>{project.id} / {project.directorGroup}</p>
+                                  </div>
+                                  <Icons.ChevronRight size={20} className={`mt-1 transition-transform group-hover:translate-x-1 ${isDark ? 'text-zinc-600' : 'text-gray-400'}`} />
+                              </div>
+                              <div className={`mt-5 grid grid-cols-3 gap-2 rounded-xl p-3 ${isDark ? 'bg-zinc-950/60' : 'bg-gray-50'}`}>
+                                  <div>
+                                      <div className={`text-[10px] ${isDark ? 'text-zinc-600' : 'text-gray-400'}`}>集数</div>
+                                      <div className="mt-1 text-sm font-semibold">{project.episodeCount}</div>
+                                  </div>
+                                  <div>
+                                      <div className={`text-[10px] ${isDark ? 'text-zinc-600' : 'text-gray-400'}`}>分镜</div>
+                                      <div className="mt-1 text-sm font-semibold">{project.shotCount}</div>
+                                  </div>
+                                  <div>
+                                      <div className={`text-[10px] ${isDark ? 'text-zinc-600' : 'text-gray-400'}`}>资产</div>
+                                      <div className="mt-1 text-sm font-semibold">{project.assetCount}</div>
+                                  </div>
+                              </div>
+                              <div className={`mt-4 flex items-center justify-between text-xs ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>
+                                  <span>{project.canvasName}</span>
+                                  <span>{project.lastSavedAt}</span>
+                              </div>
+                          </button>
+                      ))}
+                  </main>
+              </div>
+          </div>
       );
   };
 
@@ -1844,6 +2099,10 @@ const CanvasWithSidebar: React.FC = () => {
       return <LoginScreen onLogin={() => setIsAuthenticated(true)} />;
   }
 
+  if (!currentProject) {
+      return renderProjectDashboard();
+  }
+
   return (
     <div className="w-full h-screen overflow-hidden flex relative font-sans text-gray-800">
         <WelcomeModal
@@ -1871,6 +2130,8 @@ const CanvasWithSidebar: React.FC = () => {
         <Sidebar 
           onAddNode={addNode} 
           onNewWorkflow={handleNewWorkflow}
+          onSaveProject={() => handleSaveProject()}
+          onBackToProjects={returnToProjectManagement}
           onImportAsset={() => assetInputRef.current?.click()}
           onOpenExportImport={() => setIsExportImportOpen(true)}
           nodes={[...nodes, ...deletedNodes]}
@@ -2205,11 +2466,11 @@ const CanvasWithSidebar: React.FC = () => {
                             </button>
                         )}
                         <div className={`mt-0.5 flex items-center gap-2 text-[10px] whitespace-nowrap ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>
-                            <span>{DEMO_PROJECT_META.id}</span>
+                            <span>{currentProject.id}</span>
                             <span className={`w-1 h-1 rounded-full ${isDark ? 'bg-zinc-700' : 'bg-gray-300'}`} />
-                            <span>{DEMO_PROJECT_META.directorGroup}</span>
+                            <span>{currentProject.directorGroup}</span>
                             <span className={`w-1 h-1 rounded-full ${isDark ? 'bg-zinc-700' : 'bg-gray-300'}`} />
-                            <span>{DEMO_PROJECT_META.lastSavedAt}</span>
+                            <span>{saveStatus === 'saving' ? '保存中' : saveStatus === 'failed' ? '保存失败' : currentProject.lastSavedAt}</span>
                         </div>
                     </div>
 
@@ -2244,13 +2505,30 @@ const CanvasWithSidebar: React.FC = () => {
                     
                     {/* Download */}
                     <button
+                        onClick={() => handleSaveProject()}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-all ${
+                            saveStatus === 'saved'
+                                ? (isDark ? 'text-emerald-400 hover:bg-emerald-500/10' : 'text-emerald-600 hover:bg-emerald-50')
+                                : saveStatus === 'failed'
+                                    ? (isDark ? 'text-red-400 hover:bg-red-500/10' : 'text-red-600 hover:bg-red-50')
+                                    : (isDark ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100')
+                        }`}
+                    >
+                        {saveStatus === 'saving' ? <Icons.Loader2 size={15} className="animate-spin" /> : <Icons.Save size={15} />}
+                        <span>{saveStatus === 'saved' ? '已保存' : '保存项目'}</span>
+                    </button>
+
+                    <div className={`w-px h-5 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`} />
+
+                    {/* Download backup */}
+                    <button
                         onClick={() => setIsExportImportOpen(true)}
                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-all ${
                             isDark ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                         }`}
                     >
                         <Icons.Download size={15} />
-                        <span>下载</span>
+                        <span>下载备份</span>
                     </button>
                     
                     <div className={`w-px h-5 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`} />
@@ -2274,6 +2552,15 @@ const CanvasWithSidebar: React.FC = () => {
                         }`}
                     >
                         <span>清空</span>
+                    </button>
+                    <button
+                        onClick={returnToProjectManagement}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-all ${
+                            isDark ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                        }`}
+                    >
+                        <Icons.FolderOpen size={15} />
+                        <span>项目</span>
                     </button>
                     
                     <div className={`w-px h-5 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`} />
