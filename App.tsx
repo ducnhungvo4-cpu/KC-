@@ -99,6 +99,7 @@ type ProjectDashboardItem = {
     name: string;
     canvasName: string;
     directorGroup: string;
+    projectType: string;
     status: 'active' | 'draft' | 'archived';
     episodeCount: number;
     shotCount: number;
@@ -109,12 +110,18 @@ type ProjectDashboardItem = {
 const KC_PROJECT_STORAGE_PREFIX = 'KC_CANVAS_PROJECT_';
 const KC_PROJECT_SUMMARIES_KEY = 'KC_CANVAS_PROJECT_SUMMARIES';
 
+const normalizeProjectSummary = (project: ProjectDashboardItem): ProjectDashboardItem => ({
+    ...project,
+    projectType: project.projectType || '短剧',
+});
+
 const DEFAULT_PROJECTS: ProjectDashboardItem[] = [
     {
         id: DEMO_PROJECT_META.id,
         name: DEMO_PROJECT_META.name,
         canvasName: `${DEMO_PROJECT_META.name} 无限画布`,
         directorGroup: DEMO_PROJECT_META.directorGroup,
+        projectType: '短剧',
         status: 'active',
         episodeCount: 24,
         shotCount: 316,
@@ -126,6 +133,7 @@ const DEFAULT_PROJECTS: ProjectDashboardItem[] = [
         name: '《雾港来信》',
         canvasName: '《雾港来信》 无限画布',
         directorGroup: 'B组导演组',
+        projectType: '短剧',
         status: 'draft',
         episodeCount: 18,
         shotCount: 208,
@@ -137,6 +145,7 @@ const DEFAULT_PROJECTS: ProjectDashboardItem[] = [
         name: '《逆光证人》',
         canvasName: '《逆光证人》 无限画布',
         directorGroup: 'C组导演组',
+        projectType: '短剧',
         status: 'active',
         episodeCount: 30,
         shotCount: 452,
@@ -243,16 +252,19 @@ const CanvasWithSidebar: React.FC = () => {
       if (typeof window === 'undefined') return DEFAULT_PROJECTS;
       try {
           const saved = localStorage.getItem(KC_PROJECT_SUMMARIES_KEY);
-          if (!saved) return DEFAULT_PROJECTS;
+          if (!saved) return DEFAULT_PROJECTS.map(normalizeProjectSummary);
           const parsed = JSON.parse(saved) as ProjectDashboardItem[];
           const merged = new Map(DEFAULT_PROJECTS.map(project => [project.id, project]));
           parsed.forEach(project => merged.set(project.id, { ...(merged.get(project.id) || project), ...project }));
-          return Array.from(merged.values());
+          return Array.from(merged.values()).map(normalizeProjectSummary);
       } catch {
-          return DEFAULT_PROJECTS;
+          return DEFAULT_PROJECTS.map(normalizeProjectSummary);
       }
   });
   const [currentProject, setCurrentProject] = useState<ProjectDashboardItem | null>(null);
+  const [projectGroupFilter, setProjectGroupFilter] = useState('全部项目组');
+  const [projectTypeFilter, setProjectTypeFilter] = useState('全部项目类型');
+  const [projectSearchQuery, setProjectSearchQuery] = useState('');
   const [nodes, setNodes] = useState<NodeData[]>([]);
   const [connections, setConnections] = useState<Connection[]>([]);
   const [transform, setTransform] = useState<CanvasTransform>({ x: 0, y: 0, k: 1 });
@@ -1511,6 +1523,7 @@ const CanvasWithSidebar: React.FC = () => {
           name: `新项目 ${projects.length + 1}`,
           canvasName: `新项目 ${projects.length + 1} 无限画布`,
           directorGroup: '未分组',
+          projectType: '短剧',
           status: 'draft',
           episodeCount: 0,
           shotCount: 0,
@@ -2036,6 +2049,120 @@ const CanvasWithSidebar: React.FC = () => {
       );
   };
 
+  const renderProjectDashboardV2 = () => {
+      const groupOptions = ['全部项目组', ...Array.from(new Set(projects.map(project => project.directorGroup || '未分组')))];
+      const typeOptions = ['全部项目类型', ...Array.from(new Set(projects.map(project => project.projectType || '短剧')))];
+      const normalizedSearch = projectSearchQuery.trim().toLowerCase();
+      const visibleProjects = projects.filter(project => {
+          const groupMatched = projectGroupFilter === '全部项目组' || project.directorGroup === projectGroupFilter;
+          const typeMatched = projectTypeFilter === '全部项目类型' || (project.projectType || '短剧') === projectTypeFilter;
+          const searchMatched = !normalizedSearch
+              || project.name.toLowerCase().includes(normalizedSearch)
+              || project.canvasName.toLowerCase().includes(normalizedSearch)
+              || project.directorGroup.toLowerCase().includes(normalizedSearch);
+          return groupMatched && typeMatched && searchMatched;
+      });
+      const selectClass = `h-10 rounded-xl border px-3 text-sm outline-none transition-colors ${
+          isDark ? 'border-zinc-800 bg-zinc-950/70 text-zinc-200 hover:border-zinc-700' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+      }`;
+      const searchClass = `h-10 w-full rounded-xl border pl-9 pr-3 text-sm outline-none transition-colors ${
+          isDark ? 'border-zinc-800 bg-zinc-950/70 text-zinc-100 placeholder:text-zinc-600 focus:border-blue-500' : 'border-gray-200 bg-white text-gray-900 placeholder:text-gray-400 focus:border-blue-500'
+      }`;
+
+      return (
+          <div className={`min-h-screen w-full ${isDark ? 'bg-[#0b0c0e] text-zinc-100' : 'bg-[#f5f7fa] text-gray-900'}`}>
+              <div className="mx-auto flex min-h-screen w-full max-w-[1680px] flex-col px-8 py-7">
+                  <header className="flex items-center justify-between gap-6">
+                      <div className="flex items-center gap-3">
+                          <div className={`h-11 w-11 rounded-2xl flex items-center justify-center ${isDark ? 'bg-blue-500/15 text-blue-300' : 'bg-blue-100 text-blue-600'}`}>
+                              <Icons.Sparkles size={22} />
+                          </div>
+                          <div>
+                              <h1 className="text-xl font-bold">KC 无限画布项目管理</h1>
+                              <p className={`mt-1 text-sm ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>先选择项目，再进入对应画布继续创作和保存。</p>
+                          </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                          <button
+                              onClick={createProject}
+                              className="h-10 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white flex items-center gap-2 hover:bg-blue-500"
+                          >
+                              <Icons.FilePlus size={16} />
+                              新建项目
+                          </button>
+                          <button
+                              onClick={() => toggleTheme(!isDark)}
+                              className={`h-10 rounded-xl border px-3 text-sm font-semibold flex items-center gap-2 ${isDark ? 'border-zinc-800 text-zinc-400 hover:bg-zinc-900 hover:text-white' : 'border-gray-200 text-gray-600 hover:bg-white hover:text-gray-900'}`}
+                          >
+                              {isDark ? <Icons.Moon size={16} /> : <Icons.Sun size={16} />}
+                              {isDark ? '暗色' : '亮色'}
+                          </button>
+                      </div>
+                  </header>
+
+                  <section className={`mt-8 flex flex-col gap-3 rounded-2xl border p-4 md:flex-row md:items-center ${isDark ? 'border-zinc-800 bg-zinc-950/35' : 'border-gray-200 bg-white/80'}`}>
+                      <div className="grid flex-1 grid-cols-1 gap-3 md:grid-cols-[180px_180px_minmax(240px,1fr)]">
+                          <select
+                              value={projectGroupFilter}
+                              onChange={(e) => setProjectGroupFilter(e.target.value)}
+                              className={selectClass}
+                              aria-label="项目组筛选"
+                          >
+                              {groupOptions.map(option => <option key={option} value={option}>{option}</option>)}
+                          </select>
+                          <select
+                              value={projectTypeFilter}
+                              onChange={(e) => setProjectTypeFilter(e.target.value)}
+                              className={selectClass}
+                              aria-label="项目类型筛选"
+                          >
+                              {typeOptions.map(option => <option key={option} value={option}>{option}</option>)}
+                          </select>
+                          <div className="relative">
+                              <Icons.Search size={16} className={`pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`} />
+                              <input
+                                  value={projectSearchQuery}
+                                  onChange={(e) => setProjectSearchQuery(e.target.value)}
+                                  className={searchClass}
+                                  placeholder="搜索项目名称、画布名称或导演组"
+                              />
+                          </div>
+                      </div>
+                      <div className={`text-sm ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>
+                          共 {visibleProjects.length} 个项目
+                      </div>
+                  </section>
+
+                  <main className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+                      {visibleProjects.map(project => (
+                          <button
+                              key={project.id}
+                              onClick={() => openProject(project)}
+                              className={`group min-h-[138px] rounded-2xl border p-4 text-left transition-all ${isDark ? 'border-zinc-800 bg-[#16181c] hover:border-blue-500/45 hover:bg-[#1a1d23]' : 'border-gray-200 bg-white hover:border-blue-300 hover:shadow-md'}`}
+                          >
+                              <div className="flex h-full flex-col justify-between gap-5">
+                                  <div className="min-w-0">
+                                      <h2 className="truncate text-base font-bold leading-6">{project.name}</h2>
+                                      <p className={`mt-2 truncate text-sm ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>{project.directorGroup}</p>
+                                  </div>
+                                  <div className={`flex items-center justify-between gap-2 text-xs ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>
+                                      <span>最后快照</span>
+                                      <span className="truncate font-medium">{project.lastSavedAt}</span>
+                                  </div>
+                              </div>
+                          </button>
+                      ))}
+                      {visibleProjects.length === 0 && (
+                          <div className={`col-span-full rounded-2xl border p-8 text-center text-sm ${isDark ? 'border-zinc-800 bg-zinc-950/40 text-zinc-500' : 'border-gray-200 bg-white text-gray-500'}`}>
+                              没有找到匹配的项目
+                          </div>
+                      )}
+                  </main>
+              </div>
+          </div>
+      );
+  };
+
   const renderSaveResultModal = () => {
       if (!saveResultTarget) return null;
       const modeButtonClass = (mode: typeof saveResultMode) => `rounded-xl border px-3 py-2 text-left transition-all ${
@@ -2375,7 +2502,7 @@ const CanvasWithSidebar: React.FC = () => {
   }
 
   if (!currentProject) {
-      return renderProjectDashboard();
+      return renderProjectDashboardV2();
   }
 
   return (
@@ -2708,6 +2835,19 @@ const CanvasWithSidebar: React.FC = () => {
                         ? 'bg-[#18181b]/90 border-zinc-800 shadow-xl' 
                         : 'bg-white/90 border-gray-200 shadow-lg'
                 }`}>
+                    <button
+                        type="button"
+                        onClick={returnToProjectManagement}
+                        title="返回项目列表"
+                        aria-label="返回项目列表"
+                        className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 font-bold transition-all ${
+                            isDark
+                                ? 'text-blue-300 hover:bg-blue-500/15 hover:text-blue-200'
+                                : 'text-blue-600 hover:bg-blue-50 hover:text-blue-700'
+                        }`}
+                    >
+                        <Icons.ChevronLeft size={18} strokeWidth={2.8} />
+                    </button>
                     {/* Logo */}
                     <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
                         isDark ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-100 text-blue-600'
@@ -2735,8 +2875,8 @@ const CanvasWithSidebar: React.FC = () => {
                         ) : (
                             <button
                                 onClick={() => setIsEditingProjectName(true)}
-                                className={`block text-left text-sm font-semibold max-w-[220px] truncate transition-colors ${
-                                    isDark ? 'text-gray-100 hover:text-white' : 'text-gray-900 hover:text-black'
+                                className={`block text-left text-sm font-bold max-w-[220px] truncate transition-colors ${
+                                    isDark ? 'text-blue-100 hover:text-blue-200' : 'text-blue-700 hover:text-blue-800'
                                 }`}
                             >
                                 {projectName}
