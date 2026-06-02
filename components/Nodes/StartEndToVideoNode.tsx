@@ -51,9 +51,12 @@ export const StartEndToVideoNode: React.FC<StartEndToVideoNodeProps> = ({
     const hasValidInputs = hasStartFrame && hasEndFrame;
 
     const checkConfig = useCallback(() => {
-         const mName = data.model || 'Seedance 1.5 Pro';
+         const mName = data.model || 'Agnes Video V2.0';
          const cfg = getModelConfig(mName);
-         setIsConfigured(!!cfg.key);
+         // KC backend-proxied video models run through /api/generate/video, so the API key
+         // lives on the backend (Cloudflare AGNES_VIDEO_API_KEY), not in the browser.
+         const isBackendModel = mName === 'Agnes Video V2.0' || mName === 'Seedance 1.5 Pro';
+         setIsConfigured(isBackendModel || !!cfg.key);
     }, [data.model]);
 
     const updateModels = useCallback(() => {
