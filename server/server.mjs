@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, '..');
 const distDir = path.join(rootDir, 'dist');
+const tempMediaDir = path.join(rootDir, '.tmp-media');
 
 const loadDotEnv = () => {
   const envPath = path.join(rootDir, '.env');
@@ -86,6 +87,56 @@ const joinUrl = (baseUrl, endpoint) => {
   const base = (baseUrl || '').replace(/\/$/, '');
   const pathPart = (endpoint || '').startsWith('/') ? endpoint : `/${endpoint || ''}`;
   return `${base}${pathPart}`;
+};
+
+const mediaExtension = (mimeType) => {
+  const normalized = String(mimeType || '').toLowerCase();
+  if (normalized === 'image/jpeg' || normalized === 'image/jpg') return 'jpg';
+  if (normalized === 'image/png') return 'png';
+  if (normalized === 'image/webp') return 'webp';
+  return 'bin';
+};
+
+const parseImageDataUrl = (dataUrl) => {
+  const match = String(dataUrl || '').match(/^data:(image\/(?:png|jpeg|jpg|webp));base64,([a-zA-Z0-9+/=\r\n]+)$/);
+  if (!match) throw new Error('MEDIA_UPLOAD_INVALID_IMAGE');
+  const mimeType = match[1] === 'image/jpg' ? 'image/jpeg' : match[1];
+  return { mimeType, buffer: Buffer.from(match[2].replace(/\s/g, ''), 'base64') };
+};
+
+const publicOrigin = (req) => {
+  return (process.env.MEDIA_PUBLIC_BASE_URL || `http://${req.headers.host}`).replace(/\/$/, '');
+};
+
+const handleMediaUpload = async (req, res) => {
+  const body = await readBody(req);
+  const { mimeType, buffer } = parseImageDataUrl(body.dataUrl);
+  const maxBytes = Number(process.env.MEDIA_UPLOAD_MAX_BYTES) || 12 * 1024 * 1024;
+  if (buffer.byteLength > maxBytes) return json(res, 413, { error: 'MEDIA_UPLOAD_TOO_LARGE' });
+
+  fs.mkdirSync(path.join(tempMediaDir, 'temp'), { recursive: true });
+  const key = `temp/${crypto.randomUUID()}.${mediaExtension(mimeType)}`;
+  fs.writeFileSync(path.join(tempMediaDir, key), buffer);
+  return json(res, 200, { url: `${publicOrigin(req)}/api/media/${key}`, key });
+};
+
+const handleMediaGet = (req, res, pathname) => {
+  const key = decodeURIComponent(pathname.replace('/api/media/', ''));
+  if (!key || key.includes('..')) return json(res, 404, { error: 'MEDIA_NOT_FOUND' });
+  const filePath = path.join(tempMediaDir, key);
+  if (!filePath.startsWith(tempMediaDir) || !fs.existsSync(filePath)) {
+    return json(res, 404, { error: 'MEDIA_NOT_FOUND' });
+  }
+  const ext = path.extname(filePath).toLowerCase();
+  const contentType = ext === '.jpg' || ext === '.jpeg'
+    ? 'image/jpeg'
+    : ext === '.png'
+      ? 'image/png'
+      : ext === '.webp'
+        ? 'image/webp'
+        : 'application/octet-stream';
+  res.writeHead(200, { 'Content-Type': contentType, 'Cache-Control': 'public, max-age=86400' });
+  fs.createReadStream(filePath).pipe(res);
 };
 
 const imageSize = (aspectRatio = '1:1', resolution = '1k') => {
@@ -854,8 +905,13 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { ok: true });
     }
 
+    if (req.method === 'GET' && pathname.startsWith('/api/media/')) {
+      return handleMediaGet(req, res, pathname);
+    }
+
     if (pathname.startsWith('/api/')) {
       if (!requireAuth(req, res)) return;
+      if (req.method === 'POST' && pathname === '/api/media/upload') return await handleMediaUpload(req, res);
       if (req.method === 'POST' && pathname === '/api/generate/image') return await handleImageGeneration(req, res);
       if (req.method === 'POST' && pathname === '/api/generate/multi-angle') return await handleMultiAngleGeneration(req, res);
       if (req.method === 'POST' && pathname === '/api/generate/video') return await handleVideoCreate(req, res);

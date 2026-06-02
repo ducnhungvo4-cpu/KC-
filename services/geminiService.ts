@@ -38,6 +38,34 @@ const normalizeMediaForModel = async (media: InputMedia): Promise<InputMedia> =>
     return { ...media, url: await blobToDataUrl(blob) };
 };
 
+const toDataUrl = async (src: string): Promise<string> => {
+    if (src.startsWith('data:image/')) return src;
+    if (!src.startsWith('blob:')) return src;
+
+    const response = await fetch(src);
+    const blob = await response.blob();
+    return await blobToDataUrl(blob);
+};
+
+const ensurePublicImageUrl = async (src: string): Promise<string> => {
+    if (!src) return src;
+    if (/^https?:\/\//i.test(src)) return src;
+
+    const dataUrl = await toDataUrl(src);
+    if (!dataUrl.startsWith('data:image/')) return src;
+
+    const result = await apiFetch('/api/media/upload', {
+        method: 'POST',
+        body: JSON.stringify({ dataUrl }),
+    });
+    if (!result.url) throw new Error('MEDIA_UPLOAD_NO_URL');
+    return result.url;
+};
+
+const prepareVideoInputImages = async (inputImages: string[]): Promise<string[]> => {
+    return await Promise.all(inputImages.filter(Boolean).map(ensurePublicImageUrl));
+};
+
 export const analyzeConnectedMedia = async (
     prompt: string,
     inputMedia: InputMedia[],
@@ -197,10 +225,11 @@ export const generateVideo = async (
     if (isStartEndMode) realModelName = modelName.replace('_FL', '');
     
     try {
+        const videoInputImages = await prepareVideoInputImages(inputImages);
         const result = await apiFetch('/api/generate/video', {
           method: 'POST',
           body: JSON.stringify({
-            prompt, inputImages, aspectRatio, modelName: realModelName, resolution, duration, count, promptOptimize, isStartEndMode
+            prompt, inputImages: videoInputImages, aspectRatio, modelName: realModelName, resolution, duration, count, promptOptimize, isStartEndMode
           }),
         });
         if (Array.isArray(result.urls) && result.urls.length > 0) return result.urls;

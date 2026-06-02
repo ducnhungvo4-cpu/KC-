@@ -82,6 +82,79 @@ const joinUrl = (baseUrl, endpoint) => {
   return `${base}${pathPart}`;
 };
 
+const mediaExtension = (mimeType) => {
+  const normalized = String(mimeType || '').toLowerCase();
+  if (normalized === 'image/jpeg' || normalized === 'image/jpg') return 'jpg';
+  if (normalized === 'image/png') return 'png';
+  if (normalized === 'image/webp') return 'webp';
+  return 'bin';
+};
+
+const parseImageDataUrl = (dataUrl) => {
+  const match = String(dataUrl || '').match(/^data:(image\/(?:png|jpeg|jpg|webp));base64,([a-zA-Z0-9+/=\r\n]+)$/);
+  if (!match) throw new Error('MEDIA_UPLOAD_INVALID_IMAGE');
+  const mimeType = match[1] === 'image/jpg' ? 'image/jpeg' : match[1];
+  const binary = atob(match[2].replace(/\s/g, ''));
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+  return { mimeType, bytes };
+};
+
+const publicOrigin = (request, env) => {
+  return (env.MEDIA_PUBLIC_BASE_URL || new URL(request.url).origin).replace(/\/$/, '');
+};
+
+const handleMediaUpload = async (request, env) => {
+  if (request.method !== 'POST') return json({ error: 'METHOD_NOT_ALLOWED' }, 405);
+  if (!(await requireAuth(request, env))) return json({ error: 'UNAUTHORIZED' }, 401);
+  const body = await request.json().catch(() => ({}));
+  const { mimeType, bytes } = parseImageDataUrl(body.dataUrl);
+  const maxBytes = Number(env.MEDIA_UPLOAD_MAX_BYTES) || 12 * 1024 * 1024;
+  if (bytes.byteLength > maxBytes) return json({ error: 'MEDIA_UPLOAD_TOO_LARGE' }, 413);
+
+  const key = `temp/${crypto.randomUUID()}.${mediaExtension(mimeType)}`;
+  const url = `${publicOrigin(request, env)}/api/media/${key}`;
+
+  if (env.MEDIA_BUCKET?.put) {
+    await env.MEDIA_BUCKET.put(key, bytes, {
+      httpMetadata: { contentType: mimeType, cacheControl: 'public, max-age=86400' },
+    });
+    return json({ url, key });
+  }
+
+  if (typeof caches !== 'undefined' && caches.default) {
+    await caches.default.put(new Request(url), new Response(bytes, {
+      headers: {
+        'Content-Type': mimeType,
+        'Cache-Control': 'public, max-age=86400',
+      },
+    }));
+    return json({ url, key, cacheOnly: true });
+  }
+
+  return json({ error: 'MEDIA_BUCKET_NOT_CONFIGURED' }, 501);
+};
+
+const handleMediaGet = async (request, env, pathname) => {
+  const key = decodeURIComponent(pathname.replace('/api/media/', ''));
+  if (!key || key.includes('..')) return json({ error: 'MEDIA_NOT_FOUND' }, 404);
+
+  if (env.MEDIA_BUCKET?.get) {
+    const object = await env.MEDIA_BUCKET.get(key);
+    if (!object) return json({ error: 'MEDIA_NOT_FOUND' }, 404);
+    const headers = new Headers();
+    object.writeHttpMetadata(headers);
+    headers.set('Cache-Control', 'public, max-age=86400');
+    return new Response(object.body, { headers });
+  }
+
+  if (typeof caches !== 'undefined' && caches.default) {
+    const cached = await caches.default.match(request);
+    if (cached) return cached;
+  }
+
+  return json({ error: 'MEDIA_NOT_FOUND' }, 404);
+};
+
 const seedreamSize = (resolution = '2k') => {
   const normalized = String(resolution || '').toLowerCase();
   if (normalized.includes('4')) return '4K';
@@ -814,6 +887,8 @@ export async function onRequest(context) {
   try {
     if (pathname === '/api/auth/login') return await handleLogin(request, env);
     if (pathname === '/api/auth/me') return await handleMe(request, env);
+    if (pathname === '/api/media/upload') return await handleMediaUpload(request, env);
+    if (pathname.startsWith('/api/media/')) return await handleMediaGet(request, env, pathname);
     if (pathname === '/api/generate/image') return await handleImageGeneration(request, env);
     if (pathname === '/api/generate/multi-angle') return await handleMultiAngleGeneration(request, env);
     if (pathname === '/api/generate/text') return await handleTextGeneration(request, env);

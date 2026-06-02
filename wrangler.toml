@@ -28,3 +28,11 @@ AGNES_VIDEO_QUERY_ENDPOINT = "/v1/videos"
 AGNES_VIDEO_FPS = "24"
 AGNES_VIDEO_POLL_INTERVAL_MS = "6000"
 AGNES_VIDEO_TIMEOUT_MS = "270000"
+
+# Local image-to-video needs a public image URL for Agnes to fetch.
+# Create an R2 bucket and uncomment this binding for stable production uploads:
+#   npx wrangler r2 bucket create kc-canvas-media
+#
+# [[r2_buckets]]
+# binding = "MEDIA_BUCKET"
+# bucket_name = "kc-canvas-media"
