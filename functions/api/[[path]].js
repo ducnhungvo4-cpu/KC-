@@ -635,6 +635,11 @@ const buildAgnesVideoPayload = (body, env) => {
   const numFrames = snapAgnesFrames(parseDurationSeconds(body.duration) * frameRate);
   const { width, height } = agnesDimensions(body.aspectRatio, body.resolution);
   const images = Array.isArray(body.inputImages) ? body.inputImages.filter(Boolean) : [];
+  // Agnes fetches input images by URL — they must be public http(s) links, not base64/blob.
+  const nonPublicImage = images.find((url) => !/^https?:\/\//i.test(url));
+  if (nonPublicImage) {
+    throw new Error('AGNES_VIDEO_IMAGE_NOT_PUBLIC_URL: 图生视频/首尾帧需要公网图片链接(http/https)。当前连接的是本地图片或 base64，Agnes 无法读取。请改用模型在线生成的图片，或先把图片上传到公网再连。');
+  }
   const prompt = (body.prompt && body.prompt.trim())
     || env.AGNES_VIDEO_DEFAULT_PROMPT
     || 'Cinematic natural motion with smooth camera movement.';
