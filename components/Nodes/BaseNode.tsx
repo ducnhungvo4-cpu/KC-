@@ -72,7 +72,7 @@ const BaseNode: React.FC<BaseNodeProps> = ({
   data, selected, onMouseDown, onContextMenu, onConnectStart, onPortMouseUp, children, onResizeStart, onAttachInput, isDark = true
 }) => {
   const showInputPort = data.type !== NodeType.ORIGINAL_IMAGE;
-  const hasContent = Boolean(data.imageSrc || data.videoSrc);
+  const hasContent = Boolean(data.imageSrc || data.videoSrc || data.audioSrc);
 
   return (
     <div 

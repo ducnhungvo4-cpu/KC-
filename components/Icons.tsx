@@ -8,7 +8,8 @@ import {
   BookOpen, ArrowRightLeft, Scan, User, Clapperboard, Play, Pause, Sparkles,
   Sun, Moon, Globe, Cpu, Zap, LayoutGrid, Search, ImagePlus, AlertCircle, AlertTriangle,
   Clapperboard as ClapperboardIcon, Frame, Images, Blend, Edit3, RefreshCw,
-  Eye, EyeOff, RotateCcw, Info, Mic, ArrowUp, Minus, Map, Coins, Star
+  Eye, EyeOff, RotateCcw, Info, Mic, ArrowUp, Minus, Map, Coins, Star,
+  Music, Volume2, Languages
 } from 'lucide-react';
 
 export const Icons = {
@@ -18,5 +19,6 @@ export const Icons = {
   Film, Link, Crop, Camera, ScanFace, Monitor, Layers, Wand2, Check,
   BookOpen, ArrowRightLeft, Scan, User, Clapperboard, Play, Pause, Sparkles,
   Sun, Moon, Globe, Cpu, Zap, LayoutGrid, Search, ImagePlus, AlertCircle, AlertTriangle,
-  Frame, Images, Blend, Edit3, RefreshCw, Eye, EyeOff, RotateCcw, Info, Mic, ArrowUp, Minus, Map, Coins, Star
+  Frame, Images, Blend, Edit3, RefreshCw, Eye, EyeOff, RotateCcw, Info, Mic, ArrowUp, Minus, Map, Coins, Star,
+  Music, Volume2, Languages
 };

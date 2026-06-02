@@ -2,6 +2,7 @@
 export enum NodeType {
   TEXT_TO_IMAGE = 'TEXT_TO_IMAGE',
   TEXT_TO_VIDEO = 'TEXT_TO_VIDEO',
+  TEXT_TO_AUDIO = 'TEXT_TO_AUDIO',
   IMAGE_TO_IMAGE = 'IMAGE_TO_IMAGE',
   IMAGE_TO_VIDEO = 'IMAGE_TO_VIDEO',
   START_END_TO_VIDEO = 'START_END_TO_VIDEO',
@@ -22,6 +23,7 @@ export interface NodeData {
   prompt?: string;
   imageSrc?: string; // Result or Input (Active Selection)
   videoSrc?: string; // Result (Active Selection)
+  audioSrc?: string; // Result (Active Selection)
   outputArtifacts?: string[]; // History/Batch results
   favoriteArtifacts?: string[]; // User-favorited node materials
   isLoading?: boolean;
@@ -35,6 +37,10 @@ export interface NodeData {
   model?: string;
   promptOptimize?: boolean; // Prompt Extension/Optimization switch
   swapFrames?: boolean; // For START_END_TO_VIDEO: swap first/last frame order
+  voiceId?: string;
+  voiceSpeed?: number;
+  voicePitch?: number;
+  voiceVolume?: number;
   
   // Creative Desc specific
   optimizedPrompt?: string;

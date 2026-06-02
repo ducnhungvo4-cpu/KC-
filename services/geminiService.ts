@@ -124,6 +124,28 @@ export const generateVideo = async (
     }
 };
 
+export const generateAudio = async (
+    text: string,
+    modelName: string = "Minimax-speech-2.8-hd",
+    voiceId: string = "male-qn-qingse",
+    speed: number = 1,
+    pitch: number = 0,
+    volume: number = 1
+): Promise<string[]> => {
+    const result = await apiFetch('/api/generate/audio', {
+        method: 'POST',
+        body: JSON.stringify({
+            text,
+            modelName,
+            voiceId,
+            speed,
+            pitch,
+            volume,
+        }),
+    });
+    return result.urls || [];
+};
+
 export const generateMultiAngleImages = async (
     image: string,
     options: MultiAngleOptions

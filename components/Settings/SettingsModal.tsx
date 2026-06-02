@@ -21,7 +21,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
     const [configs, setConfigs] = useState<Record<string, ModelConfig>>({});
     const [expandedModels, setExpandedModels] = useState<Set<string>>(new Set());
     const [searchTerm, setSearchTerm] = useState('');
-    const [filterType, setFilterType] = useState<'all' | 'image' | 'video' | 'chat'>('all');
+    const [filterType, setFilterType] = useState<'all' | 'image' | 'video' | 'audio' | 'chat'>('all');
     
     // 测试连接状态
     const [testingModels, setTestingModels] = useState<Set<string>>(new Set());
@@ -282,6 +282,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
             const matchesType = filterType === 'all' || 
                 (filterType === 'image' && def.category === 'IMAGE') ||
                 (filterType === 'video' && def.category === 'VIDEO') ||
+                (filterType === 'audio' && def.category === 'AUDIO') ||
                 (filterType === 'chat' && def.category === 'CHAT');
             
             return matchesSearch && matchesType;
@@ -387,7 +388,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
                                 />
                             </div>
                             <div className={`flex p-1 rounded-xl border ${borderColor} ${isDark ? 'bg-[#0f0f11]' : 'bg-gray-50'}`}>
-                                {(['all', 'image', 'video'] as const).map(type => (
+                                {(['all', 'image', 'video', 'audio'] as const).map(type => (
                                     <button
                                         key={type}
                                         onClick={() => setFilterType(type)}
@@ -397,7 +398,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
                                                 : `${textSub} hover:text-white`
                                         }`}
                                     >
-                                        {type === 'all' ? '全部' : type === 'image' ? '图像' : '视频'}
+                                        {type === 'all' ? '全部' : type === 'image' ? '图像' : type === 'video' ? '视频' : '音频'}
                                     </button>
                                 ))}
                             </div>
@@ -451,9 +452,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
                                                         ? (isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-600')
                                                         : def.category === 'VIDEO'
                                                         ? (isDark ? 'bg-purple-500/10 text-purple-400' : 'bg-purple-50 text-purple-600')
+                                                        : def.category === 'AUDIO'
+                                                        ? (isDark ? 'bg-amber-500/10 text-amber-300' : 'bg-amber-50 text-amber-600')
                                                         : (isDark ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-50 text-blue-600')
                                                 }`}>
-                                                    {def.category === 'IMAGE' ? 'Image' : def.category === 'VIDEO' ? 'Video' : 'Chat'}
+                                                    {def.category === 'IMAGE' ? 'Image' : def.category === 'VIDEO' ? 'Video' : def.category === 'AUDIO' ? 'Audio' : 'Chat'}
                                                 </span>
                                                 
                                                 {/* 删除按钮 */}

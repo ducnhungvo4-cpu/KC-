@@ -5,7 +5,7 @@ import { AssetLibraryItem, AssetLibraryType, InputMedia, MaterialLibraryItem, Mu
 import BaseNode from './components/Nodes/BaseNode';
 import { NodeContent } from './components/Nodes/NodeContent';
 import { Icons } from './components/Icons';
-import { analyzeConnectedMedia, analyzeScriptAssets, generateCreativeDescription, generateImage, generateVideo, generateMultiAngleImages } from './services/geminiService';
+import { analyzeConnectedMedia, analyzeScriptAssets, generateCreativeDescription, generateImage, generateVideo, generateAudio, generateMultiAngleImages } from './services/geminiService';
 import { storageService } from './services/storageService';
 import { ThemeSwitcher } from './components/ThemeSwitcher';
 import { StorageModal } from './components/Settings/StorageModal';
@@ -195,7 +195,7 @@ const DEMO_LINEAR_SHOT = {
 };
 
 // 节点媒体类别：正向/反向连接共用同一套合法性校验规则。
-type MediaCategory = 'image' | 'video' | 'text';
+type MediaCategory = 'image' | 'video' | 'audio' | 'text';
 
 const NODE_MEDIA_CATEGORY: Record<NodeType, MediaCategory> = {
     [NodeType.TEXT_TO_IMAGE]: 'image',
@@ -204,16 +204,19 @@ const NODE_MEDIA_CATEGORY: Record<NodeType, MediaCategory> = {
     [NodeType.TEXT_TO_VIDEO]: 'video',
     [NodeType.IMAGE_TO_VIDEO]: 'video',
     [NodeType.START_END_TO_VIDEO]: 'video',
+    [NodeType.TEXT_TO_AUDIO]: 'audio',
     [NodeType.CREATIVE_DESC]: 'text',
 };
 
 // 目标节点（下游）允许接收的来源节点（上游）类别：
 // - 图片节点：可接图片、文字
 // - 视频节点：可接图片、文字
+// - 音频节点：可接文字
 // - 文字节点：可接图片、视频、文字
 const ALLOWED_SOURCE_CATEGORIES: Record<MediaCategory, MediaCategory[]> = {
     image: ['image', 'text'],
     video: ['image', 'text'],
+    audio: ['text'],
     text: ['image', 'video', 'text'],
 };
 
@@ -617,6 +620,9 @@ const CanvasWithSidebar: React.FC = () => {
     } else if (type === NodeType.TEXT_TO_IMAGE || type === NodeType.IMAGE_TO_IMAGE) {
         if (!dataOverride?.width) w = 400;
         if (!dataOverride?.height) h = 400;
+    } else if (type === NodeType.TEXT_TO_AUDIO) {
+        if (!dataOverride?.width) w = 320;
+        if (!dataOverride?.height) h = 260;
     } else if (type === NodeType.CREATIVE_DESC) {
         if (!dataOverride?.width) w = 520;
         if (!dataOverride?.height) h = 520;
@@ -626,6 +632,7 @@ const CanvasWithSidebar: React.FC = () => {
         switch (t) {
             case NodeType.TEXT_TO_IMAGE: return '生图';
             case NodeType.TEXT_TO_VIDEO: return '生视频';
+            case NodeType.TEXT_TO_AUDIO: return '音频节点';
             case NodeType.CREATIVE_DESC: return 'Text';
             default: return `原始图片_${Date.now()}`;
         }
@@ -637,6 +644,8 @@ const CanvasWithSidebar: React.FC = () => {
                 return 'Seedream 5.0';
             case NodeType.TEXT_TO_VIDEO:
                 return 'Seedance 1.5 Pro';
+            case NodeType.TEXT_TO_AUDIO:
+                return 'Minimax-speech-2.8-hd';
             case NodeType.CREATIVE_DESC:
                 return 'Xiaomi MiMo 2.5 Pro';
             default:
@@ -645,6 +654,7 @@ const CanvasWithSidebar: React.FC = () => {
     };
 
     const isVideoType = type === NodeType.TEXT_TO_VIDEO;
+    const isAudioType = type === NodeType.TEXT_TO_AUDIO;
     
     const newNode: NodeData = {
       ...dataOverride,
@@ -655,15 +665,20 @@ const CanvasWithSidebar: React.FC = () => {
       width: w,
       height: h, 
       title: dataOverride?.title || getDefaultTitle(type),
-      aspectRatio: dataOverride?.aspectRatio || (isVideoType ? '16:9' : '1:1'),
+      aspectRatio: dataOverride?.aspectRatio || (isVideoType ? '16:9' : isAudioType ? undefined : '1:1'),
       model: dataOverride?.model || getDefaultModel(type),
-      resolution: dataOverride?.resolution || (isVideoType ? '720p' : '1k'),
+      resolution: dataOverride?.resolution || (isVideoType ? '720p' : isAudioType ? undefined : '1k'),
       duration: dataOverride?.duration || (isVideoType ? '5s' : undefined),
+      voiceId: dataOverride?.voiceId || (isAudioType ? 'male-qn-qingse' : undefined),
+      voiceSpeed: dataOverride?.voiceSpeed || (isAudioType ? 1 : undefined),
+      voicePitch: dataOverride?.voicePitch || (isAudioType ? 0 : undefined),
+      voiceVolume: dataOverride?.voiceVolume || (isAudioType ? 1 : undefined),
       count: 1,
       prompt: dataOverride?.prompt || '',
       imageSrc: dataOverride?.imageSrc,
       videoSrc: dataOverride?.videoSrc,
-      outputArtifacts: dataOverride?.outputArtifacts || (dataOverride?.imageSrc || dataOverride?.videoSrc ? [dataOverride.imageSrc || dataOverride.videoSrc!] : [])
+      audioSrc: dataOverride?.audioSrc,
+      outputArtifacts: dataOverride?.outputArtifacts || (dataOverride?.imageSrc || dataOverride?.videoSrc || dataOverride?.audioSrc ? [dataOverride.imageSrc || dataOverride.videoSrc || dataOverride.audioSrc!] : [])
     };
     
     setNodes(prev => [...prev, newNode]);
@@ -680,6 +695,7 @@ const CanvasWithSidebar: React.FC = () => {
 
       const isVideoType = type === NodeType.TEXT_TO_VIDEO;
       const isImageGenType = type === NodeType.TEXT_TO_IMAGE;
+      const isAudioType = type === NodeType.TEXT_TO_AUDIO;
 
       if (type === NodeType.ORIGINAL_IMAGE) {
           h = 240;
@@ -687,6 +703,8 @@ const CanvasWithSidebar: React.FC = () => {
           w = 400 * (16/9); h = 400;
       } else if (isImageGenType) {
           w = 400; h = 400;
+      } else if (isAudioType) {
+          w = 320; h = 260;
       } else if (type === NodeType.CREATIVE_DESC) {
           w = 520; h = 520;
       }
@@ -695,6 +713,7 @@ const CanvasWithSidebar: React.FC = () => {
           switch (t) {
               case NodeType.TEXT_TO_IMAGE: return '生图';
               case NodeType.TEXT_TO_VIDEO: return '生视频';
+              case NodeType.TEXT_TO_AUDIO: return '音频节点';
               case NodeType.CREATIVE_DESC: return 'Text';
               default: return `原始图片_${Date.now()}`;
           }
@@ -706,6 +725,8 @@ const CanvasWithSidebar: React.FC = () => {
                   return 'Seedream 5.0';
               case NodeType.TEXT_TO_VIDEO:
                   return 'Seedance 1.5 Pro';
+              case NodeType.TEXT_TO_AUDIO:
+                  return 'Minimax-speech-2.8-hd';
               case NodeType.CREATIVE_DESC:
                   return 'Xiaomi MiMo 2.5 Pro';
               default:
@@ -723,10 +744,14 @@ const CanvasWithSidebar: React.FC = () => {
           width: w,
           height: h,
           title: getDefaultTitle(type),
-          aspectRatio: isVideoType ? '16:9' : '1:1',
+          aspectRatio: isVideoType ? '16:9' : isAudioType ? undefined : '1:1',
           model: getDefaultModel(type),
-          resolution: isVideoType ? '720p' : '1k',
+          resolution: isVideoType ? '720p' : isAudioType ? undefined : '1k',
           duration: isVideoType ? '5s' : undefined,
+          voiceId: isAudioType ? 'male-qn-qingse' : undefined,
+          voiceSpeed: isAudioType ? 1 : undefined,
+          voicePitch: isAudioType ? 0 : undefined,
+          voiceVolume: isAudioType ? 1 : undefined,
           count: 1,
           prompt: '',
           outputArtifacts: []
@@ -1080,8 +1105,16 @@ const CanvasWithSidebar: React.FC = () => {
       const count = node.count || 1;
       if (node.type === NodeType.TEXT_TO_VIDEO || node.type === NodeType.START_END_TO_VIDEO) return 14 * count;
       if (node.type === NodeType.TEXT_TO_IMAGE) return 2 * count;
+      if (node.type === NodeType.TEXT_TO_AUDIO) return 1;
       if (node.type === NodeType.CREATIVE_DESC) return 1;
       return 0;
+  };
+
+  const getCreditTaskType = (node: NodeData) => {
+      if (node.type === NodeType.CREATIVE_DESC) return '文本分析';
+      if (node.type === NodeType.TEXT_TO_IMAGE) return '图片生成';
+      if (node.type === NodeType.TEXT_TO_AUDIO) return '语音生成';
+      return '视频生成';
   };
 
   const getCreditRows = (): CreditRow[] => {
@@ -1096,7 +1129,7 @@ const CanvasWithSidebar: React.FC = () => {
               project: activeProjectName,
               group: currentProject?.directorGroup || node.directorGroupName || activeGroup,
               user: index % 2 === 0 ? CURRENT_USER_NAME : '制片助理B',
-              type: node.type === NodeType.CREATIVE_DESC ? '文本分析' : node.type === NodeType.TEXT_TO_IMAGE ? '图片生成' : '视频生成',
+              type: getCreditTaskType(node),
               model: node.model || '-',
               credit: node.creditEstimate || getEstimatedCredits(node),
               status: node.creditStatus || 'estimated',
@@ -1155,6 +1188,12 @@ const CanvasWithSidebar: React.FC = () => {
     updateNodeData(nodeId, { isLoading: true, creditEstimate, creditStatus: 'reserved' });
     
     const inputs = getInputImages(node.id);
+    const inputMedia = getInputMedia(node.id);
+    const connectedText = inputMedia
+        .filter(item => item.type === 'text')
+        .map(item => item.text || '')
+        .filter(Boolean)
+        .join('\n\n');
     
     // Debug: Log input images for troubleshooting
     console.log(`[Generation] Node: ${node.title} (${node.type}), Input Images:`, inputs.length > 0 ? inputs.map(i => i.substring(0, 50) + '...') : 'None');
@@ -1178,6 +1217,19 @@ const CanvasWithSidebar: React.FC = () => {
                 node.prompt || '', inputs, node.aspectRatio, node.model, node.resolution, node.duration, node.count || 1, node.promptOptimize
             );
           }
+          // Audio generation
+          else if (node.type === NodeType.TEXT_TO_AUDIO) {
+            const audioText = [connectedText, node.prompt || ''].filter(Boolean).join('\n\n').trim();
+            if (!audioText) throw new Error("请输入要合成的文本");
+            results = await generateAudio(
+                audioText,
+                node.model || 'Minimax-speech-2.8-hd',
+                node.voiceId || 'male-qn-qingse',
+                node.voiceSpeed || 1,
+                node.voicePitch || 0,
+                node.voiceVolume || 1
+            );
+          }
           // Start-End Frame to Video generation (首尾帧模式)
           else if (node.type === NodeType.START_END_TO_VIDEO) {
             // 添加 _FL 后缀来标识首尾帧模式
@@ -1193,6 +1245,7 @@ const CanvasWithSidebar: React.FC = () => {
               const currentArtifacts = node.outputArtifacts || [];
               if (node.imageSrc && !currentArtifacts.includes(node.imageSrc)) currentArtifacts.push(node.imageSrc);
               if (node.videoSrc && !currentArtifacts.includes(node.videoSrc)) currentArtifacts.push(node.videoSrc);
+              if (node.audioSrc && !currentArtifacts.includes(node.audioSrc)) currentArtifacts.push(node.audioSrc);
               const newArtifacts = [...results, ...currentArtifacts];
               
               const updates: Partial<NodeData> = { isLoading: false, outputArtifacts: newArtifacts, creditEstimate, creditStatus: 'confirmed' };
@@ -1202,6 +1255,8 @@ const CanvasWithSidebar: React.FC = () => {
                   updates.imageSrc = results[0];
               } else if (node.type === NodeType.TEXT_TO_VIDEO || node.type === NodeType.START_END_TO_VIDEO) {
                   updates.videoSrc = results[0];
+              } else if (node.type === NodeType.TEXT_TO_AUDIO) {
+                  updates.audioSrc = results[0];
               }
               
               updateNodeData(nodeId, updates);
@@ -1514,6 +1569,28 @@ const CanvasWithSidebar: React.FC = () => {
                img.src = event.target?.result as string;
            };
            reader.readAsDataURL(file);
+          } else if (file.type.startsWith('audio/')) {
+              const url = URL.createObjectURL(file);
+              const node = nodes.find(n => n.id === nodeId);
+              if (node) {
+                  const currentArtifacts = node.outputArtifacts || [];
+                  const newArtifacts = [url, ...currentArtifacts];
+                  updateNodeData(nodeId, {
+                      type: NodeType.TEXT_TO_AUDIO,
+                      audioSrc: url,
+                      imageSrc: undefined,
+                      videoSrc: undefined,
+                      title: node.shotId ? node.title : file.name,
+                      width: node.width || 320,
+                      height: node.height || 260,
+                      model: node.model || 'Minimax-speech-2.8-hd',
+                      voiceId: node.voiceId || 'male-qn-qingse',
+                      voiceSpeed: node.voiceSpeed || 1,
+                      voicePitch: node.voicePitch || 0,
+                      voiceVolume: node.voiceVolume || 1,
+                      outputArtifacts: newArtifacts
+                  });
+              }
           }
       }
       if (replaceImageRef.current) replaceImageRef.current.value = '';
@@ -1607,6 +1684,27 @@ const CanvasWithSidebar: React.FC = () => {
               });
           };
           video.src = url;
+      } else if (file.type.startsWith('audio/')) {
+          const url = URL.createObjectURL(file);
+          updateNodeData(targetId, {
+              type: NodeType.TEXT_TO_AUDIO,
+              width: target.width || 320,
+              height: target.height || 260,
+              title: target.shotId ? target.title : baseTitle,
+              audioSrc: url,
+              imageSrc: undefined,
+              videoSrc: undefined,
+              model: target.type === NodeType.TEXT_TO_AUDIO ? (target.model || 'Minimax-speech-2.8-hd') : 'Minimax-speech-2.8-hd',
+              voiceId: target.voiceId || 'male-qn-qingse',
+              voiceSpeed: target.voiceSpeed || 1,
+              voicePitch: target.voicePitch || 0,
+              voiceVolume: target.voiceVolume || 1,
+              count: target.count || 1,
+              outputArtifacts: [
+                  url,
+                  ...(target.type === NodeType.TEXT_TO_AUDIO ? (target.outputArtifacts || []).filter(item => item !== url) : []),
+              ],
+          });
       } else {
           const reader = new FileReader();
           reader.onload = (event) => {
@@ -1768,10 +1866,10 @@ const CanvasWithSidebar: React.FC = () => {
   const handleDownload = async (nodeId: string) => {
       const node = nodes.find(n => n.id === nodeId);
       if (!node) return;
-      const url = node.videoSrc || node.imageSrc;
+      const url = node.videoSrc || node.imageSrc || node.audioSrc;
       if (!url) { alert("No content to download."); return; }
       
-      const ext = node.videoSrc ? 'mp4' : 'png';
+      const ext = node.videoSrc ? 'mp4' : node.audioSrc ? (url.startsWith('data:audio/wav') ? 'wav' : 'mp3') : 'png';
       const filename = `${node.title.replace(/\s+/g, '_')}_${Date.now()}.${ext}`;
 
       try {
@@ -1929,6 +2027,23 @@ const CanvasWithSidebar: React.FC = () => {
               connectImportedNodeIfNeeded(nodeId);
           };
           video.src = url;
+          return;
+      }
+
+      if (file.type.startsWith('audio/')) {
+          const url = URL.createObjectURL(file);
+          const nodeId = addNode(NodeType.TEXT_TO_AUDIO, center.x - 160, center.y - 130, {
+              width: 320,
+              height: 260,
+              audioSrc: url,
+              title: file.name,
+              model: 'Minimax-speech-2.8-hd',
+              voiceId: 'male-qn-qingse',
+              voiceSpeed: 1,
+              source: 'local_upload',
+              outputArtifacts: [url],
+          });
+          connectImportedNodeIfNeeded(nodeId);
           return;
       }
 
@@ -2301,7 +2416,7 @@ const CanvasWithSidebar: React.FC = () => {
             if (node.aspectRatio) { const [w, h] = node.aspectRatio.split(':').map(Number); if (!isNaN(w) && !isNaN(h) && h !== 0) ratio = w / h; } 
             else if (node.type === NodeType.ORIGINAL_IMAGE) { ratio = (dragStartRef.current.w || 1) / (dragStartRef.current.h || 1); }
             let minWidth = 150;
-            if (node.type !== NodeType.CREATIVE_DESC) {
+            if (node.type !== NodeType.CREATIVE_DESC && node.type !== NodeType.TEXT_TO_AUDIO) {
                 const limit1 = ratio >= 1 ? 400 * ratio : 400;
                 minWidth = Math.max(limit1, 400); 
             } else minWidth = 280;
@@ -2722,7 +2837,7 @@ const CanvasWithSidebar: React.FC = () => {
               project: currentProject?.name || projectName,
               group: currentProject?.directorGroup || node.directorGroupName || '-',
               user: index % 2 === 0 ? '导演A' : '制片助理B',
-              type: node.type === NodeType.CREATIVE_DESC ? '文本分析' : node.type === NodeType.TEXT_TO_IMAGE ? '图片生成' : '视频生成',
+              type: getCreditTaskType(node),
               model: node.model || '-',
               credit: node.creditEstimate || getEstimatedCredits(node),
               status: node.creditStatus || 'estimated',
@@ -3104,6 +3219,10 @@ const CanvasWithSidebar: React.FC = () => {
                             <div className="w-5 h-5 rounded bg-purple-500/10 flex items-center justify-center"><Icons.Video size={12} className="text-purple-400"/></div>
                             <span>生视频</span>
                         </button>
+                        <button className={menuItemClass} onClick={() => { addNode(NodeType.TEXT_TO_AUDIO, contextMenu.worldX, contextMenu.worldY); setContextMenu(null); }}>
+                            <div className="w-5 h-5 rounded bg-amber-500/10 flex items-center justify-center"><Icons.Music size={12} className="text-amber-300"/></div>
+                            <span>音频</span>
+                        </button>
                         <button className={menuItemClass} onClick={() => { assetImportPositionRef.current = { x: contextMenu.worldX, y: contextMenu.worldY }; assetImportConnectionRef.current = null; assetInputRef.current?.click(); setContextMenu(null); }}>
                             <div className="w-5 h-5 rounded bg-emerald-500/10 flex items-center justify-center"><Icons.Upload size={12} className="text-emerald-400"/></div>
                             <span>上传</span>
@@ -3143,6 +3262,10 @@ const CanvasWithSidebar: React.FC = () => {
             <button className={menuItemClass} onClick={() => handleQuickAddNode(NodeType.TEXT_TO_VIDEO)}>
                 <div className="w-6 h-6 rounded-md bg-purple-500/10 flex items-center justify-center"><Icons.Video size={14} className="text-purple-400"/></div>
                 <span>生视频</span>
+            </button>
+            <button className={menuItemClass} onClick={() => handleQuickAddNode(NodeType.TEXT_TO_AUDIO)}>
+                <div className="w-6 h-6 rounded-md bg-amber-500/10 flex items-center justify-center"><Icons.Music size={14} className="text-amber-300"/></div>
+                <span>音频</span>
             </button>
             <button className={menuItemClass} onClick={() => {
                 assetImportPositionRef.current = { x: quickAddMenu.worldX, y: quickAddMenu.worldY };
@@ -3224,9 +3347,9 @@ const CanvasWithSidebar: React.FC = () => {
           isDark={isDark}
         />
         <input type="file" ref={workflowInputRef} hidden accept=".aistudio-flow,.json" onChange={handleLoadWorkflow} />
-        <input type="file" ref={assetInputRef} hidden accept="image/*,video/*,.txt,.md,.markdown,text/plain" onChange={handleImportAsset} />
-        <input type="file" ref={replaceImageRef} hidden accept="image/*,video/*" onChange={handleReplaceImage} />
-        <input type="file" ref={attachInputRef} hidden accept="image/*,video/*,.txt,.md,text/plain" onChange={handleAttachInputAsset} />
+        <input type="file" ref={assetInputRef} hidden accept="image/*,video/*,audio/*,.txt,.md,.markdown,text/plain" onChange={handleImportAsset} />
+        <input type="file" ref={replaceImageRef} hidden accept="image/*,video/*,audio/*" onChange={handleReplaceImage} />
+        <input type="file" ref={attachInputRef} hidden accept="image/*,video/*,audio/*,.txt,.md,text/plain" onChange={handleAttachInputAsset} />
         <div 
             ref={containerRef}
             className={`flex-1 w-full h-full relative grid-pattern select-none ${dragMode === 'PAN' ? 'cursor-grabbing' : 'cursor-grab'}`}
@@ -3497,7 +3620,7 @@ const CanvasWithSidebar: React.FC = () => {
                     <div className={`text-[10px] uppercase font-bold px-2 py-1 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Quick Connect</div>
                     {suggestedNodes.map(node => (
                         <button key={node.id} className={`flex items-center gap-2 px-2 py-1.5 rounded text-left text-xs transition-colors ${isDark ? 'hover:bg-zinc-800 text-gray-300 hover:text-cyan-400' : 'hover:bg-gray-100 text-gray-700 hover:text-cyan-600'}`} onClick={(e) => { e.stopPropagation(); const start = connectionStartRef.current!; if (start.type === 'source') createConnection(start.nodeId, node.id); else createConnection(node.id, start.nodeId); }}>
-                            {node.type === NodeType.TEXT_TO_VIDEO ? <Icons.Video size={12} /> : <Icons.Image size={12} />}<span className="truncate">{node.title}</span>
+                            {node.type === NodeType.TEXT_TO_VIDEO ? <Icons.Video size={12} /> : node.type === NodeType.TEXT_TO_AUDIO ? <Icons.Music size={12} /> : node.type === NodeType.CREATIVE_DESC ? <Icons.FileText size={12} /> : <Icons.Image size={12} />}<span className="truncate">{node.title}</span>
                         </button>
                     ))}
                 </div>

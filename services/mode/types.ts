@@ -7,6 +7,7 @@ export type StrategyType =
   | 'VIDEO_GEN_STD' 
   | 'VIDEO_GEN_CHAT'
   | 'VIDEO_GEN_FORM' 
+  | 'AUDIO_GEN'
   | 'KLING' 
   | 'KLING_OMNI'
   | 'MJ_MODAL' 
@@ -16,7 +17,7 @@ export interface ModelDef {
   id: string; 
   name: string; 
   type: StrategyType;
-  category: 'IMAGE' | 'VIDEO';
+  category: 'IMAGE' | 'VIDEO' | 'AUDIO';
   defaultEndpoint: string;
   defaultQueryEndpoint?: string; 
   defaultDownloadEndpoint?: string; 

@@ -90,6 +90,9 @@ export const MODEL_REGISTRY: Record<string, ModelDef> = {
   
   'Grok video 3': { id: 'grok-video-3', name: 'Grok Video', type: 'VIDEO_GEN_STD', category: 'VIDEO', defaultEndpoint: '/v1/video/create', defaultQueryEndpoint: '/v1/video/query' },
   'Seedance 1.5 Pro': { id: 'doubao-seedance-1-5-pro', name: 'Seedance 1.5 Pro', type: 'VIDEO_GEN_STD', category: 'VIDEO', defaultEndpoint: '/v1/videos' },
+
+  // --- Audio Models ---
+  'Minimax-speech-2.8-hd': { id: 'speech-2.8-hd', name: 'Minimax speech 2.8 hd', type: 'AUDIO_GEN', category: 'AUDIO', defaultEndpoint: '/v1/t2a_v2' },
   
   ...customModels
 };
@@ -233,7 +236,7 @@ export const isCustomModel = (key: string): boolean => {
 
 // 获取可见的模型列表（用于下拉框）
 export const getVisibleModels = (): string[] => {
-    const kcDefaults = ['Seedream 5.0', 'Seedance 1.5 Pro'];
+    const kcDefaults = ['Seedream 5.0', 'Seedance 1.5 Pro', 'Minimax-speech-2.8-hd'];
     const customVisible = Object.keys(loadCustomModels()).filter(key => MODEL_REGISTRY[key]);
     return [...kcDefaults.filter(key => MODEL_REGISTRY[key]), ...customVisible.filter(key => !kcDefaults.includes(key))];
 };

@@ -170,12 +170,65 @@ const buildMultiAnglePrompt = ({ angle, prompt = '', consistency = 'high', backg
   ].filter(Boolean).join('');
 };
 
+const bytesToBase64 = (bytes) => {
+  let binary = '';
+  const chunkSize = 0x8000;
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
+  }
+  return btoa(binary);
+};
+
+const mockAudio = ({ text = '' }) => {
+  const sampleRate = 16000;
+  const durationSeconds = Math.max(0.8, Math.min(4, String(text || '').length / 18 || 1.2));
+  const sampleCount = Math.floor(sampleRate * durationSeconds);
+  const bytes = new Uint8Array(44 + sampleCount * 2);
+  const view = new DataView(bytes.buffer);
+  const writeString = (offset, value) => {
+    for (let index = 0; index < value.length; index += 1) view.setUint8(offset + index, value.charCodeAt(index));
+  };
+  writeString(0, 'RIFF');
+  view.setUint32(4, 36 + sampleCount * 2, true);
+  writeString(8, 'WAVE');
+  writeString(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  writeString(36, 'data');
+  view.setUint32(40, sampleCount * 2, true);
+  const seed = Array.from(String(text || 'kc audio')).reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  const frequency = 180 + (seed % 220);
+  for (let index = 0; index < sampleCount; index += 1) {
+    const fadeIn = Math.min(1, index / (sampleRate * 0.08));
+    const fadeOut = Math.min(1, (sampleCount - index) / (sampleRate * 0.12));
+    const envelope = Math.min(fadeIn, fadeOut) * 0.26;
+    const sample = Math.sin((2 * Math.PI * frequency * index) / sampleRate) * envelope;
+    view.setInt16(44 + index * 2, Math.max(-1, Math.min(1, sample)) * 32767, true);
+  }
+  return `data:audio/wav;base64,${bytesToBase64(bytes)}`;
+};
+
+const hexToBase64 = (hex = '') => {
+  const clean = String(hex).replace(/\s+/g, '');
+  if (!/^[a-f0-9]+$/i.test(clean) || clean.length % 2 !== 0) return '';
+  const bytes = new Uint8Array(clean.length / 2);
+  for (let index = 0; index < clean.length; index += 2) {
+    bytes[index / 2] = parseInt(clean.slice(index, index + 2), 16);
+  }
+  return bytesToBase64(bytes);
+};
+
 const extractUrls = (data) => {
   const urls = [];
   const visit = (value) => {
     if (!value) return;
     if (typeof value === 'string') {
-      if (/^(https?:|data:image|data:video|blob:)/.test(value)) urls.push(value);
+      if (/^(https?:|data:image|data:video|data:audio|blob:)/.test(value)) urls.push(value);
       return;
     }
     if (Array.isArray(value)) {
@@ -199,6 +252,59 @@ const extractUrls = (data) => {
   visit(data);
   return [...new Set(urls)];
 };
+
+const extractAudioUrls = (data) => {
+  const urls = extractUrls(data).filter(url => /^(data:audio)/.test(url) || /\.(mp3|wav|m4a|aac|ogg|flac)(\?|$)/i.test(url));
+  const candidates = [
+    data?.data?.audio,
+    data?.data?.audio_url,
+    data?.data?.url,
+    data?.audio,
+    data?.audio_url,
+    data?.url,
+  ].filter(Boolean);
+  for (const candidate of candidates) {
+    if (typeof candidate !== 'string') continue;
+    if (/^(https?:|data:audio|blob:)/.test(candidate)) {
+      urls.push(candidate);
+      continue;
+    }
+    const hexAudio = hexToBase64(candidate);
+    if (hexAudio) urls.push(`data:audio/mpeg;base64,${hexAudio}`);
+  }
+  return [...new Set(urls)];
+};
+
+const resolveMinimaxSpeechModel = (modelName, env) => {
+  const value = String(modelName || '').toLowerCase();
+  if (value.includes('2.8')) return 'speech-2.8-hd';
+  return env.MINIMAX_TTS_MODEL_ID || env.AUDIO_MODEL_ID || 'speech-2.8-hd';
+};
+
+const getMinimaxTtsEndpoint = (env) => {
+  const endpoint = env.MINIMAX_TTS_ENDPOINT || env.AUDIO_ENDPOINT || '/v1/t2a_v2';
+  const groupId = env.MINIMAX_GROUP_ID || env.MINIMAX_TTS_GROUP_ID;
+  if (!groupId || /[?&]GroupId=/.test(endpoint)) return endpoint;
+  return `${endpoint}${endpoint.includes('?') ? '&' : '?'}GroupId=${encodeURIComponent(groupId)}`;
+};
+
+const buildMinimaxSpeechPayload = (body, env) => ({
+  model: resolveMinimaxSpeechModel(body.modelName || body.model, env),
+  text: String(body.text || body.prompt || '').slice(0, 50000),
+  stream: false,
+  voice_setting: {
+    voice_id: body.voiceId || env.MINIMAX_TTS_VOICE_ID || 'male-qn-qingse',
+    speed: Number(body.speed || 1),
+    vol: Number(body.volume || 1),
+    pitch: Number(body.pitch || 0),
+  },
+  audio_setting: {
+    sample_rate: Number(env.MINIMAX_TTS_SAMPLE_RATE || 32000),
+    bitrate: Number(env.MINIMAX_TTS_BITRATE || 128000),
+    format: env.MINIMAX_TTS_FORMAT || 'mp3',
+    channel: Number(env.MINIMAX_TTS_CHANNEL || 1),
+  },
+});
 
 const callModelApi = async ({ baseUrl, endpoint, apiKey, payload, timeoutMs = 300000 }) => {
   if (!baseUrl || !apiKey) throw new Error('MODEL_API_NOT_CONFIGURED');
@@ -468,6 +574,28 @@ const handleTextGeneration = async (request, env) => {
   return json({ text: extractText(result), usage: result.usage || null });
 };
 
+const handleAudioGeneration = async (request, env) => {
+  if (request.method !== 'POST') return json({ error: 'METHOD_NOT_ALLOWED' }, 405);
+  if (!(await requireAuth(request, env))) return json({ error: 'UNAUTHORIZED' }, 401);
+  const body = await request.json().catch(() => ({}));
+  const text = String(body.text || body.prompt || '').trim();
+  if (!text) return json({ error: 'TEXT_REQUIRED' }, 400);
+  const apiKey = env.MINIMAX_TTS_API_KEY || env.MINIMAX_API_KEY || env.AUDIO_API_KEY;
+  if (!apiKey) {
+    return json({ urls: [mockAudio({ text })], mock: true });
+  }
+  const result = await callModelApi({
+    baseUrl: env.MINIMAX_TTS_BASE_URL || env.MINIMAX_BASE_URL || env.AUDIO_BASE_URL || 'https://api.minimax.io',
+    endpoint: getMinimaxTtsEndpoint(env),
+    apiKey,
+    payload: buildMinimaxSpeechPayload({ ...body, text }, env),
+    timeoutMs: 600000,
+  });
+  const urls = extractAudioUrls(result);
+  if (!urls.length) throw new Error('NO_AUDIO_RETURNED');
+  return json({ urls });
+};
+
 const handleVideoGeneration = async (request, env) => {
   if (request.method !== 'POST') return json({ error: 'METHOD_NOT_ALLOWED' }, 405);
   if (!(await requireAuth(request, env))) return json({ error: 'UNAUTHORIZED' }, 401);
@@ -498,6 +626,11 @@ const handleHealth = async (request, env) => {
       visionModelId: env.MIMO_VISION_MODEL_ID || 'mimo-v2.5',
       endpoint: `${env.MIMO_BASE_URL || env.TEXT_BASE_URL || 'https://api.xiaomimimo.com/v1'}${env.MIMO_TEXT_ENDPOINT || env.TEXT_ENDPOINT || '/chat/completions'}`,
     },
+    minimaxAudio: {
+      hasApiKey: Boolean(env.MINIMAX_TTS_API_KEY || env.MINIMAX_API_KEY || env.AUDIO_API_KEY),
+      modelId: env.MINIMAX_TTS_MODEL_ID || env.AUDIO_MODEL_ID || 'speech-2.8-hd',
+      endpoint: `${env.MINIMAX_TTS_BASE_URL || env.MINIMAX_BASE_URL || env.AUDIO_BASE_URL || 'https://api.minimax.io'}${getMinimaxTtsEndpoint(env)}`,
+    },
   });
 };
 
@@ -511,6 +644,7 @@ export async function onRequest(context) {
     if (pathname === '/api/generate/image') return await handleImageGeneration(request, env);
     if (pathname === '/api/generate/multi-angle') return await handleMultiAngleGeneration(request, env);
     if (pathname === '/api/generate/text') return await handleTextGeneration(request, env);
+    if (pathname === '/api/generate/audio') return await handleAudioGeneration(request, env);
     if (pathname === '/api/generate/video') return await handleVideoGeneration(request, env);
     if (pathname === '/api/health') return await handleHealth(request, env);
     return json({ error: 'NOT_FOUND' }, 404);

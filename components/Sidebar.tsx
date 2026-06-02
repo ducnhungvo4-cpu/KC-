@@ -124,10 +124,12 @@ const Sidebar: React.FC<SidebarProps> = ({
       uniqueNodes.forEach(node => {
           const nodeType: 'image' | 'video' = node.videoSrc ? 'video' : 'image';
           const favoriteSet = new Set(node.favoriteArtifacts || []);
+          const isAudioUrl = (url: string) => /^(data:audio)/.test(url) || /\.(mp3|wav|m4a|aac|ogg|flac)(\?|$)/i.test(url);
+          const isImageOrVideoUrl = (url: string) => /^(data:image|data:video|https?:|blob:)/.test(url) && !isAudioUrl(url);
           const urls = [
               ...(node.imageSrc ? [node.imageSrc] : []),
               ...(node.videoSrc ? [node.videoSrc] : []),
-              ...(node.outputArtifacts || []),
+              ...(node.outputArtifacts || []).filter(isImageOrVideoUrl),
           ].filter(Boolean);
           urls.forEach((url, index) => {
               const type: 'image' | 'video' = node.videoSrc === url || /\.(mp4|webm|mov|mkv)(\?|$)/i.test(url) ? 'video' : nodeType;
@@ -282,6 +284,13 @@ const Sidebar: React.FC<SidebarProps> = ({
             description="文本/图片生成视频"
             type={NodeType.TEXT_TO_VIDEO} 
             color={isDark ? 'bg-purple-500/15 text-purple-400' : 'bg-purple-100 text-purple-600'} 
+          />
+          <NodeButton
+            icon={Icons.Music}
+            label="音频"
+            description="文本生成语音"
+            type={NodeType.TEXT_TO_AUDIO}
+            color={isDark ? 'bg-amber-500/15 text-amber-300' : 'bg-amber-100 text-amber-600'}
           />
         </div>
       </div>
