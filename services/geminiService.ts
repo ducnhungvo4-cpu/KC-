@@ -97,7 +97,7 @@ export const generateImage = async (
 };
 
 const VIDEO_POLL_INTERVAL_MS = 6000;
-const VIDEO_POLL_TIMEOUT_MS = 270000;
+const VIDEO_POLL_TIMEOUT_MS = 30 * 60 * 1000;
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -118,14 +118,18 @@ const getVideoUrl = (result: any): string => {
     return (
         result?.video_url ||
         result?.videoUrl ||
+        result?.remixed_from_video_id ||
         result?.url ||
         result?.data?.video_url ||
         result?.data?.videoUrl ||
+        result?.data?.remixed_from_video_id ||
         result?.data?.url ||
         result?.output?.video_url ||
         result?.output?.videoUrl ||
+        result?.output?.remixed_from_video_id ||
         result?.output?.url ||
         result?.result?.video_url ||
+        result?.result?.remixed_from_video_id ||
         result?.result?.url ||
         result?.urls?.[0] ||
         result?.data?.urls?.[0] ||
@@ -136,6 +140,8 @@ const getVideoUrl = (result: any): string => {
 const pollVideoTask = async (taskId: string): Promise<string> => {
     const deadline = Date.now() + VIDEO_POLL_TIMEOUT_MS;
     let lastError: unknown = null;
+    let lastStatus = '';
+    let lastProgress: unknown = null;
 
     while (Date.now() < deadline) {
         await sleep(VIDEO_POLL_INTERVAL_MS);
@@ -143,6 +149,8 @@ const pollVideoTask = async (taskId: string): Promise<string> => {
         try {
             const result = await apiFetch(`/api/generate/video/poll?taskId=${encodeURIComponent(taskId)}`);
             const status = getVideoStatus(result);
+            lastStatus = status || lastStatus;
+            lastProgress = result?.progress ?? result?.data?.progress ?? result?.output?.progress ?? lastProgress;
 
             if (['completed', 'succeeded', 'success', 'done'].includes(status)) {
                 const url = getVideoUrl(result);
@@ -157,12 +165,21 @@ const pollVideoTask = async (taskId: string): Promise<string> => {
         } catch (error: any) {
             lastError = error;
             const message = String(error?.message || '');
-            if (message.includes('AGNES_VIDEO_TASK_FAILED') || message.includes('AGNES_VIDEO_NO_URL_RETURNED')) throw error;
+            if (
+                message.includes('AGNES_VIDEO_TASK_FAILED') ||
+                message.includes('AGNES_VIDEO_NO_URL_RETURNED') ||
+                message.includes('VIDEO_API_NOT_CONFIGURED') ||
+                message.includes('TASK_ID_REQUIRED') ||
+                /AGNES_VIDEO_4\d\d/.test(message)
+            ) {
+                throw error;
+            }
         }
     }
 
     const suffix = lastError instanceof Error ? ` (最后一次轮询: ${lastError.message})` : '';
-    throw new Error(`AGNES_VIDEO_TIMEOUT${suffix}`);
+    const statusSuffix = lastStatus ? `，最后状态: ${lastStatus}${lastProgress !== null ? ` ${lastProgress}%` : ''}` : '';
+    throw new Error(`AGNES_VIDEO_TIMEOUT${statusSuffix}${suffix}`);
 };
 
 export const generateVideo = async (

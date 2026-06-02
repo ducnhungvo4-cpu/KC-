@@ -688,7 +688,9 @@ const agnesRequest = async ({ url, apiKey, method = 'GET', payload, timeoutMs = 
     let data = {};
     try { data = text ? JSON.parse(text) : {}; } catch { data = { raw: text }; }
     if (!response.ok) {
-      throw new Error(data?.error?.message || data?.message || data?.raw || `AGNES_VIDEO_${response.status}`);
+      const error = new Error(data?.error?.message || data?.message || data?.raw || `AGNES_VIDEO_${response.status}`);
+      error.statusCode = response.status;
+      throw error;
     }
     return data;
   } catch (error) {
@@ -723,7 +725,7 @@ const createAgnesTask = async (body, env) => {
   if (String(created.status).toLowerCase() === 'failed') {
     throw new Error(created?.error?.message || 'AGNES_VIDEO_TASK_FAILED');
   }
-  const videoUrl = String(created.status).toLowerCase() === 'completed' ? (created.video_url || null) : null;
+  const videoUrl = String(created.status).toLowerCase() === 'completed' ? (created.video_url || created.remixed_from_video_id || null) : null;
   return { taskId, videoUrl };
 };
 
@@ -822,6 +824,6 @@ export async function onRequest(context) {
     return json({ error: 'NOT_FOUND' }, 404);
   } catch (error) {
     console.error(error);
-    return json({ error: error.message || 'SERVER_ERROR' }, 500);
+    return json({ error: error.message || 'SERVER_ERROR' }, error.statusCode || 500);
   }
 }
