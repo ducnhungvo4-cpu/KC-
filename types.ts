@@ -23,6 +23,7 @@ export interface NodeData {
   imageSrc?: string; // Result or Input (Active Selection)
   videoSrc?: string; // Result (Active Selection)
   outputArtifacts?: string[]; // History/Batch results
+  favoriteArtifacts?: string[]; // User-favorited node materials
   isLoading?: boolean;
   isStackOpen?: boolean; // UI State for expanded gallery
   
@@ -98,6 +99,16 @@ export interface InputMedia {
   url: string;
   text?: string;
   title?: string;
+}
+
+export interface MaterialLibraryItem {
+  id: string;
+  nodeId?: string;
+  url: string;
+  type: 'image' | 'video' | 'text';
+  title: string;
+  text?: string;
+  isFavorite?: boolean;
 }
 
 export interface Connection {

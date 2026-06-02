@@ -22,6 +22,8 @@ interface NodeContentProps {
   onAnalyzeMedia?: (nodeId: string) => void;
   onAnalyzeScript?: (nodeId: string) => void;
   onPreviewReference?: (item: InputMedia) => void;
+  onToggleFavoriteArtifact?: (nodeId: string, url: string, type: 'image' | 'video') => void;
+  isArtifactFavorited?: (nodeId: string, url: string) => boolean;
   isSelecting?: boolean;
   onDelete?: (id: string) => void;
   isDark?: boolean;

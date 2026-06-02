@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, memo, useMemo } from 'react';
 import { Icons } from './Icons';
-import { AssetLibraryItem, AssetLibraryScope, AssetLibraryType, NodeType, NodeData } from '../types';
+import { AssetLibraryItem, AssetLibraryScope, AssetLibraryType, MaterialLibraryItem, NodeType, NodeData } from '../types';
 
 interface SidebarProps {
   onAddNode: (type: NodeType) => void;
@@ -18,16 +18,15 @@ interface SidebarProps {
   onDeleteAsset: (nodeId: string, url: string, type: 'image' | 'video') => void;
   assetLibrary: AssetLibraryItem[];
   onAddAssetToCanvas: (asset: AssetLibraryItem) => void;
+  onAddMaterialToCanvas: (item: MaterialLibraryItem) => void;
+  onToggleMaterialFavorite: (nodeId: string, url: string, type: 'image' | 'video') => void;
   isDark?: boolean;
 }
 
 type ActivePanel = 'ADD' | 'HISTORY' | 'ASSET_LIBRARY' | 'ASSETS' | 'PROJECT' | null;
-type AssetItem = {
-    id: string;
+type AssetItem = MaterialLibraryItem & {
     nodeId: string;
-    url: string;
     type: 'image' | 'video';
-    title: string;
 };
 
 const HistoryItem = memo(({ node, type, onClick, isDark }: { node: NodeData, type: 'image' | 'video', onClick: () => void, isDark: boolean }) => {
@@ -89,6 +88,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   onDeleteAsset,
   assetLibrary,
   onAddAssetToCanvas,
+  onAddMaterialToCanvas,
+  onToggleMaterialFavorite,
   isDark = true
 }) => {
   const [activePanel, setActivePanel] = useState<ActivePanel>(null);
@@ -96,6 +97,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [assetScope, setAssetScope] = useState<AssetLibraryScope | 'all'>('project');
   const [assetTab, setAssetTab] = useState<AssetLibraryType | 'all'>('all');
   const [assetSearch, setAssetSearch] = useState('');
+  const [materialTab, setMaterialTab] = useState<'all' | 'image' | 'video' | 'favorite'>('all');
   const [assetMenu, setAssetMenu] = useState<{ x: number; y: number; item: AssetItem } | null>(null);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -121,6 +123,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       const map = new Map<string, AssetItem>();
       uniqueNodes.forEach(node => {
           const nodeType: 'image' | 'video' = node.videoSrc ? 'video' : 'image';
+          const favoriteSet = new Set(node.favoriteArtifacts || []);
           const urls = [
               ...(node.imageSrc ? [node.imageSrc] : []),
               ...(node.videoSrc ? [node.videoSrc] : []),
@@ -136,12 +139,22 @@ const Sidebar: React.FC<SidebarProps> = ({
                       url,
                       type,
                       title: index === 0 ? node.title : `${node.title} #${index + 1}`,
+                      isFavorite: favoriteSet.has(url),
                   });
               }
           });
       });
       return Array.from(map.values());
   }, [uniqueNodes]);
+
+  const filteredMaterialAssets = useMemo(() => {
+      return materialAssets.filter(item => {
+          if (materialTab === 'favorite') return item.isFavorite;
+          if (materialTab === 'image') return item.type === 'image';
+          if (materialTab === 'video') return item.type === 'video';
+          return true;
+      });
+  }, [materialAssets, materialTab]);
 
   const filteredAssetLibrary = useMemo(() => {
       const keyword = assetSearch.trim().toLowerCase();
@@ -454,8 +467,33 @@ const Sidebar: React.FC<SidebarProps> = ({
     );
   };
 
-  const renderAssetsPanel = () => (
-    <div className="h-full flex flex-col">
+  const renderAssetsPanel = () => {
+    const materialTabs: { key: typeof materialTab; label: string; count: number }[] = [
+      { key: 'all', label: '全部', count: materialAssets.length },
+      { key: 'image', label: '图片', count: materialAssets.filter(item => item.type === 'image').length },
+      { key: 'video', label: '视频', count: materialAssets.filter(item => item.type === 'video').length },
+      { key: 'favorite', label: '收藏', count: materialAssets.filter(item => item.isFavorite).length },
+    ];
+
+    return (
+    <div className="h-full flex flex-col gap-3">
+      <div className={`grid grid-cols-4 gap-1 rounded-xl p-1 shrink-0 ${isDark ? 'bg-zinc-950/45' : 'bg-gray-100'}`}>
+        {materialTabs.map(tab => (
+          <button
+            key={tab.key}
+            className={`h-8 rounded-lg text-[11px] font-semibold transition-all ${
+              materialTab === tab.key
+                ? (isDark ? 'bg-blue-500/20 text-blue-300' : 'bg-white text-blue-600 shadow-sm')
+                : (isDark ? 'text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200' : 'text-gray-500 hover:bg-white/70 hover:text-gray-800')
+            }`}
+            onClick={() => setMaterialTab(tab.key)}
+            title={`${tab.label}素材 ${tab.count} 个`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       {materialAssets.length === 0 ? (
         <div className={`flex-1 flex flex-col items-center justify-center py-10 ${textMuted}`}>
           <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-3 ${isDark ? 'bg-zinc-800' : 'bg-gray-100'}`}>
@@ -464,40 +502,102 @@ const Sidebar: React.FC<SidebarProps> = ({
           <p className="text-sm font-medium">暂无素材</p>
           <p className="text-xs mt-1">上传或生成后会出现在这里</p>
         </div>
+      ) : filteredMaterialAssets.length === 0 ? (
+        <div className={`flex-1 flex flex-col items-center justify-center py-10 ${textMuted}`}>
+          <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-3 ${isDark ? 'bg-zinc-800' : 'bg-gray-100'}`}>
+            <Icons.Star size={24} className="opacity-45" />
+          </div>
+          <p className="text-sm font-medium">暂无{materialTab === 'favorite' ? '收藏' : ''}素材</p>
+          <p className="text-xs mt-1">点击节点素材角标即可收藏</p>
+        </div>
       ) : (
         <div className="grid grid-cols-2 gap-3 overflow-y-auto custom-scrollbar pr-1">
-          {materialAssets.map(item => (
-            <button
+          {filteredMaterialAssets.map(item => (
+            <div
               key={item.id}
-              className={`relative aspect-square rounded-xl overflow-hidden group text-left ${isDark ? 'bg-zinc-900' : 'bg-gray-100'}`}
-              onClick={() => onPreviewMedia(item.url, item.type)}
+              draggable
+              className="group"
+              onDragStart={(event) => {
+                event.dataTransfer.setData('application/kc-material', JSON.stringify(item));
+                event.dataTransfer.effectAllowed = 'copy';
+              }}
               onContextMenu={(event) => {
                 event.preventDefault();
                 event.stopPropagation();
                 setAssetMenu({ x: event.clientX, y: event.clientY, item });
               }}
             >
-              {item.type === 'video' ? (
-                <>
-                  <video src={item.url} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" muted preload="metadata" />
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-8 h-8 rounded-full bg-black/30 backdrop-blur-sm flex items-center justify-center">
-                      <Icons.Play size={14} className="text-white ml-0.5" />
+              <div
+                role="button"
+                tabIndex={0}
+                className={`relative aspect-square w-full rounded-xl overflow-hidden text-left ${isDark ? 'bg-zinc-900' : 'bg-gray-100'}`}
+                onClick={() => onPreviewMedia(item.url, item.type)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    onPreviewMedia(item.url, item.type);
+                  }
+                }}
+                title="查看素材"
+              >
+                {item.type === 'video' ? (
+                  <>
+                    <video src={item.url} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" muted preload="metadata" />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="w-8 h-8 rounded-full bg-black/30 backdrop-blur-sm flex items-center justify-center">
+                        <Icons.Play size={14} className="text-white ml-0.5" />
+                      </div>
                     </div>
-                  </div>
-                </>
-              ) : (
-                <img src={item.url} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" decoding="async" />
-              )}
-              <div className={`absolute inset-x-0 bottom-0 p-2 ${isDark ? 'bg-gradient-to-t from-black/80 to-transparent' : 'bg-gradient-to-t from-white/90 to-transparent'}`}>
-                <div className={`text-[11px] truncate font-medium ${isDark ? 'text-white' : 'text-gray-800'}`}>{item.title}</div>
+                  </>
+                ) : (
+                  <img src={item.url} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" decoding="async" />
+                )}
+                <button
+                  className={`absolute top-1.5 right-1.5 z-20 w-7 h-7 rounded-lg border backdrop-blur-md flex items-center justify-center transition-all ${
+                    item.isFavorite ? 'bg-amber-400/90 border-amber-200 text-zinc-950' : 'bg-black/35 border-white/10 text-white/70 hover:bg-black/60 hover:text-white'
+                  }`}
+                  title={item.isFavorite ? '取消收藏' : '收藏素材'}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    onToggleMaterialFavorite(item.nodeId, item.url, item.type);
+                  }}
+                >
+                  <Icons.Star size={13} fill={item.isFavorite ? 'currentColor' : 'none'} />
+                </button>
+                <div className={`absolute inset-x-0 bottom-0 p-2 ${isDark ? 'bg-gradient-to-t from-black/80 to-transparent' : 'bg-gradient-to-t from-white/90 to-transparent'}`}>
+                  <div className={`text-[11px] truncate font-medium ${isDark ? 'text-white' : 'text-gray-800'}`}>{item.title}</div>
+                </div>
               </div>
-            </button>
+              <div className="mt-1.5 flex items-center gap-1.5">
+                <button
+                  className={`min-w-0 flex-1 h-7 rounded-lg text-[11px] font-semibold transition-all ${
+                    isDark ? 'bg-blue-500/15 text-blue-300 hover:bg-blue-500/25' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'
+                  }`}
+                  onClick={() => onAddMaterialToCanvas(item)}
+                  title="把该素材作为新节点添加到画布"
+                >
+                  添加到画布
+                </button>
+                <button
+                  className={`h-7 w-7 rounded-lg flex items-center justify-center transition-all ${
+                    item.isFavorite
+                      ? (isDark ? 'bg-amber-400/15 text-amber-300 hover:bg-amber-400/25' : 'bg-amber-50 text-amber-600 hover:bg-amber-100')
+                      : (isDark ? 'bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700' : 'bg-gray-100 text-gray-500 hover:text-gray-800 hover:bg-gray-200')
+                  }`}
+                  onClick={() => onToggleMaterialFavorite(item.nodeId, item.url, item.type)}
+                  title={item.isFavorite ? '取消收藏' : '收藏素材'}
+                >
+                  <Icons.Star size={13} fill={item.isFavorite ? 'currentColor' : 'none'} />
+                </button>
+              </div>
+            </div>
           ))}
         </div>
       )}
     </div>
-  );
+    );
+  };
 
   // 渲染面板内容
   const renderPanel = () => {
@@ -667,6 +767,19 @@ const Sidebar: React.FC<SidebarProps> = ({
           style={{ left: assetMenu.x, top: assetMenu.y }}
           onMouseDown={(event) => event.stopPropagation()}
         >
+          <button
+            className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2.5 rounded-lg ${isDark ? 'text-gray-300 hover:bg-zinc-800 hover:text-white' : 'text-gray-700 hover:bg-gray-100 hover:text-black'}`}
+            onClick={() => { onAddMaterialToCanvas(assetMenu.item); setAssetMenu(null); }}
+          >
+            <Icons.ImagePlus size={14} /> 添加到画布
+          </button>
+          <button
+            className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2.5 rounded-lg ${isDark ? 'text-gray-300 hover:bg-zinc-800 hover:text-white' : 'text-gray-700 hover:bg-gray-100 hover:text-black'}`}
+            onClick={() => { onToggleMaterialFavorite(assetMenu.item.nodeId, assetMenu.item.url, assetMenu.item.type); setAssetMenu(null); }}
+          >
+            <Icons.Star size={14} fill={assetMenu.item.isFavorite ? 'currentColor' : 'none'} /> {assetMenu.item.isFavorite ? '取消收藏' : '收藏'}
+          </button>
+          <div className={`h-px my-1 mx-2 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`} />
           <button
             className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2.5 rounded-lg ${isDark ? 'text-gray-300 hover:bg-zinc-800 hover:text-white' : 'text-gray-700 hover:bg-gray-100 hover:text-black'}`}
             onClick={() => { onOpenSaveResult(assetMenu.item.nodeId); setAssetMenu(null); }}

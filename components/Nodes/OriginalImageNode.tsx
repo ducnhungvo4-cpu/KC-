@@ -12,12 +12,14 @@ interface OriginalImageNodeProps {
   onCrop?: (id: string) => void;
   onDelete?: (id: string) => void;
   onUpload?: (id: string) => void;
+  onToggleFavoriteArtifact?: (nodeId: string, url: string, type: 'image' | 'video') => void;
+  isArtifactFavorited?: (nodeId: string, url: string) => boolean;
   isDark?: boolean;
   selected?: boolean;
 }
 
 export const OriginalImageNode: React.FC<OriginalImageNodeProps> = ({
-    data, updateData, onMaximize, onDownload, onCrop, onDelete, onUpload, isDark = true, selected
+    data, updateData, onMaximize, onDownload, onCrop, onDelete, onUpload, onToggleFavoriteArtifact, isArtifactFavorited, isDark = true, selected
 }) => {
     const overlayToolbarBg = isDark ? 'bg-black/50 border-white/5 text-gray-400' : 'bg-white/50 border-black/5 text-gray-600';
 
@@ -45,6 +47,8 @@ export const OriginalImageNode: React.FC<OriginalImageNodeProps> = ({
                       onMaximize={onMaximize} 
                       isDark={isDark}
                       selected={selected}
+                      onToggleFavorite={(src, type) => onToggleFavoriteArtifact?.(data.id, src, type)}
+                      isFavorite={(src) => isArtifactFavorited?.(data.id, src) || false}
                   />
               ) : (
                   <div className="w-full h-full flex flex-col items-center justify-center text-zinc-600 gap-3">

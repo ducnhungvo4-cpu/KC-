@@ -1,7 +1,7 @@
 
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import Sidebar from './components/Sidebar';
-import { AssetLibraryItem, AssetLibraryType, InputMedia, MultiAngleOptions, NodeData, Connection, CanvasTransform, Point, DragMode, NodeType } from './types';
+import { AssetLibraryItem, AssetLibraryType, InputMedia, MaterialLibraryItem, MultiAngleOptions, NodeData, Connection, CanvasTransform, Point, DragMode, NodeType } from './types';
 import BaseNode from './components/Nodes/BaseNode';
 import { NodeContent } from './components/Nodes/NodeContent';
 import { Icons } from './components/Icons';
@@ -818,6 +818,87 @@ const CanvasWithSidebar: React.FC = () => {
       });
   };
 
+  const getCanvasInsertCenter = (position?: Point) => {
+      const rect = containerRef.current?.getBoundingClientRect();
+      return position || (rect ? screenToWorld(rect.width / 2, rect.height / 2) : { x: 0, y: 0 });
+  };
+
+  const addImageMaterialNode = (item: MaterialLibraryItem, center: Point, naturalWidth?: number, naturalHeight?: number) => {
+      const aspectRatio = naturalWidth && naturalHeight
+          ? getClosestAspectRatio(naturalWidth, naturalHeight, IMAGE_ASPECT_RATIOS)
+          : '1:1';
+      const { width, height } = getNodeSizeForAspectRatio(aspectRatio);
+      addNode(NodeType.TEXT_TO_IMAGE, center.x - width / 2, center.y - height / 2, {
+          width,
+          height,
+          title: item.title || '图片素材',
+          imageSrc: item.url,
+          aspectRatio,
+          model: 'Seedream 5.0',
+          resolution: '1k',
+          source: 'material_library',
+          sourceRefId: item.id,
+          projectId: currentProject?.id || DEMO_PROJECT_META.id,
+          directorGroupName: currentProject?.directorGroup || DEMO_PROJECT_META.directorGroup,
+          outputArtifacts: [item.url],
+      });
+  };
+
+  const addVideoMaterialNode = (item: MaterialLibraryItem, center: Point, naturalWidth?: number, naturalHeight?: number) => {
+      const aspectRatio = naturalWidth && naturalHeight
+          ? getClosestAspectRatio(naturalWidth, naturalHeight, VIDEO_ASPECT_RATIOS)
+          : '16:9';
+      const { width, height } = getNodeSizeForAspectRatio(aspectRatio, VIDEO_NODE_BASE_HEIGHT);
+      addNode(NodeType.TEXT_TO_VIDEO, center.x - width / 2, center.y - height / 2, {
+          width,
+          height,
+          title: item.title || '视频素材',
+          videoSrc: item.url,
+          aspectRatio,
+          model: 'Seedance 1.5 Pro',
+          resolution: '720p',
+          duration: '5s',
+          source: 'material_library',
+          sourceRefId: item.id,
+          projectId: currentProject?.id || DEMO_PROJECT_META.id,
+          directorGroupName: currentProject?.directorGroup || DEMO_PROJECT_META.directorGroup,
+          outputArtifacts: [item.url],
+      });
+  };
+
+  const handleAddMaterialToCanvas = (item: MaterialLibraryItem, position?: Point) => {
+      const center = getCanvasInsertCenter(position);
+
+      if (item.type === 'text') {
+          addNode(NodeType.CREATIVE_DESC, center.x - 260, center.y - 260, {
+              width: 520,
+              height: 520,
+              title: item.title || '文本素材',
+              prompt: item.text || '',
+              model: 'Xiaomi MiMo 2.5 Pro',
+              source: 'material_library',
+              sourceRefId: item.id,
+              projectId: currentProject?.id || DEMO_PROJECT_META.id,
+              directorGroupName: currentProject?.directorGroup || DEMO_PROJECT_META.directorGroup,
+          });
+          return;
+      }
+
+      if (item.type === 'video') {
+          const video = document.createElement('video');
+          video.preload = 'metadata';
+          video.onloadedmetadata = () => addVideoMaterialNode(item, center, video.videoWidth, video.videoHeight);
+          video.onerror = () => addVideoMaterialNode(item, center);
+          video.src = item.url;
+          return;
+      }
+
+      const img = new Image();
+      img.onload = () => addImageMaterialNode(item, center, img.width, img.height);
+      img.onerror = () => addImageMaterialNode(item, center);
+      img.src = item.url;
+  };
+
   const handlePaste = useCallback(async (e: ClipboardEvent) => {
     const activeElement = document.activeElement;
     const isInputFocused = activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement;
@@ -975,6 +1056,25 @@ const CanvasWithSidebar: React.FC = () => {
   const updateNodeData = useCallback((id: string, updates: Partial<NodeData>) => {
     setNodes(prev => prev.map(n => n.id === id ? { ...n, ...updates } : n));
   }, []);
+
+  const toggleMaterialFavorite = useCallback((nodeId: string, url: string, type: 'image' | 'video') => {
+      void type;
+      const updateList = (list: NodeData[]) => list.map(node => {
+          if (node.id !== nodeId) return node;
+          const current = node.favoriteArtifacts || [];
+          const next = current.includes(url)
+              ? current.filter(item => item !== url)
+              : [...current, url];
+          return { ...node, favoriteArtifacts: next };
+      });
+      setNodes(prev => updateList(prev));
+      setDeletedNodes(prev => updateList(prev));
+  }, []);
+
+  const isMaterialFavorited = useCallback((nodeId: string, url: string) => {
+      const node = nodes.find(item => item.id === nodeId) || deletedNodes.find(item => item.id === nodeId);
+      return Boolean(node?.favoriteArtifacts?.includes(url));
+  }, [deletedNodes, nodes]);
 
   const getEstimatedCredits = (node: NodeData) => {
       const count = node.count || 1;
@@ -1755,6 +1855,7 @@ const CanvasWithSidebar: React.FC = () => {
           if (type === 'video' && node.videoSrc === url) {
               updates.videoSrc = artifacts[0];
           }
+          updates.favoriteArtifacts = (node.favoriteArtifacts || []).filter(item => item !== url);
           return { ...node, ...updates };
       });
 
@@ -1873,6 +1974,18 @@ const CanvasWithSidebar: React.FC = () => {
       if (assetId) {
           const asset = DEMO_ASSET_LIBRARY.find(item => item.id === assetId);
           if (asset) handleAddAssetToCanvas(asset, screenToWorld(e.clientX, e.clientY));
+          return;
+      }
+      const materialPayload = e.dataTransfer.getData('application/kc-material');
+      if (materialPayload) {
+          try {
+              const material = JSON.parse(materialPayload) as MaterialLibraryItem;
+              if (material?.url && material?.type) {
+                  handleAddMaterialToCanvas(material, screenToWorld(e.clientX, e.clientY));
+              }
+          } catch (error) {
+              console.error('[Material Library] Invalid drag payload', error);
+          }
           return;
       }
       const files: File[] = Array.from(e.dataTransfer.files); 
@@ -3106,6 +3219,8 @@ const CanvasWithSidebar: React.FC = () => {
           onDeleteAsset={deleteAssetFromLibrary}
           assetLibrary={DEMO_ASSET_LIBRARY}
           onAddAssetToCanvas={handleAddAssetToCanvas}
+          onAddMaterialToCanvas={handleAddMaterialToCanvas}
+          onToggleMaterialFavorite={toggleMaterialFavorite}
           isDark={isDark}
         />
         <input type="file" ref={workflowInputRef} hidden accept=".aistudio-flow,.json" onChange={handleLoadWorkflow} />
@@ -3359,6 +3474,8 @@ const CanvasWithSidebar: React.FC = () => {
                             inputs={getInputImages(node.id)}
                             inputMedia={getInputMedia(node.id)}
                             onPreviewReference={handlePreviewReference}
+                            onToggleFavoriteArtifact={toggleMaterialFavorite}
+                            isArtifactFavorited={isMaterialFavorited}
                             onMaximize={handleMaximize}
                             onDownload={handleDownload}
                             onUpload={triggerReplaceImage}

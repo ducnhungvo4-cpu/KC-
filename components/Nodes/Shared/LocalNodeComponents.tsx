@@ -265,8 +265,17 @@ export const safeDownload = async (src: string) => {
     }
 };
 
-export const LocalMediaStack: React.FC<{ data: NodeData, updateData: any, currentSrc: string | undefined, onMaximize?: any, isDark?: boolean, selected?: boolean }> = ({ 
-    data, updateData, currentSrc, onMaximize, isDark = true, selected
+export const LocalMediaStack: React.FC<{
+    data: NodeData,
+    updateData: any,
+    currentSrc: string | undefined,
+    onMaximize?: any,
+    isDark?: boolean,
+    selected?: boolean,
+    onToggleFavorite?: (src: string, type: 'image' | 'video') => void,
+    isFavorite?: (src: string) => boolean,
+}> = ({
+    data, updateData, currentSrc, onMaximize, isDark = true, selected, onToggleFavorite, isFavorite
 }) => {
     const stackRef = useRef<HTMLDivElement>(null);
     const artifacts = data.outputArtifacts || [];
@@ -287,6 +296,7 @@ export const LocalMediaStack: React.FC<{ data: NodeData, updateData: any, curren
                 {sortedArtifacts.map((src, index) => {
                     const isMain = index === 0;
                     const isVideo = /\.(mp4|webm|mov|mkv)(\?|$)/i.test(src) || data.type === 'TEXT_TO_VIDEO';
+                    const favorited = isFavorite?.(src) || false;
                     return (
                       <div key={src + index} className={`relative h-full rounded-xl border ${isDark ? 'border-zinc-800 bg-black' : 'border-gray-200 bg-white'} overflow-hidden shadow-2xl flex-shrink-0 group/card ${isMain ? 'ring-2 ring-cyan-500/50' : ''}`} style={{ width: data.width }}>
                            {isVideo ? (
@@ -300,6 +310,20 @@ export const LocalMediaStack: React.FC<{ data: NodeData, updateData: any, curren
                                <button className="w-6 h-6 flex items-center justify-center bg-black/40 hover:bg-black/60 backdrop-blur-md border border-white/10 rounded-md text-white transition-colors shadow-sm" onClick={(e) => { e.stopPropagation(); e.preventDefault(); safeDownload(src); }}><Icons.Download size={12}/></button>
                            </div>
                            <div className="absolute top-2 left-2 px-1.5 py-0.5 bg-black/60 backdrop-blur-md rounded text-[9px] text-white font-mono border border-white/10 select-none">#{index + 1}</div>
+                           {onToggleFavorite && (
+                               <button
+                                   className={`absolute top-2 right-2 z-20 w-7 h-7 rounded-lg border backdrop-blur-md flex items-center justify-center transition-all ${
+                                       favorited ? 'bg-amber-400/90 border-amber-200 text-zinc-950' : 'bg-black/40 border-white/10 text-white/75 hover:bg-black/60 hover:text-white'
+                                   }`}
+                                   title={favorited ? '取消收藏' : '收藏素材'}
+                                   onClick={(e) => {
+                                       e.stopPropagation();
+                                       onToggleFavorite(src, isVideo ? 'video' : 'image');
+                                   }}
+                               >
+                                   <Icons.Star size={13} fill={favorited ? 'currentColor' : 'none'} />
+                               </button>
+                           )}
                       </div>
                     );
                 })}
@@ -311,6 +335,7 @@ export const LocalMediaStack: React.FC<{ data: NodeData, updateData: any, curren
     // Improved detection: Prioritize strict node type check, then file extension.
     // Removed naive .includes('video') which triggers on random signatures in URLs.
     const isVideo = data.type === 'TEXT_TO_VIDEO' || data.type === 'START_END_TO_VIDEO' || (currentSrc && /\.(mp4|webm|mov|mkv)(\?|$)/i.test(currentSrc));
+    const currentFavorite = currentSrc ? (isFavorite?.(currentSrc) || false) : false;
 
     return (
         <>
@@ -320,6 +345,20 @@ export const LocalMediaStack: React.FC<{ data: NodeData, updateData: any, curren
                currentSrc && <img src={currentSrc} className={`w-full h-full object-contain pointer-events-none ${isDark ? 'bg-[#09090b]' : 'bg-gray-50'}`} alt="Generated" draggable={false} />
            )}
            {showBadge && <div className="absolute top-2 right-2 bg-black/30 backdrop-blur-md hover:bg-black/50 text-white text-[10px] px-2 py-1 rounded-full flex items-center gap-1 border border-white/10 z-30 pointer-events-auto cursor-pointer select-none shadow-lg transition-colors group/badge" onClick={(e) => { e.stopPropagation(); updateData(data.id, { isStackOpen: true }); }}><Icons.Layers size={10} className="text-cyan-400"/><span className="font-bold tabular-nums">{artifacts.length}</span><Icons.ChevronRight size={10} className="text-zinc-400 group-hover/badge:text-white" /></div>}
+           {currentSrc && onToggleFavorite && (
+               <button
+                   className={`absolute top-2 left-2 z-30 w-8 h-8 rounded-xl border backdrop-blur-md flex items-center justify-center transition-all ${
+                       currentFavorite ? 'bg-amber-400/90 border-amber-200 text-zinc-950 shadow-lg' : 'bg-black/30 border-white/10 text-white/70 hover:bg-black/55 hover:text-white'
+                   }`}
+                   title={currentFavorite ? '取消收藏' : '收藏素材'}
+                   onClick={(e) => {
+                       e.stopPropagation();
+                       onToggleFavorite(currentSrc, isVideo ? 'video' : 'image');
+                   }}
+               >
+                   <Icons.Star size={15} fill={currentFavorite ? 'currentColor' : 'none'} />
+               </button>
+           )}
         </>
     );
 };

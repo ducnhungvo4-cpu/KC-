@@ -20,13 +20,15 @@ interface TextToVideoNodeProps {
   onDownload?: (id: string) => void;
   onUpload?: (id: string) => void;
   onSaveResult?: (id: string) => void;
+  onToggleFavoriteArtifact?: (nodeId: string, url: string, type: 'image' | 'video') => void;
+  isArtifactFavorited?: (nodeId: string, url: string) => boolean;
   isDark?: boolean;
   isSelecting?: boolean;
   canvasScale?: number;
 }
 
 export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
-    data, updateData, onGenerate, selected, showControls, inputs = [], inputMedia = [], onPreviewReference, onMaximize, onDownload, onUpload, onSaveResult, isDark = true, isSelecting, canvasScale = 1
+    data, updateData, onGenerate, selected, showControls, inputs = [], inputMedia = [], onPreviewReference, onMaximize, onDownload, onUpload, onSaveResult, onToggleFavoriteArtifact, isArtifactFavorited, isDark = true, isSelecting, canvasScale = 1
 }) => {
     const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
     const [deferredInputs, setDeferredInputs] = useState(false);
@@ -181,7 +183,16 @@ export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
             )}
             {hasResult ? (
                  <>
-                     <LocalMediaStack data={data} updateData={updateData} currentSrc={data.videoSrc} onMaximize={onMaximize} isDark={isDark} selected={selected} />
+                     <LocalMediaStack
+                         data={data}
+                         updateData={updateData}
+                         currentSrc={data.videoSrc}
+                         onMaximize={onMaximize}
+                         isDark={isDark}
+                         selected={selected}
+                         onToggleFavorite={(src, type) => onToggleFavoriteArtifact?.(data.id, src, type)}
+                         isFavorite={(src) => isArtifactFavorited?.(data.id, src) || false}
+                     />
                      
                      {/* Hover Overlay with Title & Actions */}
                      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">

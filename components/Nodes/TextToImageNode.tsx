@@ -21,13 +21,15 @@ interface TextToImageNodeProps {
   onSaveResult?: (id: string) => void;
   onCrop?: (id: string) => void;
   onMultiAngle?: (id: string, options: MultiAngleOptions) => void;
+  onToggleFavoriteArtifact?: (nodeId: string, url: string, type: 'image' | 'video') => void;
+  isArtifactFavorited?: (nodeId: string, url: string) => boolean;
   isDark?: boolean;
   isSelecting?: boolean;
   canvasScale?: number;
 }
 
 export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
-    data, updateData, onGenerate, selected, showControls, inputs = [], inputMedia = [], onPreviewReference, onMaximize, onDownload, onUpload, onSaveResult, onCrop, onMultiAngle, isDark = true, isSelecting, canvasScale = 1
+    data, updateData, onGenerate, selected, showControls, inputs = [], inputMedia = [], onPreviewReference, onMaximize, onDownload, onUpload, onSaveResult, onCrop, onMultiAngle, onToggleFavoriteArtifact, isArtifactFavorited, isDark = true, isSelecting, canvasScale = 1
 }) => {
     const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
     const [deferredInputs, setDeferredInputs] = useState(false);
@@ -209,7 +211,16 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
         <div className={`w-full h-full relative rounded-2xl border ${containerBorder} ${containerBg} ${data.isStackOpen ? 'overflow-visible' : 'overflow-hidden'} shadow-xl group transition-all duration-200`}>
              {hasResult ? (
                  <>
-                     <LocalMediaStack data={data} updateData={updateData} currentSrc={data.imageSrc} onMaximize={onMaximize} isDark={isDark} selected={selected} />
+                     <LocalMediaStack
+                         data={data}
+                         updateData={updateData}
+                         currentSrc={data.imageSrc}
+                         onMaximize={onMaximize}
+                         isDark={isDark}
+                         selected={selected}
+                         onToggleFavorite={(src, type) => onToggleFavoriteArtifact?.(data.id, src, type)}
+                         isFavorite={(src) => isArtifactFavorited?.(data.id, src) || false}
+                     />
                      
                      {/* Hover Overlay with Title & Actions */}
                      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
