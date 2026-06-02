@@ -370,13 +370,13 @@ export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
                        </div>
                        
                        {/* Generate Button */}
-                       <button 
-                           onClick={() => onGenerate(data.id)} 
-                           disabled={data.isLoading || !isConfigured}
-                           title={!isConfigured ? '请在设置中配置 API Key' : '开始生成'}
+                       <button
+                           onClick={() => onGenerate(data.id)}
+                           disabled={data.isLoading}
+                           title={'开始生成'}
                            className={`shrink-0 h-8 px-4 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 whitespace-nowrap transition-all active:scale-[0.98] ${
-                               data.isLoading || !isConfigured 
-                                   ? 'bg-gray-400 text-white cursor-not-allowed' 
+                               data.isLoading
+                                   ? 'bg-gray-400 text-white cursor-not-allowed'
                                    : 'bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-500 hover:to-purple-400 text-white shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40'
                            }`}
                        >

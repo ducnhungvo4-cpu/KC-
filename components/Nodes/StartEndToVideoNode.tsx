@@ -389,10 +389,10 @@ export const StartEndToVideoNode: React.FC<StartEndToVideoNodeProps> = ({
                        {/* Generate Button */}
                        <button 
                            onClick={() => onGenerate(data.id)} 
-                           disabled={data.isLoading || !isConfigured || !hasValidInputs}
-                           title={!isConfigured ? '请在设置中配置 API Key' : !hasValidInputs ? '需要连接首帧和尾帧' : '开始生成'}
+                           disabled={data.isLoading || !hasValidInputs}
+                           title={!hasValidInputs ? '需要连接首帧和尾帧' : '开始生成'}
                            className={`shrink-0 h-8 px-4 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 whitespace-nowrap transition-all active:scale-[0.98] ${
-                               data.isLoading || !isConfigured || !hasValidInputs 
+                               data.isLoading || !hasValidInputs
                                    ? 'bg-gray-400 text-white cursor-not-allowed' 
                                    : 'bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40'
                            }`}
