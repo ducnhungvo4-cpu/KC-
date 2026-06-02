@@ -643,7 +643,7 @@ const CanvasWithSidebar: React.FC = () => {
             case NodeType.TEXT_TO_IMAGE:
                 return 'Seedream 5.0';
             case NodeType.TEXT_TO_VIDEO:
-                return 'Seedance 1.5 Pro';
+                return 'Agnes Video V2.0';
             case NodeType.TEXT_TO_AUDIO:
                 return 'Minimax-speech-2.8-hd';
             case NodeType.CREATIVE_DESC:
@@ -724,7 +724,7 @@ const CanvasWithSidebar: React.FC = () => {
               case NodeType.TEXT_TO_IMAGE:
                   return 'Seedream 5.0';
               case NodeType.TEXT_TO_VIDEO:
-                  return 'Seedance 1.5 Pro';
+                  return 'Agnes Video V2.0';
               case NodeType.TEXT_TO_AUDIO:
                   return 'Minimax-speech-2.8-hd';
               case NodeType.CREATIVE_DESC:

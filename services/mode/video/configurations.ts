@@ -228,7 +228,17 @@ export const Grok3Handler = {
     }
 };
 
+export const AgnesVideoHandler = {
+    // The canvas generates Agnes videos through the backend proxy (/api/generate/video),
+    // so these rules only drive the node's resolution / duration / ratio UI options.
+    rules: { resolutions: ['720p', '1080p'], durations: ['5s', '10s'], ratios: BASE_RATIOS, maxInputImages: 2 },
+    generate: async () => {
+        throw new Error('Agnes Video V2.0 is generated via the backend proxy (/api/generate/video).');
+    }
+};
+
 export const VIDEO_HANDLERS: Record<string, any> = {
+    'Agnes Video V2.0': AgnesVideoHandler,
     'Seedance 1.5 Pro': SeedanceHandler,
     'Sora 2': Sora2Handler,
     'Veo 3.1 Fast': VeoFastHandler,

@@ -596,10 +596,163 @@ const handleAudioGeneration = async (request, env) => {
   return json({ urls });
 };
 
+// --- Agnes Video V2.0 (async task-based video generation) ---
+// Docs: https://agnes-ai.com/doc/agnes-video-v20
+// Flow: POST /v1/videos -> { id } ; then poll GET /v1/videos/{id} until status === 'completed'.
+const AGNES_MAX_FRAMES = 441;
+const AGNES_RESOLUTION_SHORT_EDGE = {
+  '360p': 360, '480p': 480, '540p': 540, '576p': 576,
+  '720p': 720, '1080p': 1080, '1440p': 1440, '2160p': 2160,
+};
+
+const roundToMultipleOf8 = (value) => Math.max(8, Math.round(value / 8) * 8);
+
+// num_frames must be <= 441 and follow the 8n + 1 pattern (e.g. 81, 121, 241, 441).
+const snapAgnesFrames = (frames) => {
+  const n = Math.max(1, Math.round((Number(frames) - 1) / 8));
+  return Math.min(AGNES_MAX_FRAMES, n * 8 + 1);
+};
+
+const parseDurationSeconds = (duration) => {
+  const seconds = parseFloat(String(duration ?? '').replace(/[^0-9.]/g, ''));
+  return Number.isFinite(seconds) && seconds > 0 ? seconds : 5;
+};
+
+// "720p" is the short edge of the frame; derive width/height from the aspect ratio.
+const agnesDimensions = (aspectRatio, resolution) => {
+  const [wRaw, hRaw] = String(aspectRatio || '16:9').split(':').map(Number);
+  const widthRatio = Number.isFinite(wRaw) && wRaw > 0 ? wRaw : 16;
+  const heightRatio = Number.isFinite(hRaw) && hRaw > 0 ? hRaw : 9;
+  const shortEdge = AGNES_RESOLUTION_SHORT_EDGE[String(resolution || '').toLowerCase()] || 720;
+  if (widthRatio >= heightRatio) {
+    return { width: roundToMultipleOf8(shortEdge * widthRatio / heightRatio), height: roundToMultipleOf8(shortEdge) };
+  }
+  return { width: roundToMultipleOf8(shortEdge), height: roundToMultipleOf8(shortEdge * heightRatio / widthRatio) };
+};
+
+const buildAgnesVideoPayload = (body, env) => {
+  const frameRate = Math.max(1, Math.min(Number(env.AGNES_VIDEO_FPS) || 24, 60));
+  const numFrames = snapAgnesFrames(parseDurationSeconds(body.duration) * frameRate);
+  const { width, height } = agnesDimensions(body.aspectRatio, body.resolution);
+  const images = Array.isArray(body.inputImages) ? body.inputImages.filter(Boolean) : [];
+  const prompt = (body.prompt && body.prompt.trim())
+    || env.AGNES_VIDEO_DEFAULT_PROMPT
+    || 'Cinematic natural motion with smooth camera movement.';
+
+  const payload = {
+    model: env.AGNES_VIDEO_MODEL_ID || 'agnes-video-v2.0',
+    prompt,
+    width,
+    height,
+    num_frames: numFrames,
+    frame_rate: frameRate,
+  };
+
+  const inferenceSteps = Number(env.AGNES_VIDEO_INFERENCE_STEPS);
+  if (Number.isFinite(inferenceSteps) && inferenceSteps > 0) payload.num_inference_steps = inferenceSteps;
+  if (env.AGNES_VIDEO_NEGATIVE_PROMPT) payload.negative_prompt = env.AGNES_VIDEO_NEGATIVE_PROMPT;
+
+  if (body.isStartEndMode && images.length >= 2) {
+    // Keyframe animation: interpolate between the first and last frame.
+    payload.extra_body = { image: images.slice(0, 2), mode: 'keyframes' };
+  } else if (images.length >= 2) {
+    // Multi-image guided generation.
+    payload.extra_body = { image: images };
+  } else if (images.length === 1) {
+    // Single image-to-video.
+    payload.image = images[0];
+  }
+
+  return payload;
+};
+
+const agnesRequest = async ({ url, apiKey, method = 'GET', payload, timeoutMs = 60000 }) => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, {
+      method,
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        ...(payload ? { 'Content-Type': 'application/json' } : {}),
+      },
+      body: payload ? JSON.stringify(payload) : undefined,
+      signal: controller.signal,
+    });
+    const text = await response.text();
+    let data = {};
+    try { data = text ? JSON.parse(text) : {}; } catch { data = { raw: text }; }
+    if (!response.ok) {
+      throw new Error(data?.error?.message || data?.message || data?.raw || `AGNES_VIDEO_${response.status}`);
+    }
+    return data;
+  } finally {
+    clearTimeout(timer);
+  }
+};
+
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Create one video task and poll until it completes. Returns the final video URL.
+const generateAgnesVideo = async (body, env) => {
+  const apiKey = env.AGNES_VIDEO_API_KEY;
+  const baseUrl = (env.AGNES_VIDEO_BASE_URL || 'https://apihub.agnes-ai.com').replace(/\/$/, '');
+  const createEndpoint = env.AGNES_VIDEO_CREATE_ENDPOINT || '/v1/videos';
+  const queryEndpoint = env.AGNES_VIDEO_QUERY_ENDPOINT || createEndpoint;
+  const pollIntervalMs = Number(env.AGNES_VIDEO_POLL_INTERVAL_MS) || 6000;
+  const timeoutMs = Number(env.AGNES_VIDEO_TIMEOUT_MS) || 270000;
+
+  const created = await agnesRequest({
+    url: joinUrl(baseUrl, createEndpoint),
+    apiKey,
+    method: 'POST',
+    payload: buildAgnesVideoPayload(body, env),
+  });
+
+  const taskId = created.id || created.task_id || created?.data?.id;
+  if (!taskId) throw new Error('AGNES_VIDEO_NO_TASK_ID');
+  if (String(created.status).toLowerCase() === 'completed' && created.video_url) return created.video_url;
+  if (String(created.status).toLowerCase() === 'failed') {
+    throw new Error(created?.error?.message || 'AGNES_VIDEO_TASK_FAILED');
+  }
+
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    await wait(pollIntervalMs);
+    const result = await agnesRequest({
+      url: joinUrl(baseUrl, `${queryEndpoint}/${encodeURIComponent(taskId)}`),
+      apiKey,
+    });
+    const status = String(result.status || '').toLowerCase();
+    if (status === 'completed') {
+      const url = result.video_url || extractUrls(result)[0];
+      if (!url) throw new Error('AGNES_VIDEO_NO_URL_RETURNED');
+      return url;
+    }
+    if (status === 'failed') {
+      throw new Error(result?.error?.message || result?.message || 'AGNES_VIDEO_TASK_FAILED');
+    }
+  }
+  throw new Error('AGNES_VIDEO_TIMEOUT');
+};
+
 const handleVideoGeneration = async (request, env) => {
   if (request.method !== 'POST') return json({ error: 'METHOD_NOT_ALLOWED' }, 405);
   if (!(await requireAuth(request, env))) return json({ error: 'UNAUTHORIZED' }, 401);
-  return json({ error: 'SEEDANCE_API_NOT_CONFIGURED' }, 501);
+
+  const body = await request.json().catch(() => ({}));
+  const count = Math.max(1, Math.min(Number(body.count) || 1, 4));
+
+  if (env.AGNES_VIDEO_API_KEY) {
+    const results = await Promise.all(
+      Array.from({ length: count }, () => generateAgnesVideo(body, env)),
+    );
+    const urls = [...new Set(results.filter(Boolean))];
+    if (!urls.length) throw new Error('NO_VIDEO_URL_RETURNED');
+    return json({ urls });
+  }
+
+  return json({ error: 'VIDEO_API_NOT_CONFIGURED' }, 501);
 };
 
 const handleHealth = async (request, env) => {
@@ -630,6 +783,12 @@ const handleHealth = async (request, env) => {
       hasApiKey: Boolean(env.MINIMAX_TTS_API_KEY || env.MINIMAX_API_KEY || env.AUDIO_API_KEY),
       modelId: env.MINIMAX_TTS_MODEL_ID || env.AUDIO_MODEL_ID || 'speech-2.8-hd',
       endpoint: `${env.MINIMAX_TTS_BASE_URL || env.MINIMAX_BASE_URL || env.AUDIO_BASE_URL || 'https://api.minimax.io'}${getMinimaxTtsEndpoint(env)}`,
+    },
+    agnesVideo: {
+      hasApiKey: Boolean(env.AGNES_VIDEO_API_KEY),
+      modelId: env.AGNES_VIDEO_MODEL_ID || 'agnes-video-v2.0',
+      endpoint: `${(env.AGNES_VIDEO_BASE_URL || 'https://apihub.agnes-ai.com').replace(/\/$/, '')}${env.AGNES_VIDEO_CREATE_ENDPOINT || '/v1/videos'}`,
+      fps: Number(env.AGNES_VIDEO_FPS) || 24,
     },
   });
 };
