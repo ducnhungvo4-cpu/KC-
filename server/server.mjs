@@ -676,6 +676,12 @@ const agnesRequest = async ({ url, apiKey, method = 'GET', payload, timeoutMs = 
       throw new Error(data?.error?.message || data?.message || data?.raw || `AGNES_VIDEO_${response.status}`);
     }
     return data;
+  } catch (error) {
+    // Turn the opaque AbortError into an actionable message.
+    if (error?.name === 'AbortError' || controller.signal.aborted) {
+      throw new Error(`AGNES_VIDEO_REQUEST_TIMEOUT (单次请求超过 ${Math.round(timeoutMs / 1000)}s，可能是网络慢或输入图片过大)`);
+    }
+    throw error;
   } finally {
     clearTimeout(timer);
   }
@@ -691,12 +697,14 @@ const generateAgnesVideo = async (body) => {
   const queryEndpoint = process.env.AGNES_VIDEO_QUERY_ENDPOINT || createEndpoint;
   const pollIntervalMs = Number(process.env.AGNES_VIDEO_POLL_INTERVAL_MS) || 6000;
   const timeoutMs = Number(process.env.AGNES_VIDEO_TIMEOUT_MS) || 270000;
+  const createTimeoutMs = Number(process.env.AGNES_VIDEO_CREATE_TIMEOUT_MS) || 120000;
 
   const created = await agnesRequest({
     url: joinUrl(baseUrl, createEndpoint),
     apiKey,
     method: 'POST',
     payload: buildAgnesVideoPayload(body),
+    timeoutMs: createTimeoutMs,
   });
 
   const taskId = created.id || created.task_id || created?.data?.id;
@@ -707,12 +715,21 @@ const generateAgnesVideo = async (body) => {
   }
 
   const deadline = Date.now() + timeoutMs;
+  let lastError = null;
   while (Date.now() < deadline) {
     await wait(pollIntervalMs);
-    const result = await agnesRequest({
-      url: joinUrl(baseUrl, `${queryEndpoint}/${encodeURIComponent(taskId)}`),
-      apiKey,
-    });
+    let result;
+    try {
+      result = await agnesRequest({
+        url: joinUrl(baseUrl, `${queryEndpoint}/${encodeURIComponent(taskId)}`),
+        apiKey,
+        timeoutMs: 30000,
+      });
+    } catch (error) {
+      // A single slow/failed poll shouldn't kill the whole job — keep polling until the deadline.
+      lastError = error;
+      continue;
+    }
     const status = String(result.status || '').toLowerCase();
     if (status === 'completed') {
       const url = result.video_url || extractUrls(result)[0];
@@ -723,7 +740,7 @@ const generateAgnesVideo = async (body) => {
       throw new Error(result?.error?.message || result?.message || 'AGNES_VIDEO_TASK_FAILED');
     }
   }
-  throw new Error('AGNES_VIDEO_TIMEOUT');
+  throw new Error(lastError ? `AGNES_VIDEO_TIMEOUT (最后一次轮询: ${lastError.message})` : 'AGNES_VIDEO_TIMEOUT');
 };
 
 const handleVideoGeneration = async (req, res) => {
