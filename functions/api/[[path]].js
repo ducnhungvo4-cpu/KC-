@@ -702,17 +702,13 @@ const agnesRequest = async ({ url, apiKey, method = 'GET', payload, timeoutMs = 
   }
 };
 
-const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-// Create one video task and poll until it completes. Returns the final video URL.
-const generateAgnesVideo = async (body, env) => {
+// Create a single Agnes task. Returns { taskId, videoUrl? } — does NOT poll.
+// Polling is done by the browser (no Cloudflare Workers 30s wall-clock limit there).
+const createAgnesTask = async (body, env) => {
   const apiKey = env.AGNES_VIDEO_API_KEY;
   const baseUrl = (env.AGNES_VIDEO_BASE_URL || 'https://apihub.agnes-ai.com').replace(/\/$/, '');
   const createEndpoint = env.AGNES_VIDEO_CREATE_ENDPOINT || '/v1/videos';
-  const queryEndpoint = env.AGNES_VIDEO_QUERY_ENDPOINT || createEndpoint;
-  const pollIntervalMs = Number(env.AGNES_VIDEO_POLL_INTERVAL_MS) || 6000;
-  const timeoutMs = Number(env.AGNES_VIDEO_TIMEOUT_MS) || 270000;
-  const createTimeoutMs = Number(env.AGNES_VIDEO_CREATE_TIMEOUT_MS) || 120000;
+  const createTimeoutMs = Number(env.AGNES_VIDEO_CREATE_TIMEOUT_MS) || 30000;
 
   const created = await agnesRequest({
     url: joinUrl(baseUrl, createEndpoint),
@@ -724,57 +720,51 @@ const generateAgnesVideo = async (body, env) => {
 
   const taskId = created.id || created.task_id || created?.data?.id;
   if (!taskId) throw new Error('AGNES_VIDEO_NO_TASK_ID');
-  if (String(created.status).toLowerCase() === 'completed' && created.video_url) return created.video_url;
   if (String(created.status).toLowerCase() === 'failed') {
     throw new Error(created?.error?.message || 'AGNES_VIDEO_TASK_FAILED');
   }
-
-  const deadline = Date.now() + timeoutMs;
-  let lastError = null;
-  while (Date.now() < deadline) {
-    await wait(pollIntervalMs);
-    let result;
-    try {
-      result = await agnesRequest({
-        url: joinUrl(baseUrl, `${queryEndpoint}/${encodeURIComponent(taskId)}`),
-        apiKey,
-        timeoutMs: 30000,
-      });
-    } catch (error) {
-      // A single slow/failed poll shouldn't kill the whole job — keep polling until the deadline.
-      lastError = error;
-      continue;
-    }
-    const status = String(result.status || '').toLowerCase();
-    if (status === 'completed') {
-      const url = result.video_url || extractUrls(result)[0];
-      if (!url) throw new Error('AGNES_VIDEO_NO_URL_RETURNED');
-      return url;
-    }
-    if (status === 'failed') {
-      throw new Error(result?.error?.message || result?.message || 'AGNES_VIDEO_TASK_FAILED');
-    }
-  }
-  throw new Error(lastError ? `AGNES_VIDEO_TIMEOUT (最后一次轮询: ${lastError.message})` : 'AGNES_VIDEO_TIMEOUT');
+  const videoUrl = String(created.status).toLowerCase() === 'completed' ? (created.video_url || null) : null;
+  return { taskId, videoUrl };
 };
 
-const handleVideoGeneration = async (request, env) => {
+// POST /api/generate/video — create task(s), return { taskIds } immediately.
+// The browser then polls /api/generate/video/poll?taskId=... until completed.
+const handleVideoCreate = async (request, env) => {
   if (request.method !== 'POST') return json({ error: 'METHOD_NOT_ALLOWED' }, 405);
   if (!(await requireAuth(request, env))) return json({ error: 'UNAUTHORIZED' }, 401);
+  if (!env.AGNES_VIDEO_API_KEY) return json({ error: 'VIDEO_API_NOT_CONFIGURED' }, 501);
 
   const body = await request.json().catch(() => ({}));
   const count = Math.max(1, Math.min(Number(body.count) || 1, 4));
 
-  if (env.AGNES_VIDEO_API_KEY) {
-    const results = await Promise.all(
-      Array.from({ length: count }, () => generateAgnesVideo(body, env)),
-    );
-    const urls = [...new Set(results.filter(Boolean))];
-    if (!urls.length) throw new Error('NO_VIDEO_URL_RETURNED');
-    return json({ urls });
-  }
+  const tasks = await Promise.all(Array.from({ length: count }, () => createAgnesTask(body, env)));
 
-  return json({ error: 'VIDEO_API_NOT_CONFIGURED' }, 501);
+  // Rare: if Agnes returned the URL synchronously in the create response
+  if (tasks.every((t) => t.videoUrl)) return json({ urls: tasks.map((t) => t.videoUrl) });
+
+  return json({ taskIds: tasks.map((t) => t.taskId) });
+};
+
+// GET /api/generate/video/poll?taskId=xxx — single Agnes status check, called by the browser.
+const handleVideoPoll = async (request, env) => {
+  if (request.method !== 'GET') return json({ error: 'METHOD_NOT_ALLOWED' }, 405);
+  if (!(await requireAuth(request, env))) return json({ error: 'UNAUTHORIZED' }, 401);
+  if (!env.AGNES_VIDEO_API_KEY) return json({ error: 'VIDEO_API_NOT_CONFIGURED' }, 501);
+
+  const { searchParams } = new URL(request.url);
+  const taskId = searchParams.get('taskId');
+  if (!taskId) return json({ error: 'TASK_ID_REQUIRED' }, 400);
+
+  const apiKey = env.AGNES_VIDEO_API_KEY;
+  const baseUrl = (env.AGNES_VIDEO_BASE_URL || 'https://apihub.agnes-ai.com').replace(/\/$/, '');
+  const queryEndpoint = env.AGNES_VIDEO_QUERY_ENDPOINT || '/v1/videos';
+
+  const result = await agnesRequest({
+    url: joinUrl(baseUrl, `${queryEndpoint}/${encodeURIComponent(taskId)}`),
+    apiKey,
+    timeoutMs: 20000,
+  });
+  return json(result);
 };
 
 const handleHealth = async (request, env) => {
@@ -826,7 +816,8 @@ export async function onRequest(context) {
     if (pathname === '/api/generate/multi-angle') return await handleMultiAngleGeneration(request, env);
     if (pathname === '/api/generate/text') return await handleTextGeneration(request, env);
     if (pathname === '/api/generate/audio') return await handleAudioGeneration(request, env);
-    if (pathname === '/api/generate/video') return await handleVideoGeneration(request, env);
+    if (pathname === '/api/generate/video') return await handleVideoCreate(request, env);
+    if (pathname === '/api/generate/video/poll') return await handleVideoPoll(request, env);
     if (pathname === '/api/health') return await handleHealth(request, env);
     return json({ error: 'NOT_FOUND' }, 404);
   } catch (error) {

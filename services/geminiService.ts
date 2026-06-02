@@ -96,6 +96,75 @@ export const generateImage = async (
   }
 };
 
+const VIDEO_POLL_INTERVAL_MS = 6000;
+const VIDEO_POLL_TIMEOUT_MS = 270000;
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+const getVideoStatus = (result: any): string => {
+    return String(
+        result?.status ||
+        result?.data?.status ||
+        result?.state ||
+        result?.data?.state ||
+        result?.task_status ||
+        result?.data?.task_status ||
+        result?.output?.task_status ||
+        ''
+    ).toLowerCase();
+};
+
+const getVideoUrl = (result: any): string => {
+    return (
+        result?.video_url ||
+        result?.videoUrl ||
+        result?.url ||
+        result?.data?.video_url ||
+        result?.data?.videoUrl ||
+        result?.data?.url ||
+        result?.output?.video_url ||
+        result?.output?.videoUrl ||
+        result?.output?.url ||
+        result?.result?.video_url ||
+        result?.result?.url ||
+        result?.urls?.[0] ||
+        result?.data?.urls?.[0] ||
+        ''
+    );
+};
+
+const pollVideoTask = async (taskId: string): Promise<string> => {
+    const deadline = Date.now() + VIDEO_POLL_TIMEOUT_MS;
+    let lastError: unknown = null;
+
+    while (Date.now() < deadline) {
+        await sleep(VIDEO_POLL_INTERVAL_MS);
+
+        try {
+            const result = await apiFetch(`/api/generate/video/poll?taskId=${encodeURIComponent(taskId)}`);
+            const status = getVideoStatus(result);
+
+            if (['completed', 'succeeded', 'success', 'done'].includes(status)) {
+                const url = getVideoUrl(result);
+                if (!url) throw new Error('AGNES_VIDEO_NO_URL_RETURNED');
+                return url;
+            }
+
+            if (['failed', 'failure', 'error', 'cancelled', 'canceled'].includes(status)) {
+                const message = result?.error?.message || result?.message || result?.error || 'Unknown error';
+                throw new Error(`AGNES_VIDEO_TASK_FAILED: ${message}`);
+            }
+        } catch (error: any) {
+            lastError = error;
+            const message = String(error?.message || '');
+            if (message.includes('AGNES_VIDEO_TASK_FAILED') || message.includes('AGNES_VIDEO_NO_URL_RETURNED')) throw error;
+        }
+    }
+
+    const suffix = lastError instanceof Error ? ` (最后一次轮询: ${lastError.message})` : '';
+    throw new Error(`AGNES_VIDEO_TIMEOUT${suffix}`);
+};
+
 export const generateVideo = async (
     prompt: string, 
     inputImages: string[] = [], 
@@ -117,7 +186,11 @@ export const generateVideo = async (
             prompt, inputImages, aspectRatio, modelName: realModelName, resolution, duration, count, promptOptimize, isStartEndMode
           }),
         });
-        return result.urls || [];
+        if (Array.isArray(result.urls) && result.urls.length > 0) return result.urls;
+        if (Array.isArray(result.taskIds) && result.taskIds.length > 0) {
+            return await Promise.all(result.taskIds.map((taskId: string) => pollVideoTask(taskId)));
+        }
+        return [];
     } catch (e) {
         console.error(`Error generating video with ${modelName}`, e);
         throw e;
