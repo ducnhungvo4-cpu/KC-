@@ -48,6 +48,7 @@ export interface NodeData {
   // Project / linear shot context. These fields are optional so existing nodes
   // keep working unchanged; video nodes can carry shot data when imported from the linear pipeline.
   projectId?: string;
+  canvasId?: string;
   directorGroupName?: string;
   source?: 'canvas' | 'linear_pipeline' | 'asset_library' | 'material_library' | 'local_upload';
   sourceRefId?: string;
@@ -121,6 +122,7 @@ export interface Connection {
   id: string;
   sourceId: string;
   targetId: string;
+  canvasId?: string;
 }
 
 export interface CanvasTransform {
@@ -134,4 +136,28 @@ export type DragMode = 'NONE' | 'PAN' | 'DRAG_NODE' | 'SELECT' | 'CONNECT' | 'RE
 export interface Point {
   x: number;
   y: number;
+}
+
+export type CanvasPermissionRole = 'owner' | 'editor' | 'viewer';
+
+export interface ProjectCanvasItem {
+  id: string;
+  projectId: string;
+  name: string;
+  owner: string;
+  permissionRole: CanvasPermissionRole;
+  status: 'active' | 'draft' | 'archived';
+  nodeCount: number;
+  assetCount: number;
+  lastSavedAt: string;
+  createdAt: string;
+  entrySource?: 'canvas_space' | 'linear_workflow';
+}
+
+export interface CanvasPermission {
+  id: string;
+  canvasId: string;
+  userName: string;
+  role: CanvasPermissionRole;
+  updatedAt: string;
 }
