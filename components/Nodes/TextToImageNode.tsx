@@ -307,13 +307,20 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
                          
                          {/* Action Buttons */}
                          <div className="absolute top-3 right-3 flex items-center gap-1.5 pointer-events-auto">
-                             <button
-                                 title="Crop"
-                                 className="w-8 h-8 rounded-lg bg-black/40 hover:bg-black/60 backdrop-blur-md text-white/80 hover:text-white flex items-center justify-center transition-all"
-                                 onClick={(e) => { e.stopPropagation(); onCrop?.(data.id); }}
-                             >
-                                 <Icons.Crop size={16} />
-                             </button>
+                              <button 
+                                  title="下载" 
+                                  className="w-8 h-8 rounded-lg bg-black/40 hover:bg-black/60 backdrop-blur-md text-white/80 hover:text-white flex items-center justify-center transition-all"
+                                  onClick={(e) => { e.stopPropagation(); onDownload?.(data.id); }}
+                              >
+                                  <Icons.Download size={16} />
+                              </button>
+                              <button 
+                                  title="最大化" 
+                                  className="w-8 h-8 rounded-lg bg-black/40 hover:bg-black/60 backdrop-blur-md text-white/80 hover:text-white flex items-center justify-center transition-all"
+                                  onClick={(e) => { e.stopPropagation(); onMaximize?.(data.id); }}
+                              >
+                                  <Icons.Maximize2 size={16} />
+                              </button>
                          </div>
                      </div>
                  </>
@@ -378,12 +385,6 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
                     <div className={`w-px h-6 mx-1 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`} />
                     <button className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onUpload?.(data.id)} title="上传">
                         <Icons.Upload size={17} />
-                    </button>
-                    <button className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onSaveResult?.(data.id)} title="保存">
-                        <Icons.Download size={17} />
-                    </button>
-                    <button className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onMaximize?.(data.id)} title="放大查看">
-                        <Icons.Maximize2 size={17} />
                     </button>
                 </div>
             </div>
