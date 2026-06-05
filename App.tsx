@@ -13,6 +13,7 @@ import { StorageModal } from './components/Settings/StorageModal';
 import { ExportImportModal } from './components/Settings/ExportImportModal';
 import { WelcomeModal, hasShownWelcome } from './components/Settings/WelcomeModal';
 import { CropModal } from './components/CropModal';
+import { VideoFrameExtractPanel } from './components/VideoFrameExtractPanel';
 import { LoginScreen } from './components/LoginScreen';
 import { authService } from './services/authService';
 
@@ -435,6 +436,7 @@ const CanvasWithSidebar: React.FC = () => {
   const [creditProjectId, setCreditProjectId] = useState('');
   const [isUserCreditOpen, setIsUserCreditOpen] = useState(false);
   const [isMiniMapOpen, setIsMiniMapOpen] = useState(false);
+  const [frameExtractTarget, setFrameExtractTarget] = useState<{ nodeId: string; videoSrc: string } | null>(null);
   
   // Quick Add Menu State
   const [quickAddMenu, setQuickAddMenu] = useState<{ sourceId: string, x: number, y: number, worldX: number, worldY: number, direction?: 'forward' | 'backward' } | null>(null);
@@ -3572,6 +3574,10 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                             onSaveResult={openSaveResultModal}
                             onCrop={handleCropStart}
                             onMultiAngle={handleMultiAngleGenerate}
+                            onExtractFrames={(nodeId: string) => {
+                                const n = nodes.find(nd => nd.id === nodeId);
+                                if (n?.videoSrc) setFrameExtractTarget({ nodeId, videoSrc: n.videoSrc });
+                            }}
                             onAnalyzeMedia={handleAnalyzeMedia}
                             onAnalyzeScript={handleAnalyzeScript}
                             isSelecting={dragMode === 'SELECT'}
@@ -3894,6 +3900,33 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                     isDark={isDark}
                     onClose={() => setCropTarget(null)}
                     onConfirm={handleCropConfirm}
+                />
+            )}
+
+            {frameExtractTarget && (
+                <VideoFrameExtractPanel
+                    isOpen={true}
+                    videoSrc={frameExtractTarget.videoSrc}
+                    isDark={isDark}
+                    onClose={() => setFrameExtractTarget(null)}
+                    onExtractFrame={(imageDataUrl, timeSeconds) => {
+                        const sourceNode = nodes.find(n => n.id === frameExtractTarget.nodeId);
+                        if (!sourceNode) { setFrameExtractTarget(null); return; }
+                        const newId = `node_${Date.now()}`;
+                        const newNode: NodeData = {
+                            id: newId,
+                            type: NodeType.ORIGINAL_IMAGE,
+                            x: sourceNode.x + sourceNode.width + 60,
+                            y: sourceNode.y,
+                            width: 400,
+                            height: 400,
+                            title: `截帧_${String(Math.floor(timeSeconds / 60)).padStart(2, '0')}${String(Math.floor(timeSeconds % 60)).padStart(2, '0')}_${sourceNode.title}`.slice(0, 30),
+                            imageSrc: imageDataUrl,
+                            source: 'canvas',
+                        };
+                        setNodes(prev => [...prev, newNode]);
+                        setFrameExtractTarget(null);
+                    }}
                 />
             )}
         </div>

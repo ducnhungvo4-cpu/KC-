@@ -17,7 +17,7 @@ interface CropModalProps {
   onConfirm: (dataUrl: string, width: number, height: number, aspectRatio: string) => void;
 }
 
-const CROP_ASPECT_RATIOS = ['1:1', '3:4', '4:3', '9:16', '16:9'];
+const CROP_ASPECT_RATIOS = ['1:1', '3:4', '4:3', '9:16', '16:9', '21:9'];
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 const parseRatio = (ratio: string) => {
   const [wRaw, hRaw] = ratio.split(':').map(Number);
@@ -67,7 +67,7 @@ export const CropModal: React.FC<CropModalProps> = ({
   onConfirm,
 }) => {
   const imageRef = useRef<HTMLImageElement>(null);
-  const dragRef = useRef<{ startX: number; startY: number; rect: CropRect } | null>(null);
+  const dragRef = useRef<{ startX: number; startY: number; rect: CropRect; resizeDir?: string } | null>(null);
   const [rect, setRect] = useState<CropRect>({ x: 12, y: 12, w: 76, h: 76 });
   const [naturalSize, setNaturalSize] = useState({ width: 0, height: 0 });
   const [aspectRatio, setAspectRatio] = useState(
@@ -109,9 +109,9 @@ export const CropModal: React.FC<CropModalProps> = ({
     });
   };
 
-  const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+  const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>, resizeDir?: string) => {
     event.stopPropagation();
-    dragRef.current = { startX: event.clientX, startY: event.clientY, rect };
+    dragRef.current = { startX: event.clientX, startY: event.clientY, rect, resizeDir };
     setIsDragging(true);
     event.currentTarget.setPointerCapture(event.pointerId);
   };
@@ -121,10 +121,25 @@ export const CropModal: React.FC<CropModalProps> = ({
     const bounds = imageRef.current.getBoundingClientRect();
     const dx = ((event.clientX - dragRef.current.startX) / bounds.width) * 100;
     const dy = ((event.clientY - dragRef.current.startY) / bounds.height) * 100;
-    updateRect({
-      x: dragRef.current.rect.x + dx,
-      y: dragRef.current.rect.y + dy,
-    });
+    const dir = dragRef.current.resizeDir;
+    if (dir) {
+      // Free resize mode - no aspect ratio constraint
+      const r = dragRef.current.rect;
+      setRect(prev => {
+        let newRect = { ...r };
+        if (dir.includes('e')) newRect = { ...newRect, w: clamp(r.w + dx, 8, 100 - r.x) };
+        if (dir.includes('w')) newRect = { ...newRect, x: clamp(r.x + dx, 0, r.x + r.w - 8), w: clamp(r.w - dx, 8, r.x + r.w) };
+        if (dir.includes('s')) newRect = { ...newRect, h: clamp(r.h + dy, 8, 100 - r.y) };
+        if (dir.includes('n')) newRect = { ...newRect, y: clamp(r.y + dy, 0, r.y + r.h - 8), h: clamp(r.h - dy, 8, r.y + r.h) };
+        return newRect;
+      });
+    } else {
+      // Move mode
+      updateRect({
+        x: dragRef.current.rect.x + dx,
+        y: dragRef.current.rect.y + dy,
+      });
+    }
   };
 
   const handlePointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -225,7 +240,7 @@ export const CropModal: React.FC<CropModalProps> = ({
               <div
                 className={`absolute border-2 border-cyan-400 bg-cyan-400/10 cursor-move ${isDragging ? 'ring-4 ring-cyan-400/20' : ''}`}
                 style={{ left: `${rect.x}%`, top: `${rect.y}%`, width: `${rect.w}%`, height: `${rect.h}%` }}
-                onPointerDown={handlePointerDown}
+                onPointerDown={(e) => handlePointerDown(e)}
                 onPointerMove={handlePointerMove}
                 onPointerUp={handlePointerUp}
               >
@@ -234,6 +249,15 @@ export const CropModal: React.FC<CropModalProps> = ({
                     <div key={index} className="border border-white/25" />
                   ))}
                 </div>
+                {/* Resize handles for free adjustment */}
+                {['nw', 'ne', 'sw', 'se'].map(dir => (
+                  <div
+                    key={dir}
+                    className={`absolute w-4 h-4 bg-cyan-400 rounded-full border-2 border-white shadow-md z-10 ${dir.includes('n') ? '-top-2' : '-bottom-2'} ${dir.includes('w') ? '-left-2' : '-right-2'}`}
+                    style={{ cursor: `${dir}-resize` }}
+                    onPointerDown={(e) => handlePointerDown(e, dir)}
+                  />
+                ))}
               </div>
             </div>
           </div>

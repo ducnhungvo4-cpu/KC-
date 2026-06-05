@@ -71,20 +71,7 @@ export const MediaStack: React.FC<MediaStackProps> = ({
                            <div className="absolute top-2 left-2 px-1.5 py-0.5 bg-black/60 backdrop-blur-md rounded text-[9px] text-white font-mono border border-white/10 select-none">
                                #{index + 1}
                            </div>
-                           {onToggleFavorite && (
-                               <button
-                                   className={`absolute top-2 right-2 z-20 w-7 h-7 rounded-lg border backdrop-blur-md flex items-center justify-center transition-all ${
-                                       favorited ? 'bg-amber-400/90 border-amber-200 text-zinc-950' : 'bg-black/40 border-white/10 text-white/75 hover:bg-black/60 hover:text-white'
-                                   }`}
-                                   title={favorited ? '取消收藏' : '收藏素材'}
-                                   onClick={(e) => {
-                                       e.stopPropagation();
-                                       onToggleFavorite(src, type);
-                                   }}
-                               >
-                                   <Icons.Star size={13} fill={favorited ? 'currentColor' : 'none'} />
-                               </button>
-                           )}
+
                       </div>
                     );
                 })}
@@ -114,20 +101,7 @@ export const MediaStack: React.FC<MediaStackProps> = ({
                    <Icons.ChevronRight size={10} className="text-zinc-400 group-hover/badge:text-white" />
                </div>
            )}
-           {currentSrc && onToggleFavorite && (
-               <button
-                   className={`absolute top-2 left-2 z-30 w-8 h-8 rounded-xl border backdrop-blur-md flex items-center justify-center transition-all ${
-                       currentFavorite ? 'bg-amber-400/90 border-amber-200 text-zinc-950 shadow-lg' : 'bg-black/30 border-white/10 text-white/70 hover:bg-black/55 hover:text-white'
-                   }`}
-                   title={currentFavorite ? '取消收藏' : '收藏素材'}
-                   onClick={(e) => {
-                       e.stopPropagation();
-                       onToggleFavorite(currentSrc, isVideo ? 'video' : 'image');
-                   }}
-               >
-                   <Icons.Star size={15} fill={currentFavorite ? 'currentColor' : 'none'} />
-               </button>
-           )}
+
         </>
     );
 };

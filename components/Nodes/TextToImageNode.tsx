@@ -1,4 +1,4 @@
-
+﻿
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { InputMedia, MultiAngleOptions, NodeData } from '../../types';
 import { Icons } from '../Icons';
@@ -307,20 +307,6 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
                          
                          {/* Action Buttons */}
                          <div className="absolute top-3 right-3 flex items-center gap-1.5 pointer-events-auto">
-                             <button 
-                                 title="最大化" 
-                                 className="w-8 h-8 rounded-lg bg-black/40 hover:bg-black/60 backdrop-blur-md text-white/80 hover:text-white flex items-center justify-center transition-all"
-                                 onClick={(e) => { e.stopPropagation(); onMaximize?.(data.id); }}
-                             >
-                                 <Icons.Maximize2 size={16} />
-                             </button>
-                             <button 
-                                 title="下载" 
-                                 className="w-8 h-8 rounded-lg bg-black/40 hover:bg-black/60 backdrop-blur-md text-white/80 hover:text-white flex items-center justify-center transition-all"
-                                 onClick={(e) => { e.stopPropagation(); onDownload?.(data.id); }}
-                             >
-                                 <Icons.Download size={16} />
-                             </button>
                              <button
                                  title="Crop"
                                  className="w-8 h-8 rounded-lg bg-black/40 hover:bg-black/60 backdrop-blur-md text-white/80 hover:text-white flex items-center justify-center transition-all"

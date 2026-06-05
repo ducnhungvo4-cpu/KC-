@@ -28,8 +28,7 @@ export const OriginalImageNode: React.FC<OriginalImageNodeProps> = ({
           <div className="absolute bottom-full left-0 w-full mb-2 flex items-center justify-between pointer-events-auto">
               <EditableTitle title={data.title} onUpdate={(t) => updateData(data.id, { title: t })} isDark={isDark} />
               <div className={`flex gap-1 backdrop-blur-md rounded-lg p-1 border ${overlayToolbarBg}`}>
-                      <button title="Maximize" className={`p-1 rounded transition-colors ${isDark ? 'hover:bg-zinc-800 hover:text-white' : 'hover:bg-gray-200 hover:text-black'}`} onClick={(e) => { e.stopPropagation(); onMaximize?.(data.id); }}><Icons.Maximize2 size={12} className="cursor-pointer"/></button>
-                      <button title="Download" className={`p-1 rounded transition-colors ${isDark ? 'hover:bg-zinc-800 hover:text-white' : 'hover:bg-gray-200 hover:text-black'}`} onClick={(e) => { e.stopPropagation(); onDownload?.(data.id); }}><Icons.Download size={12} className="cursor-pointer"/></button>
+
                       {data.imageSrc && (
                           <button title="Crop" className={`p-1 rounded transition-colors ${isDark ? 'hover:bg-zinc-800 hover:text-white' : 'hover:bg-gray-200 hover:text-black'}`} onClick={(e) => { e.stopPropagation(); onCrop?.(data.id); }}><Icons.Crop size={12} className="cursor-pointer"/></button>
                       )}

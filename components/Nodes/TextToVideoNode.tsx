@@ -1,4 +1,4 @@
-
+﻿
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { InputMedia, NodeData } from '../../types';
 import { Icons } from '../Icons';
@@ -6,7 +6,6 @@ import { getModelConfig, MODEL_REGISTRY, getVisibleModels } from '../../services
 import { VIDEO_HANDLERS } from '../../services/mode/video/configurations';
 import { getVideoConstraints, getAutoCorrectedVideoSettings } from '../../services/mode/video/rules';
 import { LocalEditableTitle, LocalCustomDropdown, LocalInputThumbnails, LocalMediaStack } from './Shared/LocalNodeComponents';
-import { VideoFrameExtractPanel } from '../VideoFrameExtractPanel';
 
 interface TextToVideoNodeProps {
   data: NodeData;
@@ -41,7 +40,6 @@ export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
     const [progress, setProgress] = useState(0);
     const [isConfigured, setIsConfigured] = useState(true);
     const [videoModels, setVideoModels] = useState<string[]>([]);
-    const [isFrameExtractOpen, setIsFrameExtractOpen] = useState(false);
 
     const isSelectedAndStable = selected && !isSelecting;
     // Panel stays a constant screen size while zooming via the --canvas-scale CSS var,
@@ -216,24 +214,6 @@ export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
                          </div>
                          
                          {/* Action Buttons */}
-                         <div className="absolute top-3 right-3 flex items-center gap-1.5 pointer-events-auto">
-                             <button 
-                                 title="最大化" 
-                                 className="w-8 h-8 rounded-lg bg-black/40 hover:bg-black/60 backdrop-blur-md text-white/80 hover:text-white flex items-center justify-center transition-all"
-                                 onClick={(e) => { e.stopPropagation(); onMaximize?.(data.id); }}
-                             >
-                                 <Icons.Maximize2 size={16} />
-                             </button>
-                             <button 
-                                 title="下载" 
-                                 className="w-8 h-8 rounded-lg bg-black/40 hover:bg-black/60 backdrop-blur-md text-white/80 hover:text-white flex items-center justify-center transition-all"
-                                 onClick={(e) => { e.stopPropagation(); onDownload?.(data.id); }}
-                             >
-                                 <Icons.Download size={16} />
-                             </button>
-                         </div>
-                     </div>
-                 </>
             ) : (
                 <div className={`w-full h-full flex flex-col items-center justify-center ${emptyStateTextColor}`}>
                     <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-4 ${emptyStateIconColor}`}>
@@ -279,7 +259,7 @@ export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
                     <Icons.TrendingUp size={16} />
                     <span>增分</span>
                 </button>
-                <button className={`h-9 px-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => setIsFrameExtractOpen(true)} title="逐帧浏览视频并抽取为图片">
+                <button className={`h-9 px-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onExtractFrames?.(data.id)} title="逐帧浏览视频并抽取为图片">
                     <Icons.Frame size={16} />
                     <span>视频截帧</span>
                 </button>
@@ -409,18 +389,6 @@ export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
           </div>
         )}
 
-        {isFrameExtractOpen && data.videoSrc && (
-            <VideoFrameExtractPanel
-                isOpen={isFrameExtractOpen}
-                videoSrc={data.videoSrc}
-                isDark={isDark}
-                onClose={() => setIsFrameExtractOpen(false)}
-                onExtractFrame={(imageDataUrl, timeSeconds) => {
-                    onExtractSingleFrame?.(data.id, imageDataUrl, timeSeconds);
-                    setIsFrameExtractOpen(false);
-                }}
-            />
-        )}
       </>
     );
 };
