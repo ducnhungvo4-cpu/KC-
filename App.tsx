@@ -47,21 +47,81 @@ const DEMO_ASSET_LIBRARY: AssetLibraryItem[] = [
         id: 'asset_role_001',
         type: 'role',
         scope: 'project',
-        name: '男主-陆沉',
-        version: 'v4',
+        name: '王上近晨',
+        version: '角色A01',
         updatedAt: '今天 10:24',
-        previewUrl: createDemoAssetPreview('角色 / 陆沉', '#60a5fa', '#172554'),
-        description: '25-30岁，冷静克制，深色外套，短剧男主核心资产。',
+        previewUrl: createDemoAssetPreview('王上近晨', '#60a5fa', '#172554'),
+        description: '主形象，短剧男主核心资产。',
+        voiceTimbre: '音色A01',
+    },
+    {
+        id: 'asset_role_001_child_01',
+        type: 'role',
+        scope: 'project',
+        name: '常服',
+        version: '角色A01',
+        updatedAt: '今天 10:28',
+        previewUrl: createDemoAssetPreview('常服', '#38bdf8', '#082f49'),
+        description: '王上近晨常服子形象。',
+        parentId: 'asset_role_001',
+        voiceTimbre: '音色A01',
+    },
+    {
+        id: 'asset_role_001_child_02',
+        type: 'role',
+        scope: 'project',
+        name: '朝服',
+        version: '角色A01',
+        updatedAt: '今天 10:29',
+        previewUrl: createDemoAssetPreview('朝服', '#f97316', '#431407'),
+        description: '王上近晨朝服子形象。',
+        parentId: 'asset_role_001',
+        voiceTimbre: '音色A01',
+    },
+    {
+        id: 'asset_role_001_child_03',
+        type: 'role',
+        scope: 'project',
+        name: '战损',
+        version: '角色A01',
+        updatedAt: '今天 10:30',
+        previewUrl: createDemoAssetPreview('战损', '#ef4444', '#450a0a'),
+        description: '王上近晨战损子形象。',
+        parentId: 'asset_role_001',
+        voiceTimbre: '音色A01',
     },
     {
         id: 'asset_role_002',
         type: 'role',
         scope: 'project',
-        name: '女主-林夏',
-        version: 'v3',
+        name: '大唐公主',
+        version: '角色A02',
         updatedAt: '昨天 18:10',
-        previewUrl: createDemoAssetPreview('角色 / 林夏', '#f472b6', '#4a044e'),
-        description: '24岁，干练敏感，浅色风衣，主要情绪线角色。',
+        previewUrl: createDemoAssetPreview('大唐公主', '#f472b6', '#4a044e'),
+        description: '主形象，主要情绪线角色。',
+        voiceTimbre: '音色A02',
+    },
+    {
+        id: 'asset_role_003',
+        type: 'role',
+        scope: 'project',
+        name: '御史中丞',
+        version: '角色A03',
+        updatedAt: '昨天 16:42',
+        previewUrl: createDemoAssetPreview('御史中丞', '#a78bfa', '#2e1065'),
+        description: '朝堂重臣主形象。',
+        voiceTimbre: '音色A03',
+    },
+    {
+        id: 'asset_role_004',
+        type: 'role',
+        scope: 'project',
+        name: '禁军统领',
+        version: '角色A04',
+        updatedAt: '昨天 15:20',
+        previewUrl: createDemoAssetPreview('禁军统领', '#94a3b8', '#111827'),
+        description: '禁军统领主形象。',
+        voiceTimbre: '音色A04',
     },
     {
         id: 'asset_scene_001',
@@ -944,10 +1004,10 @@ const CanvasWithSidebar: React.FC = () => {
     handleCloseAssetSelection();
   };
 
-  const handleAddShotClipToCanvas = (clip: ShotClip) => {
+  const handleAddShotClipToCanvas = (clip: ShotClip, position?: Point) => {
     const { width: vw, height: vh } = getNodeSizeForAspectRatio('16:9', 350);
     const rect = containerRef.current?.getBoundingClientRect();
-    const center = rect ? screenToWorld(rect.width / 2, rect.height / 2) : { x: 0, y: 0 };
+    const center = position || (rect ? screenToWorld(rect.width / 2, rect.height / 2) : { x: 0, y: 0 });
     
     const keyframeNodes: NodeData[] = clip.keyframeUrls && clip.keyframeUrls.length > 0 
       ? clip.keyframeUrls.map((url, i) => ({
@@ -2076,15 +2136,32 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
 
   const handleDrop = (e: React.DragEvent) => {
       e.preventDefault(); e.stopPropagation();
+      const worldPos = screenToWorld(e.clientX, e.clientY);
+      const nodeType = (e.dataTransfer.getData('application/kc-node-type') || e.dataTransfer.getData('text/plain')) as NodeType;
+      if (nodeType && Object.values(NodeType).includes(nodeType)) {
+          addNode(nodeType, worldPos.x, worldPos.y);
+          return;
+      }
+
       const assetId = e.dataTransfer.getData('application/kc-asset');
       if (assetId) {
           const asset = DEMO_ASSET_LIBRARY.find(item => item.id === assetId);
-          if (asset) handleAddAssetToCanvas(asset, screenToWorld(e.clientX, e.clientY));
+          if (asset) handleAddAssetToCanvas(asset, worldPos);
           return;
       }
+      const shotClipData = e.dataTransfer.getData('application/kc-shot-clip');
+      if (shotClipData) {
+          try {
+              const clip = JSON.parse(shotClipData) as ShotClip;
+              handleAddShotClipToCanvas(clip, worldPos);
+          } catch (error) {
+              console.error('Invalid shot clip drag payload', error);
+          }
+          return;
+      }
+
       const files: File[] = Array.from(e.dataTransfer.files); 
       if (files.length === 0) return;
-      const worldPos = screenToWorld(e.clientX, e.clientY);
       assetImportConnectionRef.current = null;
       files.forEach((file, index) => {
           const offsetX = index * 20; const offsetY = index * 20;

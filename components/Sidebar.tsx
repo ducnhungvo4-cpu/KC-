@@ -61,6 +61,27 @@ const HistoryItem = memo(({ node, type, onClick, isDark }: { node: NodeData, typ
     );
 });
 
+const createShotClipPreview = (label: string, accent = '#475569', background = '#111827') => {
+    const svg = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180">
+        <defs>
+          <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+            <stop offset="0%" stop-color="${accent}" stop-opacity="0.75"/>
+            <stop offset="100%" stop-color="${background}"/>
+          </linearGradient>
+          <radialGradient id="light" cx="34%" cy="30%" r="70%">
+            <stop offset="0%" stop-color="#f8fafc" stop-opacity="0.22"/>
+            <stop offset="100%" stop-color="#0f172a" stop-opacity="0"/>
+          </radialGradient>
+        </defs>
+        <rect width="320" height="180" fill="url(#bg)"/>
+        <rect width="320" height="180" fill="url(#light)"/>
+        <path d="M0 136 C54 112 86 132 134 102 C190 68 246 86 320 46 L320 180 L0 180 Z" fill="#020617" opacity="0.45"/>
+        <text x="22" y="148" fill="#e5e7eb" font-family="Arial, sans-serif" font-size="22" font-weight="700">${label}</text>
+      </svg>`;
+    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+};
+
 
 
 const Sidebar: React.FC<SidebarProps> = ({ 
@@ -92,6 +113,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [mediaTab, setMediaTab] = useState<'image' | 'video'>('image');
   const [shotEpisode, setShotEpisode] = useState<number | 'all'>('all');
   const [shotSearch, setShotSearch] = useState('');
+  const [expandedAssetIds, setExpandedAssetIds] = useState<Set<string>>(() => new Set(['asset_role_001']));
   const sidebarRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -115,10 +137,11 @@ const Sidebar: React.FC<SidebarProps> = ({
   // Mock shot clips for demo - will be replaced by real data
   const shotClips = useMemo<ShotClip[]>(() => {
     return [
-      { id: 'shot_001', episodeNo: 1, sceneNo: 1, shotNo: 1, shotName: '开场全景', videoUrl: '', prompt: '电影级全景镜头，清晨的城市天际线', keyframeUrls: [], audioUrl: '', description: '第一集第一场开场镜头' },
-      { id: 'shot_002', episodeNo: 1, sceneNo: 1, shotNo: 2, shotName: '主角近景', videoUrl: '', prompt: '男主角面部特写，柔和的侧光', keyframeUrls: [], audioUrl: '', description: '主角登场特写' },
-      { id: 'shot_003', episodeNo: 1, sceneNo: 2, shotNo: 1, shotName: '街道跟拍', videoUrl: '', prompt: '手持跟拍，主角穿过繁忙街道', keyframeUrls: [], audioUrl: '', description: '街道追逐戏' },
-      { id: 'shot_004', episodeNo: 2, sceneNo: 1, shotNo: 1, shotName: '室内对话', videoUrl: '', prompt: '双人中景，暖色调室内灯光', keyframeUrls: [], audioUrl: '', description: '办公室对话场景' },
+      { id: 'shot_001', episodeNo: 6, sceneNo: 3, shotNo: 1, shotName: '06-03-v01', videoUrl: '', prompt: '古宅窗前，人物背影，低照度悬疑氛围。', keyframeUrls: [createShotClipPreview('06-03-v01', '#334155', '#0f172a')], audioUrl: '', description: '第6集第3场版本01' },
+      { id: 'shot_002', episodeNo: 6, sceneNo: 3, shotNo: 2, shotName: '06-03-v02', videoUrl: '', prompt: '夜巷火光，群像围站，手持镜头推进。', keyframeUrls: [createShotClipPreview('06-03-v02', '#7c2d12', '#111827')], audioUrl: '', description: '第6集第3场版本02' },
+      { id: 'shot_003', episodeNo: 6, sceneNo: 3, shotNo: 3, shotName: '06-03-v03', videoUrl: '', prompt: '雾气森林，人物对峙，冷色逆光。', keyframeUrls: [createShotClipPreview('06-03-v03', '#365314', '#111827')], audioUrl: '', description: '第6集第3场版本03' },
+      { id: 'shot_004', episodeNo: 6, sceneNo: 3, shotNo: 4, shotName: '06-03-v04', videoUrl: '', prompt: '军阵旗帜，雨雾远景，史诗感横移。', keyframeUrls: [createShotClipPreview('06-03-v04', '#475569', '#1f2937')], audioUrl: '', description: '第6集第3场版本04' },
+      { id: 'shot_005', episodeNo: 6, sceneNo: 3, shotNo: 5, shotName: '06-03-v05', videoUrl: '', prompt: '夜市街道，角色穿行，人群与灯笼背景。', keyframeUrls: [createShotClipPreview('06-03-v05', '#92400e', '#111827')], audioUrl: '', description: '第6集第3场版本05' },
     ];
   }, []);
 
@@ -224,11 +247,17 @@ const Sidebar: React.FC<SidebarProps> = ({
   const renderAddPanel = () => {
     const NodeButton = ({ icon: Icon, label, description, type, color }: { icon: any, label: string, description: string, type: NodeType, color: string }) => (
       <button
+        draggable
+        onDragStart={(event: React.DragEvent) => {
+          event.dataTransfer.setData('application/kc-node-type', type);
+          event.dataTransfer.setData('text/plain', type);
+          event.dataTransfer.effectAllowed = 'copy';
+        }}
         onClick={() => { onAddNode(type); setActivePanel(null); }}
         className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all group ${
           isDark 
-            ? 'border-zinc-800 hover:border-zinc-700 hover:bg-zinc-800/50' 
-            : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50'
+            ? 'border-zinc-800 hover:border-zinc-700 hover:bg-zinc-800/50 cursor-grab active:cursor-grabbing' 
+            : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50 cursor-grab active:cursor-grabbing'
         }`}
       >
         <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${color}`}>
@@ -347,6 +376,21 @@ const Sidebar: React.FC<SidebarProps> = ({
       scene: isDark ? "bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/25" : "bg-amber-50 text-amber-600 ring-1 ring-amber-200",
       prop: isDark ? "bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/25" : "bg-emerald-50 text-emerald-600 ring-1 ring-emerald-200",
     };
+    const addButtonClass = isDark
+      ? "border border-zinc-700/70 bg-zinc-900/60 text-zinc-300 hover:border-blue-500/50 hover:text-blue-200"
+      : "border border-gray-200 bg-white text-gray-600 hover:border-blue-300 hover:text-blue-700";
+    const toggleExpanded = (assetId: string) => {
+      setExpandedAssetIds(prev => {
+        const next = new Set(prev);
+        if (next.has(assetId)) next.delete(assetId);
+        else next.add(assetId);
+        return next;
+      });
+    };
+    const startAssetDrag = (event: React.DragEvent, assetId: string) => {
+      event.dataTransfer.setData("application/kc-asset", assetId);
+      event.dataTransfer.effectAllowed = "copy";
+    };
 
     return (
       <div className="h-full flex flex-col gap-3">
@@ -410,14 +454,115 @@ const Sidebar: React.FC<SidebarProps> = ({
                 </div>
               ) : (
                 (() => {
-                  const parents = filteredAssetLibrary.filter((a: AssetLibraryItem) => !a.parentId);
-                  const getChildren = (parentId: string) => filteredAssetLibrary.filter((a: AssetLibraryItem) => a.parentId === parentId);
+                  const sourceItems = assetLibrary.filter(item => {
+                    const scope = item.scope || 'project';
+                    return scope === assetScope && (assetTab === 'all' || item.type === assetTab);
+                  });
+                  const keyword = assetSearch.trim().toLowerCase();
+                  const matchesAsset = (item: AssetLibraryItem) => {
+                    if (!keyword) return true;
+                    return `${item.name} ${item.description} ${item.version} ${item.voiceTimbre || ''}`.toLowerCase().includes(keyword);
+                  };
+                  const getChildren = (parentId: string) => sourceItems.filter((a: AssetLibraryItem) => a.parentId === parentId);
+                  const parents = sourceItems
+                    .filter((a: AssetLibraryItem) => !a.parentId)
+                    .filter((asset: AssetLibraryItem) => matchesAsset(asset) || getChildren(asset.id).some(matchesAsset));
+
                   return parents.map((asset: AssetLibraryItem) => {
                     const children = getChildren(asset.id);
+                    const visibleChildren = children.filter(matchesAsset);
+                    const isExpanded = expandedAssetIds.has(asset.id);
+                    const hasChildren = children.length > 0;
+
+                    if (assetTab === 'role') {
+                      return (
+                        <div
+                          key={asset.id}
+                          className={"overflow-hidden rounded-xl border transition-all duration-200 " + (isDark ? "border-zinc-800/80 bg-zinc-900/35" : "border-gray-200 bg-white")}
+                        >
+                          <div
+                            draggable
+                            onDragStart={(event: React.DragEvent) => startAssetDrag(event, asset.id)}
+                            className="cursor-grab active:cursor-grabbing"
+                          >
+                            <div className="flex items-center gap-3 p-2.5">
+                              <img src={asset.previewUrl} className="h-20 w-24 rounded-lg object-cover shrink-0 ring-1 ring-black/10" loading="lazy" />
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center justify-between gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => hasChildren && toggleExpanded(asset.id)}
+                                    className={"min-w-0 truncate text-left text-sm font-bold " + textMain}
+                                  >
+                                    {asset.name}
+                                  </button>
+                                  {hasChildren && (
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleExpanded(asset.id)}
+                                      className={"h-7 w-7 shrink-0 rounded-lg flex items-center justify-center " + (isDark ? "text-zinc-400 hover:bg-zinc-800 hover:text-white" : "text-gray-500 hover:bg-gray-100 hover:text-gray-900")}
+                                      aria-label={isExpanded ? '收起子形象' : '展开子形象'}
+                                    >
+                                      <Icons.ChevronDown size={16} className={"transition-transform " + (isExpanded ? "rotate-180" : "")} />
+                                    </button>
+                                  )}
+                                </div>
+                                {asset.voiceTimbre && (
+                                  <div className={"mt-2 flex items-center gap-1.5 text-[11px] font-medium " + textSub}>
+                                    <Icons.Volume2 size={12} />
+                                    {asset.voiceTimbre}
+                                  </div>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); onAddAssetToCanvas(asset); setActivePanel(null); }}
+                                  className={"mt-2 h-8 rounded-lg px-3 text-xs font-semibold transition-colors " + addButtonClass}
+                                >
+                                  添加到画布
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+
+                          {hasChildren && isExpanded && (
+                            <div className={"relative ml-6 border-l pl-3 pb-2 " + (isDark ? "border-zinc-700/70" : "border-gray-200")}>
+                              {(visibleChildren.length ? visibleChildren : children).map((child: AssetLibraryItem) => (
+                                <div
+                                  key={child.id}
+                                  draggable
+                                  onDragStart={(event: React.DragEvent) => startAssetDrag(event, child.id)}
+                                  className={"relative flex items-center gap-3 rounded-lg border-b py-2 pr-2 cursor-grab active:cursor-grabbing " + (isDark ? "border-zinc-800/70 hover:bg-zinc-800/35" : "border-gray-100 hover:bg-gray-50")}
+                                >
+                                  <span className={"absolute -left-3 top-1/2 h-px w-3 " + (isDark ? "bg-zinc-700/70" : "bg-gray-200")} />
+                                  <img src={child.previewUrl} className="h-16 w-20 rounded-lg object-cover shrink-0 ring-1 ring-black/10" loading="lazy" />
+                                  <div className="min-w-0 flex-1">
+                                    <div className={"truncate text-xs font-bold " + textMain}>{child.name}</div>
+                                    {child.voiceTimbre && (
+                                      <div className={"mt-1 flex items-center gap-1.5 text-[11px] " + textSub}>
+                                        <Icons.Volume2 size={11} />
+                                        {child.voiceTimbre}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); onAddAssetToCanvas(child); setActivePanel(null); }}
+                                    className={"h-8 shrink-0 rounded-lg px-3 text-xs font-semibold transition-colors " + addButtonClass}
+                                  >
+                                    添加到画布
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    }
+
                     return (
                       <div key={asset.id}>
                         <div draggable
-                          onDragStart={(event: React.DragEvent) => { event.dataTransfer.setData("application/kc-asset", asset.id); event.dataTransfer.effectAllowed = "copy"; }}
+                          onDragStart={(event: React.DragEvent) => startAssetDrag(event, asset.id)}
                           className={"group/card rounded-xl border p-3 transition-all duration-200 cursor-grab active:cursor-grabbing " + (isDark ? "border-zinc-800/70 bg-zinc-900/30 hover:bg-zinc-800/60 hover:border-zinc-700" : "border-gray-100 bg-white hover:bg-gray-50 hover:border-gray-200 hover:shadow-sm")}
                         >
                           <div className="flex items-center gap-3">
@@ -437,14 +582,20 @@ const Sidebar: React.FC<SidebarProps> = ({
                                 <p className={"mt-1 text-[11px] truncate " + textMuted}>{asset.description}</p>
                               )}
                             </div>
-                            <span className={"text-[10px] shrink-0 " + textMuted}>{asset.updatedAt}</span>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); onAddAssetToCanvas(asset); setActivePanel(null); }}
+                              className={"h-8 shrink-0 rounded-lg px-3 text-xs font-semibold transition-colors " + addButtonClass}
+                            >
+                              添加
+                            </button>
                           </div>
                         </div>
                         {children.length > 0 && (
                           <div className={"ml-4 mt-1 space-y-1 border-l-2 pl-3 " + (isDark ? "border-zinc-800/50" : "border-gray-200/80")}>
                             {children.map((child: AssetLibraryItem) => (
                               <div key={child.id} draggable
-                                onDragStart={(event: React.DragEvent) => { event.dataTransfer.setData("application/kc-asset", child.id); event.dataTransfer.effectAllowed = "copy"; }}
+                                onDragStart={(event: React.DragEvent) => startAssetDrag(event, child.id)}
                                 className={"group/card rounded-lg border p-2 transition-all duration-200 cursor-grab active:cursor-grabbing " + (isDark ? "border-zinc-800/50 hover:bg-zinc-800/40 hover:border-zinc-700" : "border-gray-100 bg-gray-50/50 hover:bg-white hover:border-gray-200")}
                               >
                                 <div className="flex items-center gap-2">
@@ -455,6 +606,13 @@ const Sidebar: React.FC<SidebarProps> = ({
                                       <Icons.Mic size={9} className="inline" />
                                     </span>
                                   )}
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); onAddAssetToCanvas(child); setActivePanel(null); }}
+                                    className={"h-7 shrink-0 rounded-md px-2 text-[11px] font-semibold transition-colors " + addButtonClass}
+                                  >
+                                    添加
+                                  </button>
                                 </div>
                               </div>
                             ))}
@@ -495,30 +653,31 @@ const Sidebar: React.FC<SidebarProps> = ({
                 filteredShotClips.map((clip: ShotClip) => (
                   <div key={clip.id} draggable
                     onDragStart={(event: React.DragEvent) => { event.dataTransfer.setData("application/kc-shot-clip", JSON.stringify(clip)); event.dataTransfer.effectAllowed = "copy"; }}
-                    className={"group/card rounded-xl border p-3 transition-all duration-200 cursor-grab active:cursor-grabbing " + (isDark ? "border-zinc-800/70 bg-zinc-900/30 hover:bg-zinc-800/60 hover:border-zinc-700" : "border-gray-100 bg-white hover:bg-gray-50 hover:border-gray-200 hover:shadow-sm")}
+                    className={"group/card rounded-xl border p-2.5 transition-all duration-200 cursor-grab active:cursor-grabbing " + (isDark ? "border-zinc-800/70 bg-zinc-900/35 hover:bg-zinc-800/60 hover:border-zinc-700" : "border-gray-100 bg-white hover:bg-gray-50 hover:border-gray-200 hover:shadow-sm")}
                   >
-                    <div className="flex items-start justify-between">
-                      <div className="min-w-0 flex-1">
-                        <span className={"inline-flex rounded-md px-2 py-0.5 text-[10px] font-bold tracking-wide " + (isDark ? "bg-purple-500/15 text-purple-300" : "bg-purple-100 text-purple-700")}>
-                          第{clip.episodeNo}集 · 第{clip.sceneNo}场 · 第{String(clip.shotNo).padStart(2, "0")}镜
-                        </span>
-                        <p className={"mt-1.5 text-sm font-semibold truncate " + textMain}>{clip.shotName}</p>
-                        {clip.prompt && <p className={"mt-1 text-[11px] line-clamp-2 " + textSub}>{clip.prompt}</p>}
+                    <div className="flex items-center gap-4">
+                      <div className={"relative h-[78px] w-[138px] shrink-0 overflow-hidden rounded-lg ring-1 " + (isDark ? "ring-black/30 bg-zinc-950" : "ring-gray-200 bg-gray-100")}>
+                        <img
+                          src={clip.keyframeUrls?.[0] || createShotClipPreview(clip.shotName)}
+                          className="h-full w-full object-cover transition-transform duration-500 group-hover/card:scale-105"
+                          loading="lazy"
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/5">
+                          <span className="flex h-10 w-10 items-center justify-center rounded-full border border-white/70 bg-black/35 text-white shadow-lg backdrop-blur-sm">
+                            <Icons.Play size={19} fill="currentColor" />
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex min-w-0 flex-1 flex-col justify-between self-stretch py-1">
+                        <div className={"truncate text-sm font-bold leading-6 " + textMain}>{clip.shotName}</div>
+                        <button
+                          className={"h-9 w-full rounded-lg text-xs font-semibold transition-colors " + addButtonClass}
+                          onClick={(e) => { e.stopPropagation(); onAddShotClipToCanvas?.(clip); setActivePanel(null); }}
+                        >
+                          添加到画布
+                        </button>
                       </div>
                     </div>
-                    <div className={"mt-2 flex items-center gap-3 text-[10px] " + textMuted}>
-                      {clip.keyframeUrls && clip.keyframeUrls.length > 0 && (
-                        <span className="flex items-center gap-1"><Icons.Image size={10} />{clip.keyframeUrls.length} 关键帧</span>
-                      )}
-                      {clip.audioUrl && <span className="flex items-center gap-1"><Icons.Music size={10} />音频</span>}
-                      {clip.videoUrl && <span className="flex items-center gap-1"><Icons.Video size={10} />视频</span>}
-                    </div>
-                    <button
-                      className={"mt-2.5 w-full h-8 rounded-lg text-xs font-semibold transition-all duration-200 " + (isDark ? "bg-gradient-to-r from-blue-600/40 to-blue-500/40 text-blue-200 hover:from-blue-600/60 hover:to-blue-500/60" : "bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 shadow-sm shadow-blue-500/15")}
-                      onClick={(e) => { e.stopPropagation(); onAddShotClipToCanvas?.(clip); }}
-                    >
-                      放到画布
-                    </button>
                   </div>
                 ))
               )}
@@ -645,7 +804,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     return (
       <div 
         ref={panelRef}
-        className={`fixed left-[76px] top-1/2 -translate-y-1/2 ${activePanel === 'ASSET_MATERIAL' ? 'w-80 h-[70vh]' : 'w-64 max-h-[80vh]'} ${bgMain} backdrop-blur-xl border ${borderColor} rounded-2xl z-[190] flex flex-col shadow-xl animate-in slide-in-from-left-2 duration-200`}
+        className={`fixed left-[76px] top-1/2 -translate-y-1/2 ${activePanel === 'ASSET_MATERIAL' ? 'w-[380px] h-[70vh]' : 'w-64 max-h-[80vh]'} ${bgMain} backdrop-blur-xl border ${borderColor} rounded-2xl z-[190] flex flex-col shadow-xl animate-in slide-in-from-left-2 duration-200`}
       >
         {/* Panel Header */}
         <div className={`px-4 py-3 border-b ${borderColor} flex items-center justify-between shrink-0`}>
