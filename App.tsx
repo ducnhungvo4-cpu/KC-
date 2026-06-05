@@ -358,7 +358,6 @@ const CanvasWithSidebar: React.FC = () => {
   
   // Project Name State
   const [projectName, setProjectName] = useState(`${DEMO_PROJECT_META.name} 无限画布`);
-  const [isEditingProjectName, setIsEditingProjectName] = useState(false);
   
   const [isStorageOpen, setIsStorageOpen] = useState(false);
   const [isExportImportOpen, setIsExportImportOpen] = useState(false);
@@ -3631,32 +3630,15 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                     </div>
                     
                     <div className="min-w-0">
-                        {isEditingProjectName ? (
-                            <input
-                                type="text"
-                                value={projectName}
-                                onChange={(e) => setProjectName(e.target.value)}
-                                onBlur={() => setIsEditingProjectName(false)}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter') setIsEditingProjectName(false);
-                                    if (e.key === 'Escape') setIsEditingProjectName(false);
-                                }}
-                                autoFocus
-                                className={`w-48 px-2 py-1 rounded-lg text-sm font-medium border-0 outline-none bg-transparent ${
-                                    isDark ? 'text-white' : 'text-gray-900'
-                                }`}
-                                placeholder="项目名称..."
-                            />
-                        ) : (
-                            <button
-                                onClick={() => setIsEditingProjectName(true)}
-                                className={`block text-left text-sm font-bold max-w-[220px] truncate transition-colors ${
-                                    isDark ? 'text-blue-100 hover:text-blue-200' : 'text-blue-700 hover:text-blue-800'
-                                }`}
-                            >
-                                {projectName}
-                            </button>
-                        )}
+                        <div
+                            className={`block max-w-[220px] truncate text-sm font-bold ${
+                                isDark ? 'text-blue-100' : 'text-blue-700'
+                            }`}
+                            title={projectName}
+                            aria-readonly="true"
+                        >
+                            {projectName}
+                        </div>
                         {/* Sub-canvas dropdown */}
                         <div className="relative mt-0.5">
                             <button
@@ -3668,50 +3650,52 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                                 <Icons.ChevronDown size={10} />
                             </button>
                             {isSubCanvasListOpen && (
-                                <div className={`absolute top-full left-0 mt-1 w-64 rounded-xl border shadow-2xl py-1.5 z-[210] backdrop-blur-xl ${isDark ? 'bg-[#18181b]/98 border-zinc-700' : 'bg-white/98 border-gray-200'}`} onMouseDown={(e) => e.stopPropagation()}>
+                                <div className={`absolute top-full left-0 mt-1 flex h-[calc(100vh-118px)] min-h-[240px] max-h-[610px] w-[304px] flex-col rounded-xl border p-1.5 shadow-2xl z-[210] backdrop-blur-xl ${isDark ? 'bg-[#101114]/96 border-zinc-700/80' : 'bg-white/96 border-gray-200'}`} onMouseDown={(e) => e.stopPropagation()}>
                                     {/* New Canvas Button - Prominent, at top */}
                                     <button
-                                        className={`w-[calc(100%-8px)] mx-1 mb-1.5 px-3 py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition-all ${isDark ? 'bg-blue-500/15 text-blue-400 hover:bg-blue-500/25 border border-blue-500/30' : 'bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200'}`}
+                                        className={`mb-3 h-10 w-full rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition-all ${isDark ? 'bg-blue-500/15 text-blue-400 hover:bg-blue-500/25 border border-blue-500/30' : 'bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200'}`}
                                         onClick={handleCreateSubCanvas}
                                     >
                                         <Icons.Plus size={13} strokeWidth={2.5} />
                                         新建子画布
                                     </button>
-                                    <div className={`h-px mx-2 mb-1 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`} />
-                                    <div className={`px-3 py-1 text-[9px] font-semibold uppercase tracking-wider ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>子画布</div>
-                                    {subCanvases.map(canvas => (
-                                        <div key={canvas.id} className={`flex items-center gap-2 px-2 py-1.5 mx-1 rounded-lg transition-colors ${activeSubCanvasId === canvas.id ? (isDark ? 'bg-blue-500/10' : 'bg-blue-50') : (isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50')}`}>
-                                            <button
-                                                className="flex-1 min-w-0 text-left flex items-center gap-2"
-                                                onClick={() => handleSwitchSubCanvas(canvas.id)}
-                                            >
-                                                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${activeSubCanvasId === canvas.id ? 'bg-blue-400' : (isDark ? 'bg-zinc-600' : 'bg-gray-300')}`} />
-                                                {editingSubCanvasId === canvas.id ? (
-                                                    <input
-                                                        value={editingSubCanvasName}
-                                                        onChange={(e) => setEditingSubCanvasName(e.target.value)}
-                                                        onBlur={() => handleRenameSubCanvas(canvas.id, editingSubCanvasName)}
-                                                        onKeyDown={(e) => {
-                                                            if (e.key === 'Enter') handleRenameSubCanvas(canvas.id, editingSubCanvasName);
-                                                            if (e.key === 'Escape') setEditingSubCanvasId(null);
-                                                        }}
-                                                        autoFocus
-                                                        className={`flex-1 min-w-0 bg-transparent text-xs font-medium outline-none border-b ${isDark ? 'text-white border-blue-400' : 'text-gray-900 border-blue-500'}`}
-                                                        onClick={(e) => e.stopPropagation()}
-                                                    />
-                                                ) : (
-                                                    <span className={`text-xs font-medium truncate ${activeSubCanvasId === canvas.id ? (isDark ? 'text-blue-300' : 'text-blue-700') : (isDark ? 'text-zinc-300' : 'text-gray-700')}`}>{canvas.name}</span>
-                                                )}
-                                            </button>
-                                            <button
-                                                className={`w-5 h-5 rounded flex items-center justify-center shrink-0 opacity-0 group-hover:opacity-100 transition-opacity ${isDark ? 'hover:bg-zinc-700 text-zinc-400' : 'hover:bg-gray-200 text-gray-500'}`}
-                                                onClick={(e) => { e.stopPropagation(); setEditingSubCanvasId(canvas.id); setEditingSubCanvasName(canvas.name); }}
-                                                title="编辑名称"
-                                            >
-                                                <Icons.Edit3 size={10} />
-                                            </button>
-                                        </div>
-                                    ))}
+                                    <div className={`h-px mb-3 ${isDark ? 'bg-zinc-700/80' : 'bg-gray-200'}`} />
+                                    <div className={`px-2 pb-1.5 text-[10px] font-semibold ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>子画布</div>
+                                    <div className="space-y-1">
+                                        {subCanvases.map(canvas => (
+                                            <div key={canvas.id} className={`group flex h-9 items-center gap-2 rounded-lg px-2 transition-colors ${activeSubCanvasId === canvas.id ? (isDark ? 'bg-blue-500/10' : 'bg-blue-50') : (isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50')}`}>
+                                                <button
+                                                    className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                                                    onClick={() => handleSwitchSubCanvas(canvas.id)}
+                                                >
+                                                    <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${activeSubCanvasId === canvas.id ? 'bg-blue-400' : (isDark ? 'bg-zinc-600' : 'bg-gray-300')}`} />
+                                                    {editingSubCanvasId === canvas.id ? (
+                                                        <input
+                                                            value={editingSubCanvasName}
+                                                            onChange={(e) => setEditingSubCanvasName(e.target.value)}
+                                                            onBlur={() => handleRenameSubCanvas(canvas.id, editingSubCanvasName)}
+                                                            onKeyDown={(e) => {
+                                                                if (e.key === 'Enter') handleRenameSubCanvas(canvas.id, editingSubCanvasName);
+                                                                if (e.key === 'Escape') setEditingSubCanvasId(null);
+                                                            }}
+                                                            autoFocus
+                                                            className={`min-w-0 flex-1 bg-transparent text-xs font-medium outline-none border-b ${isDark ? 'text-white border-blue-400' : 'text-gray-900 border-blue-500'}`}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        />
+                                                    ) : (
+                                                        <span className={`truncate text-xs font-medium ${activeSubCanvasId === canvas.id ? (isDark ? 'text-blue-300' : 'text-blue-700') : (isDark ? 'text-zinc-300' : 'text-gray-700')}`}>{canvas.name}</span>
+                                                    )}
+                                                </button>
+                                                <button
+                                                    className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 opacity-0 group-hover:opacity-100 transition-opacity ${isDark ? 'hover:bg-zinc-700 text-zinc-400' : 'hover:bg-gray-200 text-gray-500'}`}
+                                                    onClick={(e) => { e.stopPropagation(); setEditingSubCanvasId(canvas.id); setEditingSubCanvasName(canvas.name); }}
+                                                    title="编辑名称"
+                                                >
+                                                    <Icons.Edit3 size={11} />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
                             )}
                         </div>
