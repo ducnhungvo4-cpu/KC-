@@ -126,49 +126,48 @@ export const VideoFrameExtractPanel: React.FC<VideoFrameExtractPanelProps> = ({
   return (
     <div className="fixed inset-0 z-[260] flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={onClose}>
       <div
-        className={`w-[560px] max-h-[85vh] rounded-2xl border flex flex-col overflow-hidden ${isDark ? 'bg-[#141416] border-zinc-700/60 text-zinc-100 shadow-[0_25px_60px_-12px_rgba(0,0,0,0.8)]' : 'bg-white border-gray-200 text-gray-900 shadow-[0_25px_60px_-12px_rgba(0,0,0,0.25)]'}`}
+        className={`w-[430px] max-h-[92vh] rounded-2xl border flex flex-col overflow-hidden ${isDark ? 'bg-[#141416] border-zinc-700/60 text-zinc-100 shadow-[0_25px_60px_-12px_rgba(0,0,0,0.8)]' : 'bg-white border-gray-200 text-gray-900 shadow-[0_25px_60px_-12px_rgba(0,0,0,0.25)]'}`}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header toolbar */}
-        <div className={`flex items-center gap-1 px-3 py-2 border-b shrink-0 ${isDark ? 'border-zinc-800 bg-[#1a1a1e]' : 'border-gray-100 bg-gray-50'}`}>
-          <div className={`h-8 px-3 rounded-lg text-xs font-semibold flex items-center gap-1.5 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>
-            <Icons.Subtitles size={14} />
-            <span>视频去字幕</span>
-          </div>
-          <div className={`h-8 px-3 rounded-lg text-xs font-semibold flex items-center gap-1.5 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>
-            <Icons.TrendingUp size={14} />
-            <span>视频增分</span>
-          </div>
+        <div className={`flex items-center gap-2 px-4 py-3 border-b shrink-0 ${isDark ? 'border-zinc-800 bg-[#1a1a1e]' : 'border-gray-100 bg-gray-50'}`}>
           <div className={`h-8 px-3 rounded-lg text-xs font-semibold flex items-center gap-1.5 ${isDark ? 'bg-blue-500/15 text-blue-300 ring-1 ring-blue-500/30' : 'bg-blue-50 text-blue-600 ring-1 ring-blue-200'}`}>
             <Icons.Frame size={14} />
             <span>视频截帧</span>
           </div>
           <div className="flex-1" />
-          <button className={`h-8 px-3 rounded-lg text-xs font-semibold flex items-center gap-1.5 ${isDark ? 'text-zinc-500 hover:text-zinc-200' : 'text-gray-400 hover:text-gray-700'}`}>
-            <Icons.Upload size={14} />
-            <span>上传</span>
-          </button>
-          <button className={`h-8 px-3 rounded-lg text-xs font-semibold flex items-center gap-1.5 ${isDark ? 'text-zinc-500 hover:text-zinc-200' : 'text-gray-400 hover:text-gray-700'}`}>
-            <Icons.Save size={14} />
-            <span>保存</span>
-          </button>
           <button className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${isDark ? 'hover:bg-zinc-800 text-zinc-500 hover:text-zinc-200' : 'hover:bg-gray-100 text-gray-400 hover:text-gray-700'}`} onClick={onClose}>
             <Icons.X size={16} />
           </button>
         </div>
 
         {/* Video area */}
-        <div className={`relative flex-1 min-h-[300px] flex items-center justify-center ${isDark ? 'bg-black' : 'bg-gray-950'}`}>
-          <video
-            ref={videoRef}
-            src={videoSrc}
-            className="max-w-full max-h-full object-contain"
-            onTimeUpdate={handleTimeUpdate}
-            onLoadedMetadata={handleLoadedMetadata}
-            onEnded={() => setIsPlaying(false)}
-            preload="auto"
-            playsInline
-          />
+        <div className={`relative flex-1 min-h-[460px] px-8 py-4 flex items-center justify-center ${isDark ? 'bg-black' : 'bg-gray-950'}`}>
+          <button
+            onClick={() => seekTo(currentTime - MIN_FRAME_STEP)}
+            className="absolute left-3 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/15 bg-black/45 text-white shadow-lg backdrop-blur hover:bg-black/65"
+            title="上一帧 (←)"
+          >
+            <Icons.SkipBack size={16} />
+          </button>
+          <div className="relative h-full max-h-[62vh] aspect-[9/16] overflow-hidden rounded-xl bg-black shadow-2xl ring-1 ring-white/10">
+            <video
+              ref={videoRef}
+              src={videoSrc}
+              className="h-full w-full object-contain"
+              onTimeUpdate={handleTimeUpdate}
+              onLoadedMetadata={handleLoadedMetadata}
+              onEnded={() => setIsPlaying(false)}
+              preload="auto"
+              playsInline
+            />
+          </div>
+          <button
+            onClick={() => seekTo(currentTime + MIN_FRAME_STEP)}
+            className="absolute right-3 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/15 bg-black/45 text-white shadow-lg backdrop-blur hover:bg-black/65"
+            title="下一帧 (→)"
+          >
+            <Icons.SkipForward size={16} />
+          </button>
           <canvas ref={canvasRef} className="hidden" />
         </div>
 
@@ -203,9 +202,6 @@ export const VideoFrameExtractPanel: React.FC<VideoFrameExtractPanelProps> = ({
             </button>
             <button onClick={() => seekTo(currentTime + MIN_FRAME_STEP)} className={`w-8 h-8 rounded-lg flex items-center justify-center ${isDark ? 'text-zinc-400 hover:text-white hover:bg-zinc-800' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200'}`} title="下一帧 (→)">
               <Icons.SkipForward size={14} />
-            </button>
-            <button className={`w-8 h-8 rounded-lg flex items-center justify-center ${isDark ? 'text-zinc-400 hover:text-white hover:bg-zinc-800' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200'}`} title="全屏">
-              <Icons.Maximize2 size={14} />
             </button>
           </div>
         </div>

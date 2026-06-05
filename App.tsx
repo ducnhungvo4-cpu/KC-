@@ -738,6 +738,9 @@ const CanvasWithSidebar: React.FC = () => {
     } else if (type === NodeType.TEXT_TO_IMAGE || type === NodeType.IMAGE_TO_IMAGE) {
         if (!dataOverride?.width) w = 400;
         if (!dataOverride?.height) h = 400;
+    } else if (type === NodeType.TEXT_TO_AUDIO) {
+        if (!dataOverride?.width) w = 420;
+        if (!dataOverride?.height) h = 260;
     } else if (type === NodeType.CREATIVE_DESC) {
         if (!dataOverride?.width) w = 520;
         if (!dataOverride?.height) h = 520;
@@ -747,6 +750,7 @@ const CanvasWithSidebar: React.FC = () => {
         switch (t) {
             case NodeType.TEXT_TO_IMAGE: return '生图';
             case NodeType.TEXT_TO_VIDEO: return '生视频';
+            case NodeType.TEXT_TO_AUDIO: return '音频';
             case NodeType.CREATIVE_DESC: return 'Text';
             default: return `原始图片_${Date.now()}`;
         }
@@ -758,6 +762,8 @@ const CanvasWithSidebar: React.FC = () => {
                 return 'Seedream 5.0';
             case NodeType.TEXT_TO_VIDEO:
                 return 'Seedance 1.5 Pro';
+            case NodeType.TEXT_TO_AUDIO:
+                return 'Minimax-speech-2.8-hd';
             case NodeType.CREATIVE_DESC:
                 return 'Xiaomi MiMo 2.5 Pro';
             default:
@@ -808,6 +814,8 @@ const CanvasWithSidebar: React.FC = () => {
           w = 400 * (16/9); h = 400;
       } else if (isImageGenType) {
           w = 400; h = 400;
+      } else if (type === NodeType.TEXT_TO_AUDIO) {
+          w = 420; h = 260;
       } else if (type === NodeType.CREATIVE_DESC) {
           w = 520; h = 520;
       }
@@ -816,6 +824,7 @@ const CanvasWithSidebar: React.FC = () => {
           switch (t) {
               case NodeType.TEXT_TO_IMAGE: return '生图';
               case NodeType.TEXT_TO_VIDEO: return '生视频';
+              case NodeType.TEXT_TO_AUDIO: return '音频';
               case NodeType.CREATIVE_DESC: return 'Text';
               default: return `原始图片_${Date.now()}`;
           }
@@ -827,6 +836,8 @@ const CanvasWithSidebar: React.FC = () => {
                   return 'Seedream 5.0';
               case NodeType.TEXT_TO_VIDEO:
                   return 'Seedance 1.5 Pro';
+              case NodeType.TEXT_TO_AUDIO:
+                  return 'Minimax-speech-2.8-hd';
               case NodeType.CREATIVE_DESC:
                   return 'Xiaomi MiMo 2.5 Pro';
               default:
@@ -959,7 +970,7 @@ const CanvasWithSidebar: React.FC = () => {
     setAddToAssetPanel({ isOpen: false, nodeId: '', nodeType: 'image' });
   };
 
-  const handleAddToExistingAsset = (nodeId: string, assetId: string, targetType: string) => {
+  const handleAddToExistingAsset = (nodeId: string, assetId: string, targetType: string, closePanel = true) => {
     const asset = DEMO_ASSET_LIBRARY.find(a => a.id === assetId);
     const node = nodes.find(n => n.id === nodeId);
     if (!asset || !node) return;
@@ -968,7 +979,7 @@ const CanvasWithSidebar: React.FC = () => {
       sourceRefId: assetId,
       title: asset.name
     });
-    handleCloseAssetSelection();
+    if (closePanel) handleCloseAssetSelection();
   };
 
   const handleCreateNewAsset = (nodeId: string, assetType: AssetLibraryType, name: string) => {
@@ -994,14 +1005,14 @@ const CanvasWithSidebar: React.FC = () => {
     handleCloseAssetSelection();
   };
 
-  const handleAddNodeToShotClip = (nodeId: string, shotClipId: string) => {
+  const handleAddNodeToShotClip = (nodeId: string, shotClipId: string, closePanel = true) => {
     const node = nodes.find(n => n.id === nodeId);
     if (!node) return;
     updateNodeData(nodeId, {
       source: 'linear_pipeline',
       shotId: shotClipId,
     });
-    handleCloseAssetSelection();
+    if (closePanel) handleCloseAssetSelection();
   };
 
   const handleAddShotClipToCanvas = (clip: ShotClip, position?: Point) => {
@@ -1645,6 +1656,20 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                   }
               };
               video.src = url;
+          } else if (file.type.startsWith('audio/')) {
+              const url = URL.createObjectURL(file);
+              const node = nodes.find(n => n.id === nodeId);
+              if (node) {
+                  updateNodeData(nodeId, {
+                      type: NodeType.TEXT_TO_AUDIO,
+                      audioSrc: url,
+                      imageSrc: undefined,
+                      videoSrc: undefined,
+                      title: file.name || node.title,
+                      model: node.model || 'Minimax-speech-2.8-hd',
+                      outputArtifacts: [url, ...(node.outputArtifacts || [])],
+                  });
+              }
           } else if (file.type.startsWith('image/')) {
            const reader = new FileReader();
            reader.onload = (event) => {
@@ -1927,10 +1952,10 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
   const handleDownload = async (nodeId: string) => {
       const node = nodes.find(n => n.id === nodeId);
       if (!node) return;
-      const url = node.videoSrc || node.imageSrc;
+      const url = node.videoSrc || node.audioSrc || node.imageSrc;
       if (!url) { alert("No content to download."); return; }
       
-      const ext = node.videoSrc ? 'mp4' : 'png';
+      const ext = node.videoSrc ? 'mp4' : (node.audioSrc ? 'mp3' : 'png');
       const filename = `${node.title.replace(/\s+/g, '_')}_${Date.now()}.${ext}`;
 
       try {
@@ -3230,20 +3255,56 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
             {contextMenu.type === 'NODE' && contextMenu.nodeId && (() => {
                 const menuItemClass = `text-left px-3 py-2 text-xs transition-all duration-150 flex items-center gap-2.5 rounded-md mx-1 ${isDark ? 'text-gray-300 hover:bg-zinc-800/80 hover:text-white' : 'text-gray-700 hover:bg-gray-100 hover:text-black'}`;
                 const node = nodes.find(n => n.id === contextMenu.nodeId);
+                const isImageNode = Boolean(node?.imageSrc) || contextMenu.nodeType === NodeType.TEXT_TO_IMAGE || contextMenu.nodeType === NodeType.IMAGE_TO_IMAGE || contextMenu.nodeType === NodeType.ORIGINAL_IMAGE;
+                const isVideoNode = Boolean(node?.videoSrc) || contextMenu.nodeType === NodeType.TEXT_TO_VIDEO || contextMenu.nodeType === NodeType.IMAGE_TO_VIDEO || contextMenu.nodeType === NodeType.START_END_TO_VIDEO;
+                const isAudioNode = Boolean(node?.audioSrc) || contextMenu.nodeType === NodeType.TEXT_TO_AUDIO;
+                const isTextNode = contextMenu.nodeType === NodeType.CREATIVE_DESC;
                 
                 return (
                     <>
                         <button className={menuItemClass} onClick={() => { performCopy(); setContextMenu(null); }}>
                             <Icons.Copy size={14}/> 复制节点
                         </button>
-                        {contextMenu.nodeType === NodeType.ORIGINAL_IMAGE && (
+                        {(isImageNode || isVideoNode || isAudioNode) && (
                             <button className={menuItemClass} onClick={() => { triggerReplaceImage(contextMenu.nodeId!); setContextMenu(null); }}>
                                 <Icons.Upload size={14}/> 替换素材
                             </button>
                         )}
-                        <button className={menuItemClass} onClick={() => { if (contextMenu.nodeId) copyImageToClipboard(contextMenu.nodeId); setContextMenu(null); }}>
-                            <Icons.Image size={14}/> 复制图片数据
-                        </button>
+                        {isImageNode && (
+                            <button className={menuItemClass} onClick={() => { if (contextMenu.nodeId) copyImageToClipboard(contextMenu.nodeId); setContextMenu(null); }}>
+                                <Icons.Image size={14}/> 复制图片数据
+                            </button>
+                        )}
+                        {isVideoNode && (
+                            <>
+                                <button className={menuItemClass} onClick={() => { if (contextMenu.nodeId) handleDownload(contextMenu.nodeId); setContextMenu(null); }}>
+                                    <Icons.Download size={14}/> 下载视频
+                                </button>
+                                <button className={menuItemClass} onClick={() => { if (contextMenu.nodeId) handleOpenAssetSelection(contextMenu.nodeId); setContextMenu(null); }}>
+                                    <Icons.Clapperboard size={14}/> 添加到分镜素材
+                                </button>
+                            </>
+                        )}
+                        {isAudioNode && (
+                            <>
+                                <button className={menuItemClass} onClick={() => { if (contextMenu.nodeId) handleDownload(contextMenu.nodeId); setContextMenu(null); }}>
+                                    <Icons.Download size={14}/> 下载音频
+                                </button>
+                                <button className={menuItemClass} onClick={() => { if (contextMenu.nodeId) triggerReplaceImage(contextMenu.nodeId); setContextMenu(null); }}>
+                                    <Icons.Mic size={14}/> 替换音频
+                                </button>
+                            </>
+                        )}
+                        {isTextNode && (
+                            <button className={menuItemClass} onClick={() => { if (node?.prompt) navigator.clipboard?.writeText(node.prompt); setContextMenu(null); }}>
+                                <Icons.FileText size={14}/> 复制文本
+                            </button>
+                        )}
+                        {isImageNode && (
+                            <button className={menuItemClass} onClick={() => { if (contextMenu.nodeId) handleOpenAssetSelection(contextMenu.nodeId); setContextMenu(null); }}>
+                                <Icons.Database size={14}/> 添加到资产素材库
+                            </button>
+                        )}
                         <div className={`h-px my-1.5 mx-2 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`}></div>
                         <button className={`text-left px-3 py-2 text-xs transition-all duration-150 flex items-center gap-2.5 rounded-md mx-1 text-red-400 ${isDark ? 'hover:bg-red-500/10 hover:text-red-300' : 'hover:bg-red-50 hover:text-red-600'}`} onClick={() => { if (contextMenu.nodeId) deleteNode(contextMenu.nodeId); setContextMenu(null); }}>
                             <Icons.Trash2 size={14}/> 删除
@@ -3271,6 +3332,10 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                         <button className={menuItemClass} onClick={() => { addNode(NodeType.TEXT_TO_VIDEO, contextMenu.worldX, contextMenu.worldY); setContextMenu(null); }}>
                             <div className="w-5 h-5 rounded bg-purple-500/10 flex items-center justify-center"><Icons.Video size={12} className="text-purple-400"/></div>
                             <span>生视频</span>
+                        </button>
+                        <button className={menuItemClass} onClick={() => { addNode(NodeType.TEXT_TO_AUDIO, contextMenu.worldX, contextMenu.worldY); setContextMenu(null); }}>
+                            <div className="w-5 h-5 rounded bg-amber-500/10 flex items-center justify-center"><Icons.Music size={12} className="text-amber-300"/></div>
+                            <span>音频</span>
                         </button>
                         <button className={menuItemClass} onClick={() => { assetImportPositionRef.current = { x: contextMenu.worldX, y: contextMenu.worldY }; assetImportConnectionRef.current = null; assetInputRef.current?.click(); setContextMenu(null); }}>
                             <div className="w-5 h-5 rounded bg-emerald-500/10 flex items-center justify-center"><Icons.Upload size={12} className="text-emerald-400"/></div>
@@ -3311,6 +3376,10 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
             <button className={menuItemClass} onClick={() => handleQuickAddNode(NodeType.TEXT_TO_VIDEO)}>
                 <div className="w-6 h-6 rounded-md bg-purple-500/10 flex items-center justify-center"><Icons.Video size={14} className="text-purple-400"/></div>
                 <span>生视频</span>
+            </button>
+            <button className={menuItemClass} onClick={() => handleQuickAddNode(NodeType.TEXT_TO_AUDIO)}>
+                <div className="w-6 h-6 rounded-md bg-amber-500/10 flex items-center justify-center"><Icons.Music size={14} className="text-amber-300"/></div>
+                <span>音频</span>
             </button>
             <button className={menuItemClass} onClick={() => {
                 assetImportPositionRef.current = { x: quickAddMenu.worldX, y: quickAddMenu.worldY };
@@ -3394,7 +3463,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
         />
         <input type="file" ref={workflowInputRef} hidden accept=".aistudio-flow,.json" onChange={handleLoadWorkflow} />
         <input type="file" ref={assetInputRef} hidden accept="image/*,video/*,.txt,.md,.markdown,text/plain" onChange={handleImportAsset} />
-        <input type="file" ref={replaceImageRef} hidden accept="image/*,video/*" onChange={handleReplaceImage} />
+        <input type="file" ref={replaceImageRef} hidden accept="image/*,video/*,audio/*" onChange={handleReplaceImage} />
         <input type="file" ref={attachInputRef} hidden accept="image/*,video/*,.txt,.md,text/plain" onChange={handleAttachInputAsset} />
         <div 
             ref={containerRef}

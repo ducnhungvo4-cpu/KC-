@@ -42,7 +42,6 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
     const [imageModels, setImageModels] = useState<string[]>([]);
     const [isAngleEditorOpen, setIsAngleEditorOpen] = useState(false);
     const [isFunctionMenuOpen, setIsFunctionMenuOpen] = useState(false);
-    const [isCropMenuOpen, setIsCropMenuOpen] = useState(false);
     const [anglePrompt, setAnglePrompt] = useState('');
     const [angleConsistency, setAngleConsistency] = useState<'standard' | 'high'>('high');
     const [angleBackground, setAngleBackground] = useState<'keep' | 'clean' | 'solid'>('clean');
@@ -360,24 +359,14 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
                         <Icons.Maximize2 size={16} />
                         <span>扩图</span>
                     </button>
-                    {/* 裁剪/高清 dropdown */}
-                    <div className="relative">
-                        <button className={`h-9 px-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-colors ${isCropMenuOpen ? (isDark ? 'bg-zinc-800 text-blue-400' : 'bg-gray-100 text-blue-600') : (isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100')}`} onClick={() => setIsCropMenuOpen(!isCropMenuOpen)} title="裁剪与高清处理">
-                            <Icons.Crop size={16} />
-                            <span>裁剪</span>
-                            <Icons.ChevronDown size={12} />
-                        </button>
-                        {isCropMenuOpen && (
-                            <div className={`absolute bottom-full mb-1 left-0 pointer-events-auto rounded-xl border p-1.5 shadow-2xl backdrop-blur-xl min-w-[140px] ${isDark ? 'bg-[#202020]/95 border-zinc-700' : 'bg-white/95 border-gray-200'}`} onMouseDown={(e) => e.stopPropagation()}>
-                                <button className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-colors ${isDark ? 'text-zinc-300 hover:bg-zinc-800 hover:text-white' : 'text-gray-700 hover:bg-gray-100'}`} onClick={() => { onCrop?.(data.id); setIsCropMenuOpen(false); }}>
-                                    <Icons.Crop size={13} className="inline mr-2 opacity-60" />按画幅裁切
-                                </button>
-                                <button className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-colors ${isDark ? 'text-zinc-300 hover:bg-zinc-800 hover:text-white' : 'text-gray-700 hover:bg-gray-100'}`} onClick={() => { /* TODO: 一键高清 */ onCrop?.(data.id); setIsCropMenuOpen(false); }} title="一键提升图片分辨率">
-                                    <Icons.TrendingUp size={13} className="inline mr-2 opacity-60" />一键高清
-                                </button>
-                            </div>
-                        )}
-                    </div>
+                    <button className={`h-9 px-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onCrop?.(data.id)} title="按画幅裁切图片">
+                        <Icons.Crop size={16} />
+                        <span>裁剪</span>
+                    </button>
+                    <button className={`h-9 px-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => window.alert('一键高清前端入口已就绪，等待后端高清接口接入。')} title="一键提升图片分辨率">
+                        <Icons.TrendingUp size={16} />
+                        <span>一键高清</span>
+                    </button>
                     <button className={`h-9 px-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onAddToAssetLibrary?.(data.id)} title="添加到资产素材库">
                         <Icons.Database size={16} />
                         <span>添加到资产库</span>

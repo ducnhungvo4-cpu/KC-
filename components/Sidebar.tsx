@@ -114,6 +114,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [shotEpisode, setShotEpisode] = useState<number | 'all'>('all');
   const [shotSearch, setShotSearch] = useState('');
   const [expandedAssetIds, setExpandedAssetIds] = useState<Set<string>>(() => new Set(['asset_role_001']));
+  const [selectedAssetIds, setSelectedAssetIds] = useState<Set<string>>(new Set());
+  const [selectedShotClipIds, setSelectedShotClipIds] = useState<Set<string>>(new Set());
   const sidebarRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -391,6 +393,27 @@ const Sidebar: React.FC<SidebarProps> = ({
       event.dataTransfer.setData("application/kc-asset", assetId);
       event.dataTransfer.effectAllowed = "copy";
     };
+    const toggleAssetSelected = (assetId: string) => {
+      setSelectedAssetIds(prev => {
+        const next = new Set(prev);
+        if (next.has(assetId)) next.delete(assetId);
+        else next.add(assetId);
+        return next;
+      });
+    };
+    const toggleShotSelected = (clipId: string) => {
+      setSelectedShotClipIds(prev => {
+        const next = new Set(prev);
+        if (next.has(clipId)) next.delete(clipId);
+        else next.add(clipId);
+        return next;
+      });
+    };
+    const selectButtonClass = (selected: boolean) => `h-6 w-6 shrink-0 rounded-md border flex items-center justify-center transition-colors ${
+      selected
+        ? (isDark ? 'border-blue-400 bg-blue-500/20 text-blue-300' : 'border-blue-500 bg-blue-50 text-blue-600')
+        : (isDark ? 'border-zinc-700 text-zinc-600 hover:text-zinc-300 hover:border-zinc-500' : 'border-gray-200 text-gray-300 hover:text-gray-600 hover:border-gray-300')
+    }`;
 
     return (
       <div className="h-full flex flex-col gap-3">
@@ -407,7 +430,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                   ? (isDark ? "bg-zinc-700/80 text-white shadow-sm" : "bg-white text-gray-900 shadow-sm")
                   : (isDark ? "text-zinc-500 hover:text-zinc-300" : "text-gray-400 hover:text-gray-600")
               )}
-              onClick={() => setMediaTab(tab.key)}
+              onClick={() => { setMediaTab(tab.key); setSelectedAssetIds(new Set()); setSelectedShotClipIds(new Set()); }}
             >
               <tab.icon size={13} />
               {tab.label}
@@ -426,7 +449,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 return (
                   <button key={key} className={"h-8 flex-1 rounded-[10px] text-xs font-semibold flex items-center justify-center gap-1.5 transition-all duration-200 " + (
                     isActive ? typeColors[key] : (isDark ? "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/60" : "text-gray-400 hover:text-gray-600 hover:bg-gray-50")
-                  )} onClick={() => { setAssetTab(key); setAssetSearch(''); }}>
+                  )} onClick={() => { setAssetTab(key); setAssetSearch(''); setSelectedAssetIds(new Set()); }}>
                     <Icon size={12} />
                     {typeLabel[key]}
                   </button>
@@ -444,6 +467,28 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <button onClick={() => setAssetSearch('')} className={isDark ? "text-zinc-600 hover:text-zinc-300" : "text-gray-400 hover:text-gray-600"}><Icons.X size={12} /></button>
               )}
             </div>
+
+            {selectedAssetIds.size > 0 && (
+              <div className={`flex items-center justify-between rounded-xl border px-3 py-2 text-xs ${isDark ? 'border-blue-500/30 bg-blue-500/10 text-blue-200' : 'border-blue-200 bg-blue-50 text-blue-700'}`}>
+                <span>已选择 {selectedAssetIds.size} 个资产</span>
+                <div className="flex items-center gap-2">
+                  <button className="font-semibold hover:opacity-80" onClick={() => setSelectedAssetIds(new Set())}>清空</button>
+                  <button
+                    className={`h-7 rounded-lg px-3 font-semibold ${isDark ? 'bg-blue-500 text-white hover:bg-blue-400' : 'bg-blue-600 text-white hover:bg-blue-500'}`}
+                    onClick={() => {
+                      Array.from(selectedAssetIds).forEach(assetId => {
+                        const asset = assetLibrary.find(item => item.id === assetId);
+                        if (asset) onAddAssetToCanvas(asset);
+                      });
+                      setSelectedAssetIds(new Set());
+                      setActivePanel(null);
+                    }}
+                  >
+                    批量添加到画布
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Asset list */}
             <div className="flex-1 overflow-y-auto custom-scrollbar pr-0.5 space-y-1.5">
@@ -486,6 +531,14 @@ const Sidebar: React.FC<SidebarProps> = ({
                             className="cursor-grab active:cursor-grabbing"
                           >
                             <div className="flex items-center gap-3 p-2.5">
+                              <button
+                                type="button"
+                                className={selectButtonClass(selectedAssetIds.has(asset.id))}
+                                onClick={(e) => { e.stopPropagation(); toggleAssetSelected(asset.id); }}
+                                title={selectedAssetIds.has(asset.id) ? '取消选择' : '选择资产'}
+                              >
+                                {selectedAssetIds.has(asset.id) && <Icons.Check size={13} />}
+                              </button>
                               <img src={asset.previewUrl} className="h-20 w-24 rounded-lg object-cover shrink-0 ring-1 ring-black/10" loading="lazy" />
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-center justify-between gap-2">
@@ -534,6 +587,14 @@ const Sidebar: React.FC<SidebarProps> = ({
                                   className={"relative flex items-center gap-3 rounded-lg border-b py-2 pr-2 cursor-grab active:cursor-grabbing " + (isDark ? "border-zinc-800/70 hover:bg-zinc-800/35" : "border-gray-100 hover:bg-gray-50")}
                                 >
                                   <span className={"absolute -left-3 top-1/2 h-px w-3 " + (isDark ? "bg-zinc-700/70" : "bg-gray-200")} />
+                                  <button
+                                    type="button"
+                                    className={selectButtonClass(selectedAssetIds.has(child.id))}
+                                    onClick={(e) => { e.stopPropagation(); toggleAssetSelected(child.id); }}
+                                    title={selectedAssetIds.has(child.id) ? '取消选择' : '选择资产'}
+                                  >
+                                    {selectedAssetIds.has(child.id) && <Icons.Check size={13} />}
+                                  </button>
                                   <img src={child.previewUrl} className="h-16 w-20 rounded-lg object-cover shrink-0 ring-1 ring-black/10" loading="lazy" />
                                   <div className="min-w-0 flex-1">
                                     <div className={"truncate text-xs font-bold " + textMain}>{child.name}</div>
@@ -566,6 +627,14 @@ const Sidebar: React.FC<SidebarProps> = ({
                           className={"group/card rounded-xl border p-3 transition-all duration-200 cursor-grab active:cursor-grabbing " + (isDark ? "border-zinc-800/70 bg-zinc-900/30 hover:bg-zinc-800/60 hover:border-zinc-700" : "border-gray-100 bg-white hover:bg-gray-50 hover:border-gray-200 hover:shadow-sm")}
                         >
                           <div className="flex items-center gap-3">
+                            <button
+                              type="button"
+                              className={selectButtonClass(selectedAssetIds.has(asset.id))}
+                              onClick={(e) => { e.stopPropagation(); toggleAssetSelected(asset.id); }}
+                              title={selectedAssetIds.has(asset.id) ? '取消选择' : '选择资产'}
+                            >
+                              {selectedAssetIds.has(asset.id) && <Icons.Check size={13} />}
+                            </button>
                             <img src={asset.previewUrl} className="h-10 w-10 rounded-lg object-cover shrink-0 ring-1 ring-black/10" loading="lazy" />
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-1.5">
@@ -599,6 +668,14 @@ const Sidebar: React.FC<SidebarProps> = ({
                                 className={"group/card rounded-lg border p-2 transition-all duration-200 cursor-grab active:cursor-grabbing " + (isDark ? "border-zinc-800/50 hover:bg-zinc-800/40 hover:border-zinc-700" : "border-gray-100 bg-gray-50/50 hover:bg-white hover:border-gray-200")}
                               >
                                 <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    className={selectButtonClass(selectedAssetIds.has(child.id))}
+                                    onClick={(e) => { e.stopPropagation(); toggleAssetSelected(child.id); }}
+                                    title={selectedAssetIds.has(child.id) ? '取消选择' : '选择资产'}
+                                  >
+                                    {selectedAssetIds.has(child.id) && <Icons.Check size={13} />}
+                                  </button>
                                   <img src={child.previewUrl} className="h-8 w-8 rounded-lg object-cover shrink-0 ring-1 ring-black/10" loading="lazy" />
                                   <span className={"truncate text-xs font-medium flex-1 " + textMain}>{child.name}</span>
                                   {child.voiceTimbre && (
@@ -642,6 +719,27 @@ const Sidebar: React.FC<SidebarProps> = ({
                   className={"min-w-0 flex-1 bg-transparent text-xs outline-none py-2 " + (isDark ? "text-zinc-100 placeholder:text-zinc-600" : "text-gray-900 placeholder:text-gray-400")} placeholder="搜索镜次..." />
               </div>
             </div>
+            {selectedShotClipIds.size > 0 && (
+              <div className={`flex items-center justify-between rounded-xl border px-3 py-2 text-xs ${isDark ? 'border-purple-500/30 bg-purple-500/10 text-purple-200' : 'border-purple-200 bg-purple-50 text-purple-700'}`}>
+                <span>已选择 {selectedShotClipIds.size} 个视频</span>
+                <div className="flex items-center gap-2">
+                  <button className="font-semibold hover:opacity-80" onClick={() => setSelectedShotClipIds(new Set())}>清空</button>
+                  <button
+                    className={`h-7 rounded-lg px-3 font-semibold ${isDark ? 'bg-purple-500 text-white hover:bg-purple-400' : 'bg-purple-600 text-white hover:bg-purple-500'}`}
+                    onClick={() => {
+                      Array.from(selectedShotClipIds).forEach(clipId => {
+                        const clip = shotClips.find(item => item.id === clipId);
+                        if (clip) onAddShotClipToCanvas?.(clip);
+                      });
+                      setSelectedShotClipIds(new Set());
+                      setActivePanel(null);
+                    }}
+                  >
+                    批量添加到画布
+                  </button>
+                </div>
+              </div>
+            )}
             <div className="flex-1 overflow-y-auto custom-scrollbar pr-0.5 space-y-1.5">
               {filteredShotClips.length === 0 ? (
                 <div className={"h-full flex flex-col items-center justify-center " + textMuted}>
@@ -656,6 +754,14 @@ const Sidebar: React.FC<SidebarProps> = ({
                     className={"group/card rounded-xl border p-2.5 transition-all duration-200 cursor-grab active:cursor-grabbing " + (isDark ? "border-zinc-800/70 bg-zinc-900/35 hover:bg-zinc-800/60 hover:border-zinc-700" : "border-gray-100 bg-white hover:bg-gray-50 hover:border-gray-200 hover:shadow-sm")}
                   >
                     <div className="flex items-center gap-4">
+                      <button
+                        type="button"
+                        className={selectButtonClass(selectedShotClipIds.has(clip.id))}
+                        onClick={(e) => { e.stopPropagation(); toggleShotSelected(clip.id); }}
+                        title={selectedShotClipIds.has(clip.id) ? '取消选择' : '选择视频'}
+                      >
+                        {selectedShotClipIds.has(clip.id) && <Icons.Check size={13} />}
+                      </button>
                       <div className={"relative h-[78px] w-[138px] shrink-0 overflow-hidden rounded-lg ring-1 " + (isDark ? "ring-black/30 bg-zinc-950" : "ring-gray-200 bg-gray-100")}>
                         <img
                           src={clip.keyframeUrls?.[0] || createShotClipPreview(clip.shotName)}

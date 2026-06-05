@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Icons } from './Icons';
 import { AssetLibraryItem, AssetLibraryType, AddToAssetType } from '../types';
 
@@ -11,9 +11,9 @@ interface AssetSelectionModalProps {
   shotClips?: { id: string; episodeNo: number; shotNo: number; shotName: string; sceneNo: number; description?: string }[];
   isDark: boolean;
   onClose: () => void;
-  onAddToExistingAsset: (nodeId: string, assetId: string, targetType: AddToAssetType) => void;
+  onAddToExistingAsset: (nodeId: string, assetId: string, targetType: AddToAssetType, closePanel?: boolean) => void;
   onCreateNewAsset: (nodeId: string, assetType: AssetLibraryType, name: string) => void;
-  onAddToShotClip: (nodeId: string, shotClipId: string) => void;
+  onAddToShotClip: (nodeId: string, shotClipId: string, closePanel?: boolean) => void;
 }
 
 export const AssetSelectionModal: React.FC<AssetSelectionModalProps> = ({
@@ -36,7 +36,14 @@ export const AssetSelectionModal: React.FC<AssetSelectionModalProps> = ({
   const [newAssetName, setNewAssetName] = useState('');
   const [shotEpisode, setShotEpisode] = useState<number | 'all'>('all');
   const [shotSearch, setShotSearch] = useState('');
-  const [selectedShotId, setSelectedShotId] = useState<string>('');
+  const [selectedAssetIds, setSelectedAssetIds] = useState<Set<string>>(new Set());
+  const [selectedShotIds, setSelectedShotIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setSelectedAssetIds(new Set());
+    setSelectedShotIds(new Set());
+  }, [isOpen, nodeId, nodeType]);
 
   if (!isOpen) return null;
 
@@ -46,6 +53,12 @@ export const AssetSelectionModal: React.FC<AssetSelectionModalProps> = ({
     role: { active: isDark ? 'bg-blue-500/15 text-blue-300 ring-1 ring-blue-500/30' : 'bg-blue-50 text-blue-600 ring-1 ring-blue-200', dot: 'bg-blue-400' },
     scene: { active: isDark ? 'bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/30' : 'bg-amber-50 text-amber-600 ring-1 ring-amber-200', dot: 'bg-amber-400' },
     prop: { active: isDark ? 'bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/30' : 'bg-emerald-50 text-emerald-600 ring-1 ring-emerald-200', dot: 'bg-emerald-400' },
+  };
+  const toggleSelected = (current: Set<string>, id: string) => {
+    const next = new Set(current);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    return next;
   };
 
   if (nodeType === 'image') {
@@ -103,7 +116,7 @@ export const AssetSelectionModal: React.FC<AssetSelectionModalProps> = ({
                     const Icon = typeIcons[key];
                     const isActive = assetType === key;
                     return (
-                      <button key={key} className={`h-8 flex-1 rounded-[10px] text-xs font-semibold flex items-center justify-center gap-1.5 transition-all duration-200 ${isActive ? typeColors[key].active : (isDark ? 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/60' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50')}`} onClick={() => { setAssetType(key); setAssetSearch(''); }}>
+                      <button key={key} className={`h-8 flex-1 rounded-[10px] text-xs font-semibold flex items-center justify-center gap-1.5 transition-all duration-200 ${isActive ? typeColors[key].active : (isDark ? 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/60' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50')}`} onClick={() => { setAssetType(key); setAssetSearch(''); setSelectedAssetIds(new Set()); }}>
                         <Icon size={13} />
                         {typeLabel[key]}
                       </button>
@@ -135,8 +148,8 @@ export const AssetSelectionModal: React.FC<AssetSelectionModalProps> = ({
                       return (
                         <div key={asset.id}>
                           <button
-                            className={`w-full rounded-xl border p-3 text-left transition-all duration-200 flex items-center gap-3 group/item ${isDark ? 'border-zinc-800/70 bg-zinc-900/30 hover:bg-zinc-800/60 hover:border-zinc-700' : 'border-gray-100 bg-white hover:bg-gray-50 hover:border-gray-200 hover:shadow-sm'}`}
-                            onClick={() => onAddToExistingAsset(nodeId, asset.id, assetType)}
+                            className={`w-full rounded-xl border p-3 text-left transition-all duration-200 flex items-center gap-3 group/item ${selectedAssetIds.has(asset.id) ? (isDark ? 'border-blue-500/60 bg-blue-500/10 ring-1 ring-blue-500/20' : 'border-blue-400 bg-blue-50 ring-1 ring-blue-200') : (isDark ? 'border-zinc-800/70 bg-zinc-900/30 hover:bg-zinc-800/60 hover:border-zinc-700' : 'border-gray-100 bg-white hover:bg-gray-50 hover:border-gray-200 hover:shadow-sm')}`}
+                            onClick={() => setSelectedAssetIds(prev => toggleSelected(prev, asset.id))}
                           >
                             <img src={asset.previewUrl} className="h-10 w-10 rounded-lg object-cover shrink-0 ring-1 ring-black/10" loading="lazy" />
                             <div className="min-w-0 flex-1">
@@ -145,18 +158,18 @@ export const AssetSelectionModal: React.FC<AssetSelectionModalProps> = ({
                             </div>
                             <div className="flex flex-col items-end gap-1 shrink-0">
                               <span className={`text-[10px] font-medium ${isDark ? 'text-zinc-600' : 'text-gray-400'}`}>{asset.version}</span>
-                              <Icons.ChevronRight size={14} className={`transition-all duration-200 ${isDark ? 'text-zinc-700 group-hover/item:text-zinc-400 group-hover/item:translate-x-0.5' : 'text-gray-300 group-hover/item:text-gray-500 group-hover/item:translate-x-0.5'}`} />
+                              {selectedAssetIds.has(asset.id) ? <Icons.Check size={14} className="text-blue-400" /> : <Icons.ChevronRight size={14} className={`transition-all duration-200 ${isDark ? 'text-zinc-700 group-hover/item:text-zinc-400 group-hover/item:translate-x-0.5' : 'text-gray-300 group-hover/item:text-gray-500 group-hover/item:translate-x-0.5'}`} />}
                             </div>
                           </button>
                           {children.map(child => (
                             <button key={child.id}
-                              className={`w-full rounded-lg border p-2.5 text-left transition-all duration-200 flex items-center gap-2.5 ml-5 mt-1 group/item ${isDark ? 'border-zinc-800/50 hover:bg-zinc-800/40 hover:border-zinc-700' : 'border-gray-100 hover:bg-gray-50 hover:border-gray-200'}`}
-                              onClick={() => onAddToExistingAsset(nodeId, child.id, assetType)}
+                              className={`w-full rounded-lg border p-2.5 text-left transition-all duration-200 flex items-center gap-2.5 ml-5 mt-1 group/item ${selectedAssetIds.has(child.id) ? (isDark ? 'border-blue-500/50 bg-blue-500/10' : 'border-blue-300 bg-blue-50') : (isDark ? 'border-zinc-800/50 hover:bg-zinc-800/40 hover:border-zinc-700' : 'border-gray-100 hover:bg-gray-50 hover:border-gray-200')}`}
+                              onClick={() => setSelectedAssetIds(prev => toggleSelected(prev, child.id))}
                             >
                               <img src={child.previewUrl} className="h-8 w-8 rounded-lg object-cover shrink-0 ring-1 ring-black/10" loading="lazy" />
                               <span className={`text-xs font-medium truncate flex-1 ${isDark ? 'text-zinc-200' : 'text-gray-800'}`}>{child.name}</span>
                               <span className={`text-[10px] shrink-0 ${isDark ? 'text-zinc-600' : 'text-gray-400'}`}>{child.version}</span>
-                              <Icons.ChevronRight size={12} className={`transition-all duration-200 shrink-0 ${isDark ? 'text-zinc-700 group-hover/item:text-zinc-400' : 'text-gray-300 group-hover/item:text-gray-500'}`} />
+                              {selectedAssetIds.has(child.id) ? <Icons.Check size={12} className="shrink-0 text-blue-400" /> : <Icons.ChevronRight size={12} className={`transition-all duration-200 shrink-0 ${isDark ? 'text-zinc-700 group-hover/item:text-zinc-400' : 'text-gray-300 group-hover/item:text-gray-500'}`} />}
                             </button>
                           ))}
                         </div>
@@ -164,6 +177,16 @@ export const AssetSelectionModal: React.FC<AssetSelectionModalProps> = ({
                     })
                   )}
                 </div>
+                <button
+                  disabled={selectedAssetIds.size === 0}
+                  className={`w-full h-11 rounded-xl text-sm font-semibold transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed ${isDark ? 'bg-gradient-to-r from-blue-600/80 to-blue-500/80 text-white hover:from-blue-600 hover:to-blue-500 shadow-lg shadow-blue-500/10' : 'bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 shadow-lg shadow-blue-500/20'}`}
+                  onClick={() => {
+                    Array.from(selectedAssetIds).forEach(assetId => onAddToExistingAsset(nodeId, assetId, assetType, false));
+                    onClose();
+                  }}
+                >
+                  {selectedAssetIds.size > 1 ? `添加 ${selectedAssetIds.size} 个资产` : '添加选中资产'}
+                </button>
               </>
             ) : (
               <>
@@ -268,12 +291,15 @@ export const AssetSelectionModal: React.FC<AssetSelectionModalProps> = ({
               ) : (
                 filteredClips.map(clip => (
                   <button key={clip.id}
-                    className={`w-full rounded-xl border p-3.5 text-left transition-all duration-200 ${selectedShotId === clip.id ? (isDark ? 'border-purple-500/60 bg-purple-500/10 ring-1 ring-purple-500/20' : 'border-purple-400 bg-purple-50 ring-1 ring-purple-200') : (isDark ? 'border-zinc-800/70 bg-zinc-900/30 hover:bg-zinc-800/60 hover:border-zinc-700' : 'border-gray-100 bg-white hover:bg-gray-50 hover:border-gray-200 hover:shadow-sm')}`}
-                    onClick={() => setSelectedShotId(clip.id)}
+                    className={`w-full rounded-xl border p-3.5 text-left transition-all duration-200 ${selectedShotIds.has(clip.id) ? (isDark ? 'border-purple-500/60 bg-purple-500/10 ring-1 ring-purple-500/20' : 'border-purple-400 bg-purple-50 ring-1 ring-purple-200') : (isDark ? 'border-zinc-800/70 bg-zinc-900/30 hover:bg-zinc-800/60 hover:border-zinc-700' : 'border-gray-100 bg-white hover:bg-gray-50 hover:border-gray-200 hover:shadow-sm')}`}
+                    onClick={() => setSelectedShotIds(prev => toggleSelected(prev, clip.id))}
                   >
-                    <span className={`inline-flex rounded-md px-2 py-0.5 text-[10px] font-bold tracking-wide ${isDark ? 'bg-purple-500/15 text-purple-300' : 'bg-purple-100 text-purple-700'}`}>
-                      第{clip.episodeNo}集 · 第{clip.sceneNo}场 · 第{String(clip.shotNo).padStart(2, "0")}镜
-                    </span>
+                    <div className="flex items-start justify-between gap-3">
+                      <span className={`inline-flex rounded-md px-2 py-0.5 text-[10px] font-bold tracking-wide ${isDark ? 'bg-purple-500/15 text-purple-300' : 'bg-purple-100 text-purple-700'}`}>
+                        第{clip.episodeNo}集 · 第{clip.sceneNo}场 · 第{String(clip.shotNo).padStart(2, "0")}镜
+                      </span>
+                      {selectedShotIds.has(clip.id) && <Icons.Check size={14} className="shrink-0 text-purple-400" />}
+                    </div>
                     <p className={`mt-1.5 text-sm font-semibold truncate ${isDark ? 'text-zinc-100' : 'text-gray-900'}`}>{clip.shotName}</p>
                     {clip.description && <p className={`mt-1 text-[11px] truncate ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>{clip.description}</p>}
                   </button>
@@ -283,11 +309,14 @@ export const AssetSelectionModal: React.FC<AssetSelectionModalProps> = ({
 
             {/* Confirm */}
             <button
-              disabled={!selectedShotId}
+              disabled={selectedShotIds.size === 0}
               className={`w-full h-11 rounded-xl text-sm font-semibold transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed ${isDark ? 'bg-gradient-to-r from-purple-600/80 to-purple-500/80 text-white hover:from-purple-600 hover:to-purple-500 shadow-lg shadow-purple-500/10' : 'bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 shadow-lg shadow-purple-500/20'}`}
-              onClick={() => { if (selectedShotId) { onAddToShotClip(nodeId, selectedShotId); onClose(); } }}
+              onClick={() => {
+                Array.from(selectedShotIds).forEach(shotId => onAddToShotClip(nodeId, shotId, false));
+                onClose();
+              }}
             >
-              添加到分镜片段
+              {selectedShotIds.size > 1 ? `添加到 ${selectedShotIds.size} 个分镜片段` : '添加到分镜片段'}
             </button>
           </div>
         </div>
