@@ -75,7 +75,7 @@ const DEMO_ASSET_LIBRARY: AssetLibraryItem[] = [
     {
         id: 'asset_scene_002',
         type: 'scene',
-        scope: 'public',
+        scope: 'project',
         name: '雨夜街口',
         version: 'v1',
         updatedAt: '05-30 21:08',
@@ -85,7 +85,7 @@ const DEMO_ASSET_LIBRARY: AssetLibraryItem[] = [
     {
         id: 'asset_prop_001',
         type: 'prop',
-        scope: 'public',
+        scope: 'project',
         name: '蓝色芯片',
         version: 'v5',
         updatedAt: '今天 09:40',
@@ -3122,9 +3122,6 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                     <>
                         <button className={`${menuItemClass} ${!internalClipboard ? 'opacity-40 cursor-not-allowed' : ''}`} onClick={() => { performPaste({ x: contextMenu.worldX, y: contextMenu.worldY }); setContextMenu(null); }} disabled={!internalClipboard}>
                             <Icons.Copy size={14}/> 粘贴
-                        </button>
-                        <button className={menuItemClass} onClick={() => { assetImportPositionRef.current = { x: contextMenu.worldX, y: contextMenu.worldY }; assetImportConnectionRef.current = null; assetInputRef.current?.click(); setContextMenu(null); }}>
-                            <Icons.Upload size={14}/> 本地上传
                         </button>
                         <div className={`h-px my-1.5 mx-2 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`}></div>
                         <div className={`px-3 py-1 text-[9px] font-semibold uppercase tracking-wider ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>添加节点</div>

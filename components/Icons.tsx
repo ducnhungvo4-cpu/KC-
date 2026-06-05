@@ -10,7 +10,8 @@ import {
   Clapperboard as ClapperboardIcon, Frame, Images, Blend, Edit3, RefreshCw,
   Eye, EyeOff, RotateCcw, Info, Mic, ArrowUp, Minus, Map, Coins, Star,
   Music, Volume2, Languages,
-  Clapperboard as Clapperboard2, GalleryVerticalEnd, Eraser, Move3d, Subtitles, TrendingUp, Library, ChevronDown
+  Clapperboard as Clapperboard2, GalleryVerticalEnd, Eraser, Move3d, Subtitles, TrendingUp, Library, ChevronDown,
+  Box
 } from 'lucide-react';
 
 export const Icons = {
@@ -22,5 +23,6 @@ export const Icons = {
   Sun, Moon, Globe, Cpu, Zap, LayoutGrid, Search, ImagePlus, AlertCircle, AlertTriangle,
   Frame, Images, Blend, Edit3, RefreshCw, Eye, EyeOff, RotateCcw, Info, Mic, ArrowUp, Minus, Map, Coins, Star,
   Music, Volume2, Languages,
-  GalleryVerticalEnd, Eraser, Move3d, Subtitles, TrendingUp, Library, ChevronDown
+  GalleryVerticalEnd, Eraser, Move3d, Subtitles, TrendingUp, Library, ChevronDown,
+  Box
 };
