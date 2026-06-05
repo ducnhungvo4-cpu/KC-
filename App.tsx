@@ -2712,13 +2712,6 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                       </div>
                       <div className="flex items-center gap-2">
                           <button
-                              onClick={createProject}
-                              className="h-10 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white flex items-center gap-2 hover:bg-blue-500"
-                          >
-                              <Icons.FilePlus size={16} />
-                              新建项目
-                          </button>
-                          <button
                               onClick={() => toggleTheme(!isDark)}
                               className={`h-10 rounded-xl border px-3 text-sm font-semibold flex items-center gap-2 ${isDark ? 'border-zinc-800 text-zinc-400 hover:bg-zinc-900 hover:text-white' : 'border-gray-200 text-gray-600 hover:bg-white hover:text-gray-900'}`}
                           >

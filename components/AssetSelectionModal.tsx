@@ -38,11 +38,13 @@ export const AssetSelectionModal: React.FC<AssetSelectionModalProps> = ({
   const [shotSearch, setShotSearch] = useState('');
   const [selectedAssetIds, setSelectedAssetIds] = useState<Set<string>>(new Set());
   const [selectedShotIds, setSelectedShotIds] = useState<Set<string>>(new Set());
+  const [showShotConfirm, setShowShotConfirm] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
     setSelectedAssetIds(new Set());
     setSelectedShotIds(new Set());
+    setShowShotConfirm(false);
   }, [isOpen, nodeId, nodeType]);
 
   if (!isOpen) return null;
@@ -308,16 +310,41 @@ export const AssetSelectionModal: React.FC<AssetSelectionModalProps> = ({
             </div>
 
             {/* Confirm */}
-            <button
-              disabled={selectedShotIds.size === 0}
-              className={`w-full h-11 rounded-xl text-sm font-semibold transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed ${isDark ? 'bg-gradient-to-r from-purple-600/80 to-purple-500/80 text-white hover:from-purple-600 hover:to-purple-500 shadow-lg shadow-purple-500/10' : 'bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 shadow-lg shadow-purple-500/20'}`}
-              onClick={() => {
-                Array.from(selectedShotIds).forEach(shotId => onAddToShotClip(nodeId, shotId, false));
-                onClose();
-              }}
-            >
-              {selectedShotIds.size > 1 ? `添加到 ${selectedShotIds.size} 个分镜片段` : '添加到分镜片段'}
-            </button>
+            {showShotConfirm ? (
+              <div className={`rounded-xl border p-4 ${isDark ? 'border-purple-500/30 bg-purple-500/10' : 'border-purple-200 bg-purple-50'}`}>
+                <p className={`text-sm font-semibold ${isDark ? 'text-purple-100' : 'text-purple-800'}`}>
+                  确认将当前视频添加到选中的分镜片段吗？
+                </p>
+                <p className={`mt-1 text-xs ${isDark ? 'text-purple-300/70' : 'text-purple-600/70'}`}>
+                  已选择 {selectedShotIds.size} 个分镜片段
+                </p>
+                <div className="mt-3 flex gap-2">
+                  <button
+                    className={`h-9 flex-1 rounded-lg text-xs font-semibold transition-colors ${isDark ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                    onClick={() => setShowShotConfirm(false)}
+                  >
+                    取消
+                  </button>
+                  <button
+                    className={`h-9 flex-1 rounded-lg text-xs font-semibold transition-all ${isDark ? 'bg-purple-600 text-white hover:bg-purple-500' : 'bg-purple-600 text-white hover:bg-purple-500'}`}
+                    onClick={() => {
+                      Array.from(selectedShotIds).forEach(shotId => onAddToShotClip(nodeId, shotId, false));
+                      onClose();
+                    }}
+                  >
+                    确认添加
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                disabled={selectedShotIds.size === 0}
+                className={`w-full h-11 rounded-xl text-sm font-semibold transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed ${isDark ? 'bg-gradient-to-r from-purple-600/80 to-purple-500/80 text-white hover:from-purple-600 hover:to-purple-500 shadow-lg shadow-purple-500/10' : 'bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 shadow-lg shadow-purple-500/20'}`}
+                onClick={() => setShowShotConfirm(true)}
+              >
+                {selectedShotIds.size > 1 ? `添加到 ${selectedShotIds.size} 个分镜片段` : '添加到分镜片段'}
+              </button>
+            )}
           </div>
         </div>
       </div>
