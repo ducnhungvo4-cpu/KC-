@@ -1,21 +1,243 @@
-
+﻿
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import Sidebar from './components/Sidebar';
-import { NodeData, Connection, CanvasTransform, Point, DragMode, NodeType, AddToAssetType, ShotClip } from './types';
+import { AssetLibraryItem, AssetLibraryType, InputMedia, MultiAngleOptions, NodeData, Connection, CanvasTransform, Point, DragMode, NodeType } from './types';
 import BaseNode from './components/Nodes/BaseNode';
 import { NodeContent } from './components/Nodes/NodeContent';
 import { Icons } from './components/Icons';
-import { generateCreativeDescription, generateImage, generateVideo } from './services/geminiService';
+import { analyzeConnectedMedia, analyzeScriptAssets, generateCreativeDescription, generateImage, generateVideo, generateMultiAngleImages } from './services/geminiService';
 import { storageService } from './services/storageService';
 import { ThemeSwitcher } from './components/ThemeSwitcher';
-import { SettingsModal } from './components/Settings/SettingsModal';
 import { StorageModal } from './components/Settings/StorageModal';
 import { ExportImportModal } from './components/Settings/ExportImportModal';
 import { WelcomeModal, hasShownWelcome } from './components/Settings/WelcomeModal';
+import { CropModal } from './components/CropModal';
+import { LoginScreen } from './components/LoginScreen';
+import { authService } from './services/authService';
 
 const DEFAULT_NODE_WIDTH = 320;
 const DEFAULT_NODE_HEIGHT = 240; 
 const EMPTY_ARRAY: string[] = [];
+const IMAGE_NODE_BASE_SIZE = 400;
+const VIDEO_NODE_BASE_HEIGHT = 400;
+const IMAGE_ASPECT_RATIOS = ['1:1', '3:4', '4:3', '9:16', '16:9'];
+const VIDEO_ASPECT_RATIOS = ['1:1', '3:4', '4:3', '9:16', '16:9', '21:9', '9:21'];
+const createDemoAssetPreview = (label: string, accent: string, background: string) => {
+    const svg = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="640" height="480" viewBox="0 0 640 480">
+        <defs>
+          <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+            <stop offset="0%" stop-color="${background}"/>
+            <stop offset="100%" stop-color="#111827"/>
+          </linearGradient>
+        </defs>
+        <rect width="640" height="480" fill="url(#bg)"/>
+        <rect x="52" y="52" width="536" height="376" rx="36" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.24)" stroke-width="2"/>
+        <circle cx="320" cy="198" r="76" fill="${accent}" opacity="0.88"/>
+        <rect x="186" y="298" width="268" height="48" rx="24" fill="rgba(255,255,255,0.14)"/>
+        <text x="320" y="328" text-anchor="middle" fill="#f8fafc" font-size="28" font-family="Arial, sans-serif" font-weight="700">${label}</text>
+      </svg>`;
+    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+};
+
+const DEMO_ASSET_LIBRARY: AssetLibraryItem[] = [
+    {
+        id: 'asset_role_001',
+        type: 'role',
+        scope: 'project',
+        name: '男主-陆沉',
+        version: 'v4',
+        updatedAt: '今天 10:24',
+        previewUrl: createDemoAssetPreview('角色 / 陆沉', '#60a5fa', '#172554'),
+        description: '25-30岁，冷静克制，深色外套，短剧男主核心资产。',
+    },
+    {
+        id: 'asset_role_002',
+        type: 'role',
+        scope: 'project',
+        name: '女主-林夏',
+        version: 'v3',
+        updatedAt: '昨天 18:10',
+        previewUrl: createDemoAssetPreview('角色 / 林夏', '#f472b6', '#4a044e'),
+        description: '24岁，干练敏感，浅色风衣，主要情绪线角色。',
+    },
+    {
+        id: 'asset_scene_001',
+        type: 'scene',
+        scope: 'project',
+        name: '废弃仓库',
+        version: 'v2',
+        updatedAt: '昨天 16:32',
+        previewUrl: createDemoAssetPreview('场景 / 仓库', '#f59e0b', '#422006'),
+        description: '大空间、冷色光、远处蓝色光源，适合悬疑段落。',
+    },
+    {
+        id: 'asset_scene_002',
+        type: 'scene',
+        scope: 'public',
+        name: '雨夜街口',
+        version: 'v1',
+        updatedAt: '05-30 21:08',
+        previewUrl: createDemoAssetPreview('场景 / 街口', '#38bdf8', '#082f49'),
+        description: '夜景、湿地反光、霓虹灯，适合追逐和对峙。',
+    },
+    {
+        id: 'asset_prop_001',
+        type: 'prop',
+        scope: 'public',
+        name: '蓝色芯片',
+        version: 'v5',
+        updatedAt: '今天 09:40',
+        previewUrl: createDemoAssetPreview('道具 / 芯片', '#34d399', '#064e3b'),
+        description: '核心线索道具，半透明蓝色发光材质。',
+    },
+];
+
+const DEMO_PROJECT_META = {
+    id: 'KC-DRAMA-001',
+    name: '《隐秘回响》',
+    directorGroup: 'A组导演组',
+    lastSavedAt: '刚刚已保存',
+};
+type ProjectDashboardItem = {
+    id: string;
+    name: string;
+    canvasName: string;
+    directorGroup: string;
+    projectType: string;
+    status: 'active' | 'draft' | 'archived';
+    episodeCount: number;
+    shotCount: number;
+    assetCount: number;
+    lastSavedAt: string;
+};
+
+type CreditRow = {
+    id: string;
+    projectId: string;
+    project: string;
+    group: string;
+    user: string;
+    type: string;
+    model: string;
+    credit: number;
+    status: NonNullable<NodeData['creditStatus']> | 'estimated';
+    nodeTitle: string;
+};
+
+const USER_CREDIT_LIMIT = 1200;
+const CURRENT_USER_NAME = '导演A';
+
+const KC_PROJECT_STORAGE_PREFIX = 'KC_CANVAS_PROJECT_';
+const KC_PROJECT_SUMMARIES_KEY = 'KC_CANVAS_PROJECT_SUMMARIES';
+
+const normalizeProjectSummary = (project: ProjectDashboardItem): ProjectDashboardItem => ({
+    ...project,
+    projectType: project.projectType || '短剧',
+});
+
+const DEFAULT_PROJECTS: ProjectDashboardItem[] = [
+    {
+        id: DEMO_PROJECT_META.id,
+        name: DEMO_PROJECT_META.name,
+        canvasName: `${DEMO_PROJECT_META.name} 无限画布`,
+        directorGroup: DEMO_PROJECT_META.directorGroup,
+        projectType: '短剧',
+        status: 'active',
+        episodeCount: 24,
+        shotCount: 316,
+        assetCount: 42,
+        lastSavedAt: '未保存',
+    },
+    {
+        id: 'KC-DRAMA-002',
+        name: '《雾港来信》',
+        canvasName: '《雾港来信》 无限画布',
+        directorGroup: 'B组导演组',
+        projectType: '短剧',
+        status: 'draft',
+        episodeCount: 18,
+        shotCount: 208,
+        assetCount: 31,
+        lastSavedAt: '未保存',
+    },
+    {
+        id: 'KC-DRAMA-003',
+        name: '《逆光证人》',
+        canvasName: '《逆光证人》 无限画布',
+        directorGroup: 'C组导演组',
+        projectType: '短剧',
+        status: 'active',
+        episodeCount: 30,
+        shotCount: 452,
+        assetCount: 57,
+        lastSavedAt: '未保存',
+    },
+];
+
+const DEMO_LINEAR_SHOT = {
+    projectId: DEMO_PROJECT_META.id,
+    directorGroupName: DEMO_PROJECT_META.directorGroup,
+    shotId: 'shot_ep01_sc02_003',
+    episodeNo: 1,
+    sceneNo: 2,
+    shotNo: 3,
+    shotName: '第1集 第2场 分镜03',
+    shotDescription: '男主推门进入废弃仓库，看到远处闪烁的蓝色光源，镜头从背后缓慢推近。',
+    prompt: '废弃仓库内，男主推门进入，远处蓝色光源闪烁，低角度跟拍，悬疑短剧质感，冷色调，细节清晰，电影感灯光。',
+    model: 'Seedance 1.5 Pro',
+    aspectRatio: '16:9',
+    resolution: '720p',
+    duration: '5s',
+    creditEstimate: 14,
+    creditStatus: 'estimated' as const,
+    linearPageUrl: '#linear-shot-demo',
+};
+
+// 节点媒体类别：正向/反向连接共用同一套合法性校验规则。
+type MediaCategory = 'image' | 'video' | 'text';
+
+const NODE_MEDIA_CATEGORY: Record<NodeType, MediaCategory> = {
+    [NodeType.TEXT_TO_IMAGE]: 'image',
+    [NodeType.IMAGE_TO_IMAGE]: 'image',
+    [NodeType.ORIGINAL_IMAGE]: 'image',
+    [NodeType.TEXT_TO_VIDEO]: 'video',
+    [NodeType.IMAGE_TO_VIDEO]: 'video',
+    [NodeType.START_END_TO_VIDEO]: 'video',
+    [NodeType.CREATIVE_DESC]: 'text',
+};
+
+// 目标节点（下游）允许接收的来源节点（上游）类别：
+// - 图片节点：可接图片、文字
+// - 视频节点：可接图片、文字
+// - 文字节点：可接图片、视频、文字
+const ALLOWED_SOURCE_CATEGORIES: Record<MediaCategory, MediaCategory[]> = {
+    image: ['image', 'text'],
+    video: ['image', 'text'],
+    text: ['image', 'video', 'text'],
+};
+
+const getNodeSizeForAspectRatio = (aspectRatio = '1:1', baseSize = IMAGE_NODE_BASE_SIZE) => {
+    const [wRaw, hRaw] = aspectRatio.split(':').map(Number);
+    const wRatio = Number.isFinite(wRaw) && wRaw > 0 ? wRaw : 1;
+    const hRatio = Number.isFinite(hRaw) && hRaw > 0 ? hRaw : 1;
+    const ratio = wRatio / hRatio;
+
+    if (ratio >= 1) {
+        return { width: Math.round(baseSize * ratio), height: baseSize };
+    }
+
+    return { width: baseSize, height: Math.round(baseSize / ratio) };
+};
+
+const getClosestAspectRatio = (width: number, height: number, options = IMAGE_ASPECT_RATIOS) => {
+    const sourceRatio = width / height;
+    return options.reduce((best, candidate) => {
+        const [w, h] = candidate.split(':').map(Number);
+        const [bestW, bestH] = best.split(':').map(Number);
+        return Math.abs(w / h - sourceRatio) < Math.abs(bestW / bestH - sourceRatio) ? candidate : best;
+    }, options[0]);
+};
 
 // Helper for resizing imported media constraints
 const calculateImportDimensions = (naturalWidth: number, naturalHeight: number) => {
@@ -45,6 +267,25 @@ const App: React.FC = () => {
 };
 
 const CanvasWithSidebar: React.FC = () => {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [projects, setProjects] = useState<ProjectDashboardItem[]>(() => {
+      if (typeof window === 'undefined') return DEFAULT_PROJECTS;
+      try {
+          const saved = localStorage.getItem(KC_PROJECT_SUMMARIES_KEY);
+          if (!saved) return DEFAULT_PROJECTS.map(normalizeProjectSummary);
+          const parsed = JSON.parse(saved) as ProjectDashboardItem[];
+          const merged = new Map(DEFAULT_PROJECTS.map(project => [project.id, project]));
+          parsed.forEach(project => merged.set(project.id, { ...(merged.get(project.id) || project), ...project }));
+          return Array.from(merged.values()).map(normalizeProjectSummary);
+      } catch {
+          return DEFAULT_PROJECTS.map(normalizeProjectSummary);
+      }
+  });
+  const [currentProject, setCurrentProject] = useState<ProjectDashboardItem | null>(null);
+  const [projectGroupFilter, setProjectGroupFilter] = useState('全部项目组');
+  const [projectTypeFilter, setProjectTypeFilter] = useState('全部项目类型');
+  const [projectSearchQuery, setProjectSearchQuery] = useState('');
   const [nodes, setNodes] = useState<NodeData[]>([]);
   const [connections, setConnections] = useState<Connection[]>([]);
   const [transform, setTransform] = useState<CanvasTransform>({ x: 0, y: 0, k: 1 });
@@ -56,16 +297,14 @@ const CanvasWithSidebar: React.FC = () => {
   const [showNewWorkflowDialog, setShowNewWorkflowDialog] = useState(false);
   
   // Project Name State
-  const [projectName, setProjectName] = useState('未命名项目');
+  const [projectName, setProjectName] = useState(`${DEMO_PROJECT_META.name} 无限画布`);
   const [isEditingProjectName, setIsEditingProjectName] = useState(false);
   
-  // Settings Modal State
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isStorageOpen, setIsStorageOpen] = useState(false);
   const [isExportImportOpen, setIsExportImportOpen] = useState(false);
   const [isWelcomeOpen, setIsWelcomeOpen] = useState(() => !hasShownWelcome());
-  const [assetLibraryPopup, setAssetLibraryPopup] = useState<{ nodeId: string; nodeType: string } | null>(null);
   const [storageDirName, setStorageDirName] = useState<string | null>(null);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'failed'>('idle');
 
   // History State (Persist deleted nodes that have content)
   const [deletedNodes, setDeletedNodes] = useState<NodeData[]>([]);
@@ -74,7 +313,14 @@ const CanvasWithSidebar: React.FC = () => {
       dragModeRef.current = dragMode;
   }, [dragMode]);
 
-  // 清除 Sora 2 的旧配置（修复 endpoint 问题）
+  useEffect(() => {
+      authService.verify().then(setIsAuthenticated).finally(() => setIsCheckingAuth(false));
+      const handleExpired = () => setIsAuthenticated(false);
+      window.addEventListener('kc-auth-expired', handleExpired);
+      return () => window.removeEventListener('kc-auth-expired', handleExpired);
+  }, []);
+
+  // 清除旧版本原型遗留的 Sora 2 配置，避免影响 KC 默认模型。
   useEffect(() => {
       if (typeof window !== 'undefined') {
           try {
@@ -94,8 +340,8 @@ const CanvasWithSidebar: React.FC = () => {
       }
   }, []);
 
-  // Default to light theme (white)
-  const [canvasBg, setCanvasBg] = useState('#F5F7FA');
+  // Default to dark theme.
+  const [canvasBg, setCanvasBg] = useState('#0B0C0E');
   const isDark = canvasBg === '#0B0C0E';
   
   // Sync body class for CSS variables
@@ -107,13 +353,31 @@ const CanvasWithSidebar: React.FC = () => {
     }
   }, [isDark]);
 
+  useEffect(() => {
+    if (currentProject) {
+      setCreditProjectId(currentProject.id);
+    }
+  }, [currentProject?.id]);
+
   const [selectionBox, setSelectionBox] = useState<{ x: number, y: number, w: number, h: number } | null>(null);
   const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null);
   const [suggestedNodes, setSuggestedNodes] = useState<NodeData[]>([]);
   const [previewMedia, setPreviewMedia] = useState<{ url: string, type: 'image' | 'video' } | null>(null);
+  const [previewText, setPreviewText] = useState<{ title: string, text: string } | null>(null);
+  const [cropTarget, setCropTarget] = useState<{ nodeId: string; imageSrc: string; title: string; aspectRatio: string } | null>(null);
+  const [saveResultTarget, setSaveResultTarget] = useState<{ nodeId: string; url: string; type: 'image' | 'video'; title: string } | null>(null);
+  const [saveResultMode, setSaveResultMode] = useState<'material' | 'new_asset' | 'update_asset'>('material');
+  const [saveResultName, setSaveResultName] = useState('');
+  const [saveAssetType, setSaveAssetType] = useState<AssetLibraryType>('role');
+  const [saveTargetAssetId, setSaveTargetAssetId] = useState(DEMO_ASSET_LIBRARY[0]?.id || '');
+  const [saveResultNote, setSaveResultNote] = useState('');
+  const [isCreditDashboardOpen, setIsCreditDashboardOpen] = useState(false);
+  const [creditProjectId, setCreditProjectId] = useState('');
+  const [isUserCreditOpen, setIsUserCreditOpen] = useState(false);
+  const [isMiniMapOpen, setIsMiniMapOpen] = useState(false);
   
   // Quick Add Menu State
-  const [quickAddMenu, setQuickAddMenu] = useState<{ sourceId: string, x: number, y: number, worldX: number, worldY: number } | null>(null);
+  const [quickAddMenu, setQuickAddMenu] = useState<{ sourceId: string, x: number, y: number, worldX: number, worldY: number, direction?: 'forward' | 'backward' } | null>(null);
 
   const [contextMenu, setContextMenu] = useState<{ 
       type: 'CANVAS' | 'NODE', 
@@ -138,7 +402,11 @@ const CanvasWithSidebar: React.FC = () => {
   const workflowInputRef = useRef<HTMLInputElement>(null);
   const assetInputRef = useRef<HTMLInputElement>(null);
   const replaceImageRef = useRef<HTMLInputElement>(null);
+  const attachInputRef = useRef<HTMLInputElement>(null);
   const nodeToReplaceRef = useRef<string | null>(null);
+  const nodeToAttachInputRef = useRef<string | null>(null);
+  const assetImportPositionRef = useRef<Point | null>(null);
+  const assetImportConnectionRef = useRef<{ sourceId: string; direction?: 'forward' | 'backward' } | null>(null);
 
   const spacePressed = useRef(false);
 
@@ -162,9 +430,30 @@ const CanvasWithSidebar: React.FC = () => {
     return map;
   }, [nodes, connections]);
 
+  const inputMediaMap = useMemo(() => {
+    const map: Record<string, InputMedia[]> = {};
+    nodes.forEach(node => {
+        map[node.id] = connections
+            .filter(c => c.targetId === node.id)
+            .map(c => nodes.find(n => n.id === c.sourceId))
+            .filter((n): n is NodeData => Boolean(n && (n.imageSrc || n.videoSrc || n.prompt || n.optimizedPrompt)))
+            .map(n => {
+                if (n.videoSrc) return { type: 'video', url: n.videoSrc, title: n.title } satisfies InputMedia;
+                if (n.imageSrc) return { type: 'image', url: n.imageSrc, title: n.title } satisfies InputMedia;
+                const text = n.optimizedPrompt || n.prompt || '';
+                return { type: 'text', url: `text://${n.id}`, text, title: n.title } satisfies InputMedia;
+            });
+    });
+    return map;
+  }, [nodes, connections]);
+
   const getInputImages = useCallback((nodeId: string) => {
     return inputsMap[nodeId] || EMPTY_ARRAY;
   }, [inputsMap]);
+
+  const getInputMedia = useCallback((nodeId: string) => {
+    return inputMediaMap[nodeId] || [];
+  }, [inputMediaMap]);
   
   const performCopy = () => {
       if (selectedNodeIds.size === 0) return;
@@ -328,13 +617,16 @@ const CanvasWithSidebar: React.FC = () => {
     } else if (type === NodeType.TEXT_TO_IMAGE || type === NodeType.IMAGE_TO_IMAGE) {
         if (!dataOverride?.width) w = 400;
         if (!dataOverride?.height) h = 400;
+    } else if (type === NodeType.CREATIVE_DESC) {
+        if (!dataOverride?.width) w = 520;
+        if (!dataOverride?.height) h = 520;
     }
     
     const getDefaultTitle = (t: NodeType) => {
         switch (t) {
             case NodeType.TEXT_TO_IMAGE: return '生图';
             case NodeType.TEXT_TO_VIDEO: return '生视频';
-            case NodeType.CREATIVE_DESC: return '创意描述';
+            case NodeType.CREATIVE_DESC: return 'Text';
             default: return `原始图片_${Date.now()}`;
         }
     };
@@ -342,9 +634,11 @@ const CanvasWithSidebar: React.FC = () => {
     const getDefaultModel = (t: NodeType) => {
         switch (t) {
             case NodeType.TEXT_TO_IMAGE:
-                return 'BananaPro';
+                return 'Seedream 5.0';
             case NodeType.TEXT_TO_VIDEO:
-                return 'Sora 2';
+                return 'Seedance 1.5 Pro';
+            case NodeType.CREATIVE_DESC:
+                return 'Xiaomi MiMo 2.5 Pro';
             default:
                 return '';
         }
@@ -353,6 +647,7 @@ const CanvasWithSidebar: React.FC = () => {
     const isVideoType = type === NodeType.TEXT_TO_VIDEO;
     
     const newNode: NodeData = {
+      ...dataOverride,
       id: generateId(),
       type,
       x,
@@ -373,6 +668,7 @@ const CanvasWithSidebar: React.FC = () => {
     
     setNodes(prev => [...prev, newNode]);
     setSelectedNodeIds(new Set([newNode.id]));
+    return newNode.id;
   };
 
   const handleQuickAddNode = (type: NodeType) => {
@@ -391,13 +687,15 @@ const CanvasWithSidebar: React.FC = () => {
           w = 400 * (16/9); h = 400;
       } else if (isImageGenType) {
           w = 400; h = 400;
+      } else if (type === NodeType.CREATIVE_DESC) {
+          w = 520; h = 520;
       }
 
       const getDefaultTitle = (t: NodeType) => {
           switch (t) {
               case NodeType.TEXT_TO_IMAGE: return '生图';
               case NodeType.TEXT_TO_VIDEO: return '生视频';
-              case NodeType.CREATIVE_DESC: return '创意描述';
+              case NodeType.CREATIVE_DESC: return 'Text';
               default: return `原始图片_${Date.now()}`;
           }
       };
@@ -405,18 +703,22 @@ const CanvasWithSidebar: React.FC = () => {
       const getDefaultModel = (t: NodeType) => {
           switch (t) {
               case NodeType.TEXT_TO_IMAGE:
-                  return 'BananaPro';
+                  return 'Seedream 5.0';
               case NodeType.TEXT_TO_VIDEO:
-                  return 'Sora 2';
+                  return 'Seedance 1.5 Pro';
+              case NodeType.CREATIVE_DESC:
+                  return 'Xiaomi MiMo 2.5 Pro';
               default:
                   return '';
           }
       };
 
+      // 反向新建时，新节点位于锚点上游(左侧)，让其右边缘对齐落点；正向保持原有左边缘对齐落点。
+      const isBackward = quickAddMenu.direction === 'backward';
       const newNode: NodeData = {
           id: newId,
           type,
-          x: quickAddMenu.worldX,
+          x: isBackward ? quickAddMenu.worldX - w : quickAddMenu.worldX,
           y: quickAddMenu.worldY - h / 2,
           width: w,
           height: h,
@@ -430,9 +732,90 @@ const CanvasWithSidebar: React.FC = () => {
           outputArtifacts: []
       };
 
+      // 反向：新节点作为上游(source)，锚点为下游(target)；正向：保持原有方向。
+      const newConnection = isBackward
+          ? { id: generateId(), sourceId: newId, targetId: quickAddMenu.sourceId }
+          : { id: generateId(), sourceId: quickAddMenu.sourceId, targetId: newId };
+
       setNodes(prev => [...prev, newNode]);
-      setConnections(prev => [...prev, { id: generateId(), sourceId: quickAddMenu.sourceId, targetId: newId }]);
+      setConnections(prev => [...prev, newConnection]);
       setQuickAddMenu(null);
+  };
+
+  const focusNodeInViewport = (node: NodeData) => {
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      setTransform({
+          x: rect.width / 2 - (node.x + node.width / 2) * transform.k,
+          y: rect.height / 2 - (node.y + node.height / 2) * transform.k,
+          k: transform.k,
+      });
+  };
+
+  const handleImportDemoShot = () => {
+      const existing = nodes.find(node => node.shotId === DEMO_LINEAR_SHOT.shotId);
+      if (existing) {
+          setSelectedNodeIds(new Set([existing.id]));
+          focusNodeInViewport(existing);
+          return;
+      }
+
+      const width = 400 * (16 / 9);
+      const height = 400;
+      const rect = containerRef.current?.getBoundingClientRect();
+      const center = rect ? screenToWorld(rect.width / 2, rect.height / 2) : { x: 0, y: 0 };
+      const newNode: NodeData = {
+          id: generateId(),
+          type: NodeType.TEXT_TO_VIDEO,
+          x: center.x - width / 2,
+          y: center.y - height / 2,
+          width,
+          height,
+          title: DEMO_LINEAR_SHOT.shotName,
+          prompt: DEMO_LINEAR_SHOT.prompt,
+          aspectRatio: DEMO_LINEAR_SHOT.aspectRatio,
+          model: DEMO_LINEAR_SHOT.model,
+          resolution: DEMO_LINEAR_SHOT.resolution,
+          duration: DEMO_LINEAR_SHOT.duration,
+          count: 1,
+          outputArtifacts: [],
+          source: 'linear_pipeline',
+          sourceRefId: DEMO_LINEAR_SHOT.shotId,
+          projectId: currentProject?.id || DEMO_LINEAR_SHOT.projectId,
+          directorGroupName: currentProject?.directorGroup || DEMO_LINEAR_SHOT.directorGroupName,
+          shotId: DEMO_LINEAR_SHOT.shotId,
+          episodeNo: DEMO_LINEAR_SHOT.episodeNo,
+          sceneNo: DEMO_LINEAR_SHOT.sceneNo,
+          shotNo: DEMO_LINEAR_SHOT.shotNo,
+          shotName: DEMO_LINEAR_SHOT.shotName,
+          shotDescription: DEMO_LINEAR_SHOT.shotDescription,
+          linearPageUrl: DEMO_LINEAR_SHOT.linearPageUrl,
+          creditEstimate: DEMO_LINEAR_SHOT.creditEstimate,
+          creditStatus: DEMO_LINEAR_SHOT.creditStatus,
+      };
+
+      setNodes(prev => [...prev, newNode]);
+      setSelectedNodeIds(new Set([newNode.id]));
+  };
+
+  const handleAddAssetToCanvas = (asset: AssetLibraryItem, position?: Point) => {
+      const { width, height } = getNodeSizeForAspectRatio('4:3', 300);
+      const rect = containerRef.current?.getBoundingClientRect();
+      const center = position || (rect ? screenToWorld(rect.width / 2, rect.height / 2) : { x: 0, y: 0 });
+      addNode(NodeType.TEXT_TO_IMAGE, center.x - width / 2, center.y - height / 2, {
+          width,
+          height,
+          title: asset.name,
+          imageSrc: asset.previewUrl,
+          aspectRatio: '4:3',
+          model: 'Seedream 5.0',
+          resolution: '1k',
+          source: 'asset_library',
+          sourceRefId: asset.id,
+          projectId: currentProject?.id || DEMO_PROJECT_META.id,
+          directorGroupName: currentProject?.directorGroup || DEMO_PROJECT_META.directorGroup,
+          outputArtifacts: [asset.previewUrl],
+      });
   };
 
   const handlePaste = useCallback(async (e: ClipboardEvent) => {
@@ -456,10 +839,11 @@ const CanvasWithSidebar: React.FC = () => {
                     reader.onload = (event) => {
                         const img = new Image();
                         img.onload = () => {
-                            const { width, height, ratio } = calculateImportDimensions(img.width, img.height);
+                            const aspectRatio = getClosestAspectRatio(img.width, img.height, IMAGE_ASPECT_RATIOS);
+                            const { width, height } = getNodeSizeForAspectRatio(aspectRatio);
                             const src = event.target?.result as string;
-                            addNode(NodeType.ORIGINAL_IMAGE, worldPos.x, worldPos.y, {
-                                width, height, imageSrc: src, aspectRatio: `${ratio}:1`, outputArtifacts: [src]
+                            addNode(NodeType.TEXT_TO_IMAGE, worldPos.x, worldPos.y, {
+                                width, height, imageSrc: src, title: `图片_${new Date().toLocaleTimeString()}`, aspectRatio, model: 'Seedream 5.0', resolution: '1k', outputArtifacts: [src]
                             });
                         };
                         img.src = event.target?.result as string;
@@ -474,9 +858,10 @@ const CanvasWithSidebar: React.FC = () => {
                     const video = document.createElement('video');
                     video.preload = 'metadata';
                     video.onloadedmetadata = () => {
-                         const { width, height, ratio } = calculateImportDimensions(video.videoWidth, video.videoHeight);
-                         addNode(NodeType.ORIGINAL_IMAGE, worldPos.x, worldPos.y, {
-                             width, height, videoSrc: url, title: file.name, aspectRatio: `${ratio}:1`, outputArtifacts: [url]
+                         const aspectRatio = getClosestAspectRatio(video.videoWidth, video.videoHeight, VIDEO_ASPECT_RATIOS);
+                         const { width, height } = getNodeSizeForAspectRatio(aspectRatio, VIDEO_NODE_BASE_HEIGHT);
+                         addNode(NodeType.TEXT_TO_VIDEO, worldPos.x, worldPos.y, {
+                             width, height, videoSrc: url, title: file.name, aspectRatio, model: 'Seedance 1.5 Pro', resolution: '720p', duration: '5s', outputArtifacts: [url]
                          });
                     };
                     video.src = url;
@@ -527,10 +912,10 @@ const CanvasWithSidebar: React.FC = () => {
         
         if (e.key === 'Escape') {
             if (previewMedia) setPreviewMedia(null);
+            if (previewText) setPreviewText(null);
             if (contextMenu) setContextMenu(null);
             if (quickAddMenu) setQuickAddMenu(null);
             if (showNewWorkflowDialog) setShowNewWorkflowDialog(false);
-            if (isSettingsOpen) setIsSettingsOpen(false);
             if (isStorageOpen) setIsStorageOpen(false);
             if (isExportImportOpen) setIsExportImportOpen(false);
         }
@@ -543,7 +928,7 @@ const CanvasWithSidebar: React.FC = () => {
         window.removeEventListener('keydown', handleKeyDown);
         window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [selectedNodeIds, selectedConnectionId, previewMedia, contextMenu, nodes, connections, quickAddMenu, showNewWorkflowDialog, isSettingsOpen, isStorageOpen, isExportImportOpen, handleAlign]);
+  }, [selectedNodeIds, selectedConnectionId, previewMedia, previewText, contextMenu, nodes, connections, quickAddMenu, showNewWorkflowDialog, isStorageOpen, isExportImportOpen, handleAlign]);
 
   useEffect(() => {
     // Load storage directory name for the top-right indicator
@@ -591,10 +976,83 @@ const CanvasWithSidebar: React.FC = () => {
     setNodes(prev => prev.map(n => n.id === id ? { ...n, ...updates } : n));
   }, []);
 
+  const getEstimatedCredits = (node: NodeData) => {
+      const count = node.count || 1;
+      if (node.type === NodeType.TEXT_TO_VIDEO || node.type === NodeType.START_END_TO_VIDEO) return 14 * count;
+      if (node.type === NodeType.TEXT_TO_IMAGE) return 2 * count;
+      if (node.type === NodeType.CREATIVE_DESC) return 1;
+      return 0;
+  };
+
+  const getCreditRows = (): CreditRow[] => {
+      const activeProjectId = currentProject?.id || DEMO_PROJECT_META.id;
+      const activeProjectName = currentProject?.name || projectName;
+      const activeGroup = currentProject?.directorGroup || DEMO_PROJECT_META.directorGroup;
+      const taskRows: CreditRow[] = nodes
+          .filter(node => node.creditEstimate || node.creditStatus)
+          .map((node, index) => ({
+              id: node.id,
+              projectId: node.projectId || activeProjectId,
+              project: activeProjectName,
+              group: currentProject?.directorGroup || node.directorGroupName || activeGroup,
+              user: index % 2 === 0 ? CURRENT_USER_NAME : '制片助理B',
+              type: node.type === NodeType.CREATIVE_DESC ? '文本分析' : node.type === NodeType.TEXT_TO_IMAGE ? '图片生成' : '视频生成',
+              model: node.model || '-',
+              credit: node.creditEstimate || getEstimatedCredits(node),
+              status: node.creditStatus || 'estimated',
+              nodeTitle: node.title,
+          }));
+
+      const projectRows = projects.flatMap((project, index): CreditRow[] => {
+          if (project.id === activeProjectId && taskRows.length > 0) return [];
+          return [
+              {
+                  id: `${project.id}_credit_image`,
+                  projectId: project.id,
+                  project: project.name,
+                  group: project.directorGroup,
+                  user: CURRENT_USER_NAME,
+                  type: '图片生成',
+                  model: 'Seedream 5.0',
+                  credit: 2 + index,
+                  status: index % 2 === 0 ? 'confirmed' : 'reserved',
+                  nodeTitle: '角色/场景参考图',
+              },
+              {
+                  id: `${project.id}_credit_video`,
+                  projectId: project.id,
+                  project: project.name,
+                  group: project.directorGroup,
+                  user: index % 2 === 0 ? CURRENT_USER_NAME : '制片助理B',
+                  type: '视频生成',
+                  model: 'Seedance 1.5 Pro',
+                  credit: 14 + index * 2,
+                  status: 'confirmed',
+                  nodeTitle: '分镜视频',
+              },
+          ];
+      });
+
+      return [...taskRows, ...projectRows];
+  };
+
+  const getUserCreditStats = () => {
+      const rows = getCreditRows().filter(row => row.user === CURRENT_USER_NAME);
+      const used = rows
+          .filter(row => row.status === 'confirmed' || row.status === 'reserved')
+          .reduce((sum, row) => sum + row.credit, 0);
+      return {
+          rows,
+          used,
+          available: Math.max(0, USER_CREDIT_LIMIT - used),
+      };
+  };
+
   const handleGenerate = async (nodeId: string) => {
     const node = nodes.find(n => n.id === nodeId);
     if (!node) return;
-    updateNodeData(nodeId, { isLoading: true });
+    const creditEstimate = node.creditEstimate || getEstimatedCredits(node);
+    updateNodeData(nodeId, { isLoading: true, creditEstimate, creditStatus: 'reserved' });
     
     const inputs = getInputImages(node.id);
     
@@ -603,8 +1061,8 @@ const CanvasWithSidebar: React.FC = () => {
 
     try {
       if (node.type === NodeType.CREATIVE_DESC) {
-        const res = await generateCreativeDescription(node.prompt || '', node.model === 'TEXT_TO_VIDEO' ? 'VIDEO' : 'IMAGE');
-        updateNodeData(nodeId, { optimizedPrompt: res, isLoading: false });
+        const res = await generateCreativeDescription(node.prompt || '', node.model === 'TEXT_TO_VIDEO' ? 'VIDEO' : 'IMAGE', node.model);
+        updateNodeData(nodeId, { optimizedPrompt: res, isLoading: false, creditEstimate, creditStatus: 'confirmed' });
       } else {
           let results: string[] = [];
           
@@ -623,7 +1081,7 @@ const CanvasWithSidebar: React.FC = () => {
           // Start-End Frame to Video generation (首尾帧模式)
           else if (node.type === NodeType.START_END_TO_VIDEO) {
             // 添加 _FL 后缀来标识首尾帧模式
-            const modelWithFL = (node.model || 'Sora 2') + '_FL';
+            const modelWithFL = (node.model || 'Seedance 1.5 Pro') + '_FL';
             // 如果设置了 swapFrames，交换首尾帧顺序
             const orderedInputs = node.swapFrames && inputs.length >= 2 ? [inputs[1], inputs[0]] : inputs;
             results = await generateVideo(
@@ -637,7 +1095,7 @@ const CanvasWithSidebar: React.FC = () => {
               if (node.videoSrc && !currentArtifacts.includes(node.videoSrc)) currentArtifacts.push(node.videoSrc);
               const newArtifacts = [...results, ...currentArtifacts];
               
-              const updates: Partial<NodeData> = { isLoading: false, outputArtifacts: newArtifacts };
+              const updates: Partial<NodeData> = { isLoading: false, outputArtifacts: newArtifacts, creditEstimate, creditStatus: 'confirmed' };
               
               // Set output based on node type
               if (node.type === NodeType.TEXT_TO_IMAGE) {
@@ -654,8 +1112,55 @@ const CanvasWithSidebar: React.FC = () => {
     } catch (e) {
       console.error(e);
       alert(`生成失败: ${(e as Error).message}`);
-      updateNodeData(nodeId, { isLoading: false });
+      updateNodeData(nodeId, { isLoading: false, creditEstimate, creditStatus: 'refunded' });
     }
+  };
+
+  const handleAnalyzeMedia = async (nodeId: string) => {
+      const node = nodes.find(n => n.id === nodeId);
+      if (!node) return;
+      const inputMedia = getInputMedia(node.id).filter(item => item.type === 'image' || item.type === 'video');
+      if (!inputMedia.length) {
+          alert("请先把图片或视频节点连接到文本节点前面");
+          return;
+      }
+
+      const creditEstimate = node.creditEstimate || getEstimatedCredits(node);
+      updateNodeData(nodeId, { isLoading: true, creditEstimate, creditStatus: 'reserved' });
+      try {
+          const text = await analyzeConnectedMedia(node.prompt || '', inputMedia, node.model);
+          updateNodeData(nodeId, {
+              optimizedPrompt: text,
+              prompt: node.prompt || text,
+              isLoading: false,
+              creditEstimate,
+              creditStatus: 'confirmed'
+          });
+      } catch (e) {
+          console.error(e);
+          alert(`分析失败: ${(e as Error).message}`);
+          updateNodeData(nodeId, { isLoading: false, creditEstimate, creditStatus: 'refunded' });
+      }
+  };
+
+  const handleAnalyzeScript = async (nodeId: string) => {
+      const node = nodes.find(n => n.id === nodeId);
+      if (!node) return;
+      if (!node.prompt?.trim()) {
+          alert("请先在文本节点里输入或粘贴剧本内容");
+          return;
+      }
+
+      const creditEstimate = node.creditEstimate || getEstimatedCredits(node);
+      updateNodeData(nodeId, { isLoading: true, creditEstimate, creditStatus: 'reserved' });
+      try {
+          const text = await analyzeScriptAssets(node.prompt, node.model);
+          updateNodeData(nodeId, { optimizedPrompt: text, isLoading: false, creditEstimate, creditStatus: 'confirmed' });
+      } catch (e) {
+          console.error(e);
+          alert(`剧本分析失败: ${(e as Error).message}`);
+          updateNodeData(nodeId, { isLoading: false, creditEstimate, creditStatus: 'refunded' });
+      }
   };
 
   const handleMaximize = (nodeId: string) => {
@@ -665,8 +1170,173 @@ const CanvasWithSidebar: React.FC = () => {
       else if (node.imageSrc) setPreviewMedia({ url: node.imageSrc, type: 'image' });
       else alert("没有可预览的内容");
   };
+
+  const openSaveResultModal = (nodeId: string) => {
+      const node = nodes.find(n => n.id === nodeId) || deletedNodes.find(n => n.id === nodeId);
+      if (!node) return;
+      const url = node.videoSrc || node.imageSrc;
+      if (!url) {
+          alert('当前节点没有可保存的结果');
+          return;
+      }
+      const type = node.videoSrc ? 'video' : 'image';
+      setSaveResultTarget({ nodeId, url, type, title: node.title });
+      setSaveResultName(node.title || (type === 'video' ? '视频素材' : '图片素材'));
+      setSaveResultMode('material');
+      setSaveAssetType('role');
+      setSaveTargetAssetId(DEMO_ASSET_LIBRARY[0]?.id || '');
+      setSaveResultNote('');
+  };
+
+  const handleConfirmSaveResult = () => {
+      if (!saveResultTarget) return;
+      const selectedAsset = DEMO_ASSET_LIBRARY.find(asset => asset.id === saveTargetAssetId);
+      const title = saveResultName.trim() || saveResultTarget.title;
+      const updates: Partial<NodeData> = {
+          title,
+          outputArtifacts: [
+              saveResultTarget.url,
+              ...((nodes.find(node => node.id === saveResultTarget.nodeId) || deletedNodes.find(node => node.id === saveResultTarget.nodeId))?.outputArtifacts || []).filter(item => item !== saveResultTarget.url),
+          ],
+      };
+
+      if (saveResultMode === 'new_asset') {
+          updates.source = 'asset_library';
+          updates.sourceRefId = `new_${saveAssetType}_${Date.now()}`;
+      }
+      if (saveResultMode === 'update_asset' && selectedAsset) {
+          updates.source = 'asset_library';
+          updates.sourceRefId = selectedAsset.id;
+      }
+
+      const nextNodes = nodes.map(node => node.id === saveResultTarget.nodeId ? { ...node, ...updates } : node);
+      if (nextNodes.some(node => node.id === saveResultTarget.nodeId)) {
+          setNodes(nextNodes);
+          handleSaveProject(currentProject, nextNodes);
+      } else {
+          handleSaveProject();
+      }
+      const actionText = saveResultMode === 'material'
+          ? '已保存到项目素材'
+          : saveResultMode === 'new_asset'
+              ? '已保存为新资产'
+              : `已更新资产版本：${selectedAsset?.name || '未选择资产'}`;
+      alert(`${actionText}\n\n原型说明：当前为前端演示保存状态，正式系统会调用素材库/资产库接口并保留历史版本。`);
+      setSaveResultTarget(null);
+  };
   
   const handleHistoryPreview = (url: string, type: 'image' | 'video') => setPreviewMedia({ url, type });
+
+  const handlePreviewReference = (item: InputMedia) => {
+      if (item.type === 'text') {
+          setPreviewText({ title: item.title || '参考文本', text: item.text || '' });
+          return;
+      }
+      setPreviewMedia({ url: item.url, type: item.type });
+  };
+
+  const handleCropStart = (nodeId: string) => {
+      const node = nodes.find(n => n.id === nodeId);
+      if (!node?.imageSrc) {
+          alert("当前节点没有可裁剪的图片");
+          return;
+      }
+      setCropTarget({ nodeId, imageSrc: node.imageSrc, title: node.title, aspectRatio: node.aspectRatio || '1:1' });
+  };
+
+  const handleCropConfirm = (croppedSrc: string, naturalWidth: number, naturalHeight: number, aspectRatio: string) => {
+      void naturalWidth;
+      void naturalHeight;
+      if (!cropTarget) return;
+      const source = nodes.find(n => n.id === cropTarget.nodeId);
+      const { width, height } = getNodeSizeForAspectRatio(aspectRatio);
+      const newId = generateId();
+      const newNode: NodeData = {
+          id: newId,
+          type: NodeType.TEXT_TO_IMAGE,
+          x: source ? source.x + source.width + 80 : 80,
+          y: source ? source.y : 80,
+          width,
+          height,
+          title: `裁剪_${cropTarget.title}`.slice(0, 24),
+          imageSrc: croppedSrc,
+          aspectRatio,
+          model: source?.model || 'Seedream 5.0',
+          resolution: source?.resolution || '1k',
+          count: 1,
+          prompt: source?.prompt || '',
+          outputArtifacts: [croppedSrc]
+      };
+
+      setNodes(prev => [...prev, newNode]);
+      if (source) {
+          setConnections(prev => [...prev, { id: generateId(), sourceId: source.id, targetId: newId }]);
+      }
+      setSelectedNodeIds(new Set([newId]));
+      setCropTarget(null);
+  };
+
+  const handleMultiAngleGenerate = async (nodeId: string, options: MultiAngleOptions) => {
+      const source = nodes.find(n => n.id === nodeId);
+      if (!source?.imageSrc) {
+          alert("当前节点没有可用于多角度控制的图片");
+          return;
+      }
+      if (!options.angles.length) {
+          alert("请至少选择一个角度");
+          return;
+      }
+
+      updateNodeData(nodeId, { isLoading: true });
+      try {
+          const results = await generateMultiAngleImages(source.imageSrc, {
+              ...options,
+              countPerAngle: 1,
+          });
+          if (!results.length) throw new Error("未返回多角度结果");
+
+          const baseAspectRatio = options.aspectRatio && options.aspectRatio !== 'source'
+              ? options.aspectRatio
+              : (source.aspectRatio || '1:1');
+          const { width, height } = getNodeSizeForAspectRatio(baseAspectRatio);
+          const gapX = width + 80;
+          const gapY = height + 70;
+          const newNodes = results.map((result, index) => {
+              const column = index % 3;
+              const row = Math.floor(index / 3);
+              const id = generateId();
+              const title = `${result.label || result.angle}_${source.title}`.slice(0, 24);
+              return {
+                  id,
+                  type: NodeType.TEXT_TO_IMAGE,
+                  x: source.x + source.width + 90 + column * gapX,
+                  y: source.y + row * gapY,
+                  width,
+                  height,
+                  title,
+                  imageSrc: result.url,
+                  aspectRatio: baseAspectRatio,
+                  model: source.model || 'Seedream 5.0',
+                  resolution: source.resolution || '1k',
+                  count: 1,
+                  prompt: result.prompt || options.prompt || source.prompt || '',
+                  outputArtifacts: [result.url]
+              } satisfies NodeData;
+          });
+
+          setNodes(prev => [...prev, ...newNodes]);
+          setConnections(prev => [
+              ...prev,
+              ...newNodes.map(node => ({ id: generateId(), sourceId: source.id, targetId: node.id }))
+          ]);
+          setSelectedNodeIds(new Set(newNodes.map(node => node.id)));
+          updateNodeData(nodeId, { isLoading: false });
+      } catch (e) {
+          console.error(e);
+          alert(`多角度生成失败: ${(e as Error).message}`);
+          updateNodeData(nodeId, { isLoading: false });
+      }
+  };
 
   const copyImageToClipboard = async (nodeId: string) => {
       const node = nodes.find(n => n.id === nodeId);
@@ -689,20 +1359,54 @@ const CanvasWithSidebar: React.FC = () => {
       const file = e.target.files?.[0];
       const nodeId = nodeToReplaceRef.current;
       if (file && nodeId) {
+          if (file.type.startsWith('video/')) {
+              const url = URL.createObjectURL(file);
+              const video = document.createElement('video');
+              video.preload = 'metadata';
+              video.onloadedmetadata = () => {
+                  const node = nodes.find(n => n.id === nodeId);
+                  if (node) {
+                      const aspectRatio = getClosestAspectRatio(video.videoWidth, video.videoHeight, VIDEO_ASPECT_RATIOS);
+                      const nodeSize = getNodeSizeForAspectRatio(aspectRatio, VIDEO_NODE_BASE_HEIGHT);
+                      const currentArtifacts = node.outputArtifacts || [];
+                      const newArtifacts = [url, ...currentArtifacts];
+                      updateNodeData(nodeId, {
+                          type: NodeType.TEXT_TO_VIDEO,
+                          videoSrc: url,
+                          imageSrc: undefined,
+                          title: node.shotId ? node.title : file.name,
+                          width: nodeSize.width,
+                          height: nodeSize.height,
+                          aspectRatio,
+                          model: node.model || 'Seedance 1.5 Pro',
+                          resolution: node.resolution || '720p',
+                          duration: node.duration || '5s',
+                          outputArtifacts: newArtifacts
+                      });
+                  }
+              };
+              video.src = url;
+          } else if (file.type.startsWith('image/')) {
            const reader = new FileReader();
            reader.onload = (event) => {
                const img = new Image();
                img.onload = () => {
                    const node = nodes.find(n => n.id === nodeId);
                    if (node) {
-                        const { width, height, ratio } = calculateImportDimensions(img.width, img.height);
+                        const aspectRatio = getClosestAspectRatio(img.width, img.height, IMAGE_ASPECT_RATIOS);
+                        const { width, height } = getNodeSizeForAspectRatio(aspectRatio);
                         const src = event.target?.result as string;
                         const currentArtifacts = node.outputArtifacts || [];
                         const newArtifacts = [src, ...currentArtifacts];
                         updateNodeData(nodeId, { 
-                            imageSrc: src, 
+                            type: NodeType.TEXT_TO_IMAGE,
+                            imageSrc: src,
+                            videoSrc: undefined,
+                            title: node.shotId ? node.title : (file.name || node.title),
                             width, height,
-                            aspectRatio: `${ratio}:1`, 
+                            aspectRatio,
+                            model: node.model || 'Seedream 5.0',
+                            resolution: node.resolution || '1k',
                             outputArtifacts: newArtifacts
                         });
                    }
@@ -710,38 +1414,236 @@ const CanvasWithSidebar: React.FC = () => {
                img.src = event.target?.result as string;
            };
            reader.readAsDataURL(file);
+          }
       }
       if (replaceImageRef.current) replaceImageRef.current.value = '';
       nodeToReplaceRef.current = null;
   };
 
-  const handleSaveWorkflow = () => {
-    const workflowData = { nodes, connections, transform, projectName, version: "1.0" };
-    const blob = new Blob([JSON.stringify(workflowData, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    const safeName = projectName.replace(/[<>:"/\\|?*]/g, '_').trim() || '未命名项目';
-    link.download = `${safeName}.aistudio-flow`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+  const triggerAttachInput = (nodeId: string) => {
+      nodeToAttachInputRef.current = nodeId;
+      attachInputRef.current?.click();
+  };
+
+  const addInputSourceNode = (targetId: string, source: NodeData) => {
+      const target = nodes.find(n => n.id === targetId);
+      const upstreamCount = connections.filter(c => c.targetId === targetId).length;
+      const x = target ? target.x - source.width - 90 : source.x;
+      const y = target ? target.y + upstreamCount * 80 : source.y;
+      const sourceNode = { ...source, x, y };
+      setNodes(prev => [...prev, sourceNode]);
+      setConnections(prev => [...prev, { id: generateId(), sourceId: sourceNode.id, targetId }]);
+      setSelectedNodeIds(new Set([targetId]));
+  };
+
+  const handleAttachInputAsset = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      const targetId = nodeToAttachInputRef.current;
+      if (!file || !targetId) {
+          if (attachInputRef.current) attachInputRef.current.value = '';
+          nodeToAttachInputRef.current = null;
+          return;
+      }
+
+      const baseTitle = file.name || `本地素材_${new Date().toLocaleTimeString()}`;
+      const target = nodes.find(n => n.id === targetId);
+      if (!target) {
+          if (attachInputRef.current) attachInputRef.current.value = '';
+          nodeToAttachInputRef.current = null;
+          return;
+      }
+
+      if (file.type.startsWith('image/')) {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+              const img = new Image();
+              img.onload = () => {
+                  const aspectRatio = getClosestAspectRatio(img.width, img.height, IMAGE_ASPECT_RATIOS);
+                  const { width, height } = getNodeSizeForAspectRatio(aspectRatio);
+                  const src = event.target?.result as string;
+                  updateNodeData(targetId, {
+                      type: NodeType.TEXT_TO_IMAGE,
+                      width,
+                      height,
+                      title: target.shotId ? target.title : baseTitle,
+                      imageSrc: src,
+                      videoSrc: undefined,
+                      aspectRatio,
+                      model: target.type === NodeType.TEXT_TO_IMAGE ? (target.model || 'Seedream 5.0') : 'Seedream 5.0',
+                      resolution: target.resolution || '1k',
+                      count: target.count || 1,
+                      outputArtifacts: [
+                          src,
+                          ...(target.type === NodeType.TEXT_TO_IMAGE ? (target.outputArtifacts || []).filter(item => item !== src) : []),
+                      ],
+                  });
+              };
+              img.src = event.target?.result as string;
+          };
+          reader.readAsDataURL(file);
+      } else if (file.type.startsWith('video/')) {
+          const url = URL.createObjectURL(file);
+          const video = document.createElement('video');
+          video.preload = 'metadata';
+          video.onloadedmetadata = () => {
+              const aspectRatio = getClosestAspectRatio(video.videoWidth, video.videoHeight, VIDEO_ASPECT_RATIOS);
+              const { width, height } = getNodeSizeForAspectRatio(aspectRatio, VIDEO_NODE_BASE_HEIGHT);
+              updateNodeData(targetId, {
+                  type: NodeType.TEXT_TO_VIDEO,
+                  width,
+                  height,
+                  title: target.shotId ? target.title : baseTitle,
+                  videoSrc: url,
+                  imageSrc: undefined,
+                  aspectRatio,
+                  model: target.type === NodeType.TEXT_TO_VIDEO || target.type === NodeType.START_END_TO_VIDEO ? (target.model || 'Seedance 1.5 Pro') : 'Seedance 1.5 Pro',
+                  resolution: target.resolution || '720p',
+                  duration: target.duration || '5s',
+                  count: target.count || 1,
+                  outputArtifacts: [
+                      url,
+                      ...((target.type === NodeType.TEXT_TO_VIDEO || target.type === NodeType.START_END_TO_VIDEO) ? (target.outputArtifacts || []).filter(item => item !== url) : []),
+                  ],
+              });
+          };
+          video.src = url;
+      } else {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+              const text = String(event.target?.result || '');
+              updateNodeData(targetId, {
+                  type: target.type === NodeType.CREATIVE_DESC ? NodeType.CREATIVE_DESC : target.type,
+                  title: target.shotId ? target.title : baseTitle,
+                  prompt: text,
+                  optimizedPrompt: target.type === NodeType.CREATIVE_DESC ? text : target.optimizedPrompt,
+              });
+          };
+          reader.readAsText(file, 'utf-8');
+      }
+
+      if (attachInputRef.current) attachInputRef.current.value = '';
+      nodeToAttachInputRef.current = null;
+  };
+
+  const persistProjectSummaries = (nextProjects: ProjectDashboardItem[]) => {
+      setProjects(nextProjects);
+      try {
+          localStorage.setItem(KC_PROJECT_SUMMARIES_KEY, JSON.stringify(nextProjects));
+      } catch (error) {
+          console.error(error);
+      }
+  };
+
+  const handleSaveProject = (project = currentProject, snapshotNodes = nodes) => {
+      if (!project) return false;
+      setSaveStatus('saving');
+      try {
+          const savedAt = new Date().toLocaleString('zh-CN', {
+              month: '2-digit',
+              day: '2-digit',
+              hour: '2-digit',
+              minute: '2-digit',
+          });
+          const projectSnapshot = {
+              nodes: snapshotNodes,
+              connections,
+              transform,
+              projectName,
+              deletedNodes,
+              savedAt,
+              version: '1.0',
+          };
+          localStorage.setItem(`${KC_PROJECT_STORAGE_PREFIX}${project.id}`, JSON.stringify(projectSnapshot));
+          const savedProject = { ...project, canvasName: projectName, lastSavedAt: savedAt };
+          const nextProjects = projects.some(item => item.id === project.id)
+              ? projects.map(item => item.id === project.id ? savedProject : item)
+              : [savedProject, ...projects];
+          persistProjectSummaries(nextProjects);
+          setCurrentProject(prev => prev ? { ...prev, canvasName: projectName, lastSavedAt: savedAt } : prev);
+          setSaveStatus('saved');
+          window.setTimeout(() => setSaveStatus('idle'), 1400);
+          return true;
+      } catch (error) {
+          console.error(error);
+          setSaveStatus('failed');
+          return false;
+      }
+  };
+
+  const clearCanvasState = (nextProjectName = `${DEMO_PROJECT_META.name} 无限画布`) => {
+      const withContent = nodes.filter(n => n.imageSrc || n.videoSrc);
+      if (withContent.length > 0) setDeletedNodes(prev => [...prev, ...withContent]);
+      setNodes([]);
+      setConnections([]);
+      setTransform({ x: 0, y: 0, k: 1 });
+      setProjectName(nextProjectName);
+      setSelectedNodeIds(new Set());
+      setSelectionBox(null);
+      setSelectedConnectionId(null);
+  };
+
+  const openProject = (project: ProjectDashboardItem) => {
+      let loaded = false;
+      try {
+          const saved = localStorage.getItem(`${KC_PROJECT_STORAGE_PREFIX}${project.id}`);
+          if (saved) {
+              const data = JSON.parse(saved);
+              setNodes(Array.isArray(data.nodes) ? data.nodes : []);
+              setConnections(Array.isArray(data.connections) ? data.connections : []);
+              setDeletedNodes(Array.isArray(data.deletedNodes) ? data.deletedNodes : []);
+              setTransform(data.transform || { x: 0, y: 0, k: 1 });
+              setProjectName(data.projectName || project.canvasName);
+              loaded = true;
+          }
+      } catch (error) {
+          console.error(error);
+      }
+      if (!loaded) {
+          setNodes([]);
+          setConnections([]);
+          setDeletedNodes([]);
+          setTransform({ x: 0, y: 0, k: 1 });
+          setProjectName(project.canvasName);
+      }
+      setCurrentProject(project);
+      setSelectedNodeIds(new Set());
+      setSelectedConnectionId(null);
+      setSelectionBox(null);
+      setContextMenu(null);
+      setQuickAddMenu(null);
+      setSaveStatus('idle');
+  };
+
+  const createProject = () => {
+      const now = Date.now();
+      const newProject: ProjectDashboardItem = {
+          id: `KC-DRAMA-${now}`,
+          name: `新项目 ${projects.length + 1}`,
+          canvasName: `新项目 ${projects.length + 1} 无限画布`,
+          directorGroup: '未分组',
+          projectType: '短剧',
+          status: 'draft',
+          episodeCount: 0,
+          shotCount: 0,
+          assetCount: 0,
+          lastSavedAt: '未保存',
+      };
+      const nextProjects = [newProject, ...projects];
+      persistProjectSummaries(nextProjects);
+      openProject(newProject);
+  };
+
+  const returnToProjectManagement = () => {
+      handleSaveProject();
+      setCurrentProject(null);
   };
 
   const handleNewWorkflow = () => setShowNewWorkflowDialog(true);
   
   const handleConfirmNew = (shouldSave: boolean) => {
-    if (shouldSave) handleSaveWorkflow();
-    const withContent = nodes.filter(n => n.imageSrc || n.videoSrc);
-    if (withContent.length > 0) setDeletedNodes(prev => [...prev, ...withContent]);
-    setNodes([]);
-    setConnections([]);
-    setTransform({ x: 0, y: 0, k: 1 });
-    setProjectName('未命名项目');
+    if (shouldSave) handleSaveProject();
+    clearCanvasState(currentProject?.canvasName || `${DEMO_PROJECT_META.name} 无限画布`);
     setShowNewWorkflowDialog(false);
-    setSelectedNodeIds(new Set());
-    setSelectionBox(null);
   };
 
   const handleLoadWorkflow = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -799,39 +1701,175 @@ const CanvasWithSidebar: React.FC = () => {
       }
   };
 
+  const saveAssetFile = async (url: string, type: 'image' | 'video', title = 'asset') => {
+      const ext = type === 'video' ? 'mp4' : 'png';
+      const filename = `${title.replace(/\s+/g, '_')}_${Date.now()}.${ext}`;
+      try {
+          const response = await fetch(url);
+          const blob = await response.blob();
+          const saved = await storageService.saveFile(blob, filename);
+          if (saved) return;
+
+          const blobUrl = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = blobUrl;
+          link.download = filename;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(blobUrl);
+      } catch {
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = filename;
+          link.target = '_blank';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+      }
+  };
+
+  const copyAssetToClipboard = async (url: string, type: 'image' | 'video') => {
+      try {
+          if (type === 'image' && navigator.clipboard && 'ClipboardItem' in window) {
+              const response = await fetch(url);
+              const blob = await response.blob();
+              await navigator.clipboard.write([new ClipboardItem({ [blob.type || 'image/png']: blob })]);
+              return;
+          }
+          await navigator.clipboard.writeText(url);
+      } catch (error) {
+          console.error(error);
+          alert('复制素材失败，请尝试先保存到本地。');
+      }
+  };
+
+  const deleteAssetFromLibrary = (nodeId: string, url: string, type: 'image' | 'video') => {
+      const updateList = (list: NodeData[]) => list.map(node => {
+          if (node.id !== nodeId) return node;
+          const artifacts = (node.outputArtifacts || []).filter(item => item !== url);
+          const updates: Partial<NodeData> = { outputArtifacts: artifacts };
+          if (type === 'image' && node.imageSrc === url) {
+              updates.imageSrc = artifacts[0];
+          }
+          if (type === 'video' && node.videoSrc === url) {
+              updates.videoSrc = artifacts[0];
+          }
+          return { ...node, ...updates };
+      });
+
+      setNodes(prev => updateList(prev));
+      setDeletedNodes(prev => updateList(prev).filter(node => node.imageSrc || node.videoSrc || node.outputArtifacts?.length));
+  };
+
+  const handleAddMaterialToCanvas = (_item: any) => {
+      // Placeholder: material library add-to-canvas
+  };
+
+  const handleToggleMaterialFavorite = (_nodeId: string, _url: string, _type: 'image' | 'video') => {
+      // Placeholder: material library toggle favorite
+  };
+
+  const connectImportedNodeIfNeeded = (nodeId: string) => {
+      const connection = assetImportConnectionRef.current;
+      if (!connection) return;
+
+      const isBackward = connection.direction === 'backward';
+      setConnections(prev => [
+          ...prev,
+          {
+              id: generateId(),
+              sourceId: isBackward ? nodeId : connection.sourceId,
+              targetId: isBackward ? connection.sourceId : nodeId,
+          },
+      ]);
+      assetImportConnectionRef.current = null;
+  };
+
+  const addUploadedFileNode = (file: File, center: Point) => {
+      if (file.type.startsWith('image/')) {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+              const src = event.target?.result as string;
+              const img = new Image();
+              img.onload = () => {
+                  const aspectRatio = getClosestAspectRatio(img.width, img.height, IMAGE_ASPECT_RATIOS);
+                  const { width, height } = getNodeSizeForAspectRatio(aspectRatio);
+                  const nodeId = addNode(NodeType.TEXT_TO_IMAGE, center.x - width / 2, center.y - height / 2, {
+                      width,
+                      height,
+                      imageSrc: src,
+                      title: file.name,
+                      aspectRatio,
+                      model: 'Seedream 5.0',
+                      resolution: '1k',
+                      source: 'local_upload',
+                      outputArtifacts: [src],
+                  });
+                  connectImportedNodeIfNeeded(nodeId);
+              };
+              img.src = src;
+          };
+          reader.readAsDataURL(file);
+          return;
+      }
+
+      if (file.type.startsWith('video/')) {
+          const url = URL.createObjectURL(file);
+          const video = document.createElement('video');
+          video.preload = 'metadata';
+          video.onloadedmetadata = () => {
+              const aspectRatio = getClosestAspectRatio(video.videoWidth, video.videoHeight, VIDEO_ASPECT_RATIOS);
+              const { width, height } = getNodeSizeForAspectRatio(aspectRatio, VIDEO_NODE_BASE_HEIGHT);
+              const nodeId = addNode(NodeType.TEXT_TO_VIDEO, center.x - width / 2, center.y - height / 2, {
+                  width,
+                  height,
+                  videoSrc: url,
+                  title: file.name,
+                  aspectRatio,
+                  model: 'Seedance 1.5 Pro',
+                  resolution: '720p',
+                  duration: '5s',
+                  source: 'local_upload',
+                  outputArtifacts: [url],
+              });
+              connectImportedNodeIfNeeded(nodeId);
+          };
+          video.src = url;
+          return;
+      }
+
+      if (file.type.startsWith('text/') || /\.(txt|md|markdown)$/i.test(file.name)) {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+              const text = String(event.target?.result || '');
+              const nodeId = addNode(NodeType.CREATIVE_DESC, center.x - 260, center.y - 260, {
+                  width: 520,
+                  height: 520,
+                  title: file.name,
+                  prompt: text,
+                  model: 'Xiaomi MiMo 2.5 Pro',
+                  source: 'local_upload',
+              });
+              connectImportedNodeIfNeeded(nodeId);
+          };
+          reader.readAsText(file);
+      }
+  };
+
   const handleImportAsset = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file) {
+        assetImportPositionRef.current = null;
+        assetImportConnectionRef.current = null;
+        return;
+    }
     
     const rect = containerRef.current?.getBoundingClientRect();
-    const center = rect ? screenToWorld(rect.width / 2, rect.height / 2) : { x: 0, y: 0 };
+    const center = assetImportPositionRef.current || (rect ? screenToWorld(rect.width / 2, rect.height / 2) : { x: 0, y: 0 });
+    assetImportPositionRef.current = null;
     
-    if (file.type.startsWith('image/')) {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            const img = new Image();
-            img.onload = () => {
-                 const { width, height, ratio } = calculateImportDimensions(img.width, img.height);
-                 const src = event.target?.result as string;
-                 addNode(NodeType.ORIGINAL_IMAGE, center.x - width/2, center.y - height/2, {
-                     width, height, imageSrc: src, aspectRatio: `${ratio}:1`, outputArtifacts: [src]
-                 });
-            };
-            img.src = event.target?.result as string;
-        };
-        reader.readAsDataURL(file);
-    } else if (file.type.startsWith('video/')) {
-        const url = URL.createObjectURL(file);
-        const video = document.createElement('video');
-        video.preload = 'metadata';
-        video.onloadedmetadata = () => {
-            const { width, height, ratio } = calculateImportDimensions(video.videoWidth, video.videoHeight);
-            addNode(NodeType.ORIGINAL_IMAGE, center.x - width/2, center.y - height/2, {
-                width, height, videoSrc: url, title: file.name, aspectRatio: `${ratio}:1`, outputArtifacts: [url]
-            });
-        };
-        video.src = url;
-    }
+    addUploadedFileNode(file, center);
     e.target.value = '';
   };
 
@@ -839,50 +1877,218 @@ const CanvasWithSidebar: React.FC = () => {
 
   const handleDrop = (e: React.DragEvent) => {
       e.preventDefault(); e.stopPropagation();
+      const assetId = e.dataTransfer.getData('application/kc-asset');
+      if (assetId) {
+          const asset = DEMO_ASSET_LIBRARY.find(item => item.id === assetId);
+          if (asset) handleAddAssetToCanvas(asset, screenToWorld(e.clientX, e.clientY));
+          return;
+      }
       const files: File[] = Array.from(e.dataTransfer.files); 
       if (files.length === 0) return;
       const worldPos = screenToWorld(e.clientX, e.clientY);
+      assetImportConnectionRef.current = null;
       files.forEach((file, index) => {
           const offsetX = index * 20; const offsetY = index * 20;
-          if (file.type.startsWith('image/')) {
-              const reader = new FileReader();
-              reader.onload = (event) => {
-                  const src = event.target?.result as string;
-                  const img = new Image();
-                  img.onload = () => {
-                       const { width, height, ratio } = calculateImportDimensions(img.width, img.height);
-                       addNode(NodeType.ORIGINAL_IMAGE, worldPos.x - width/2 + offsetX, worldPos.y - height/2 + offsetY, {
-                           width, height, imageSrc: src, aspectRatio: `${ratio}:1`, outputArtifacts: [src]
-                       });
-                  };
-                  img.src = src;
-              };
-              reader.readAsDataURL(file);
-          } else if (file.type.startsWith('video/')) {
-              const url = URL.createObjectURL(file);
-              const video = document.createElement('video');
-              video.preload = 'metadata';
-              video.onloadedmetadata = () => {
-                  const { width, height, ratio } = calculateImportDimensions(video.videoWidth, video.videoHeight);
-                  addNode(NodeType.ORIGINAL_IMAGE, worldPos.x - width/2 + offsetX, worldPos.y - height/2 + offsetY, {
-                       width, height, videoSrc: url, title: file.name, aspectRatio: `${ratio}:1`, outputArtifacts: [url]
-                   });
-              };
-              video.src = url;
-          }
+          addUploadedFileNode(file, { x: worldPos.x + offsetX, y: worldPos.y + offsetY });
       });
   };
 
-  const handleWheel = (e: React.WheelEvent) => {
-    if (e.ctrlKey || e.metaKey) e.preventDefault();
-    const zoomIntensity = 0.1;
-    const direction = e.deltaY > 0 ? -1 : 1;
-    let newK = transform.k + direction * zoomIntensity;
-    newK = Math.min(Math.max(0.4, newK), 2); 
-    const rect = containerRef.current!.getBoundingClientRect();
-    const worldX = (e.clientX - rect.left - transform.x) / transform.k;
-    const worldY = (e.clientY - rect.top - transform.y) / transform.k;
-    setTransform({ x: (e.clientX - rect.left) - worldX * newK, y: (e.clientY - rect.top) - worldY * newK, k: newK });
+  // 画布容器只有在“已登录 + 已打开项目”后才渲染，手势监听需在此之后再挂载。
+  const isCanvasMounted = isAuthenticated && !!currentProject;
+
+  // 触控板手势：双指滑动平移画布，双指捏合(张开放大/收拢缩小)缩放。
+  // 采用原生非 passive 监听以真正阻止浏览器默认的页面滚动/缩放/前进后退（React 的 onWheel 默认 passive，preventDefault 无效）。
+  // 用 requestAnimationFrame 把高频手势事件合并到每帧只计算一次，避免大组件逐事件重渲染导致卡顿。
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    let rafId: number | null = null;
+    let panX = 0;
+    let panY = 0;
+    let zoomFactor = 1;
+    let anchorX = 0;
+    let anchorY = 0;
+
+    const flush = () => {
+      rafId = null;
+      const dPanX = panX, dPanY = panY, dZoom = zoomFactor, ax = anchorX, ay = anchorY;
+      panX = 0; panY = 0; zoomFactor = 1;
+      setTransform(prev => {
+        let { x, y, k } = prev;
+        if (dZoom !== 1) {
+          const newK = Math.min(Math.max(0.4, k * dZoom), 2);
+          const worldX = (ax - x) / k;
+          const worldY = (ay - y) / k;
+          x = ax - worldX * newK;
+          y = ay - worldY * newK;
+          k = newK;
+        }
+        if (dPanX !== 0 || dPanY !== 0) {
+          x += dPanX;
+          y += dPanY;
+        }
+        return { x, y, k };
+      });
+    };
+
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const rect = el.getBoundingClientRect();
+      if (e.ctrlKey || e.metaKey) {
+        // 捏合缩放：deltaY<0 张开放大，deltaY>0 收拢缩小；以光标位置为锚点
+        zoomFactor *= Math.exp(-e.deltaY * 0.01);
+        anchorX = e.clientX - rect.left;
+        anchorY = e.clientY - rect.top;
+      } else {
+        // 双指滑动平移
+        panX -= e.deltaX;
+        panY -= e.deltaY;
+      }
+      if (rafId == null) rafId = requestAnimationFrame(flush);
+    };
+
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => {
+      el.removeEventListener('wheel', onWheel);
+      if (rafId != null) cancelAnimationFrame(rafId);
+    };
+  }, [isCanvasMounted]);
+
+  const zoomCanvas = (direction: 1 | -1) => {
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const nextK = Math.min(Math.max(0.4, transform.k + direction * 0.1), 2);
+      const anchorX = rect.width / 2;
+      const anchorY = rect.height / 2;
+      const worldX = (anchorX - transform.x) / transform.k;
+      const worldY = (anchorY - transform.y) / transform.k;
+      setTransform({
+          x: anchorX - worldX * nextK,
+          y: anchorY - worldY * nextK,
+          k: nextK,
+      });
+  };
+
+  const arrangeCanvasNodes = () => {
+      const targetIds = selectedNodeIds.size > 0 ? selectedNodeIds : new Set(nodes.map(node => node.id));
+      if (targetIds.size === 0) return;
+
+      setNodes(prev => {
+          const targetNodes = prev.filter(node => targetIds.has(node.id));
+          if (targetNodes.length === 0) return prev;
+
+          const sorted = [...targetNodes].sort((a, b) => (a.y - b.y) || (a.x - b.x));
+          const minX = Math.min(...sorted.map(node => node.x));
+          const minY = Math.min(...sorted.map(node => node.y));
+          const maxWidth = Math.max(...sorted.map(node => node.width));
+          const maxHeight = Math.max(...sorted.map(node => node.height));
+          const columns = Math.min(4, Math.ceil(Math.sqrt(sorted.length)));
+          const gapX = 88;
+          const gapY = 72;
+          const positionMap = new Map<string, Point>();
+
+          sorted.forEach((node, index) => {
+              const col = index % columns;
+              const row = Math.floor(index / columns);
+              positionMap.set(node.id, {
+                  x: minX + col * (maxWidth + gapX),
+                  y: minY + row * (maxHeight + gapY),
+              });
+          });
+
+          return prev.map(node => {
+              const next = positionMap.get(node.id);
+              return next ? { ...node, x: next.x, y: next.y } : node;
+          });
+      });
+  };
+
+  const getMiniMapMetrics = () => {
+      const miniWidth = 220;
+      const miniHeight = 126;
+      const rect = containerRef.current?.getBoundingClientRect();
+      const view = rect
+          ? {
+              x: -transform.x / transform.k,
+              y: -transform.y / transform.k,
+              width: rect.width / transform.k,
+              height: rect.height / transform.k,
+          }
+          : { x: -500, y: -320, width: 1000, height: 640 };
+
+      const nodeBounds = nodes.length
+          ? {
+              minX: Math.min(...nodes.map(node => node.x)),
+              minY: Math.min(...nodes.map(node => node.y)),
+              maxX: Math.max(...nodes.map(node => node.x + node.width)),
+              maxY: Math.max(...nodes.map(node => node.y + node.height)),
+          }
+          : {
+              minX: view.x - 400,
+              minY: view.y - 280,
+              maxX: view.x + view.width + 400,
+              maxY: view.y + view.height + 280,
+          };
+
+      const padding = 160;
+      const minX = Math.min(nodeBounds.minX, view.x) - padding;
+      const minY = Math.min(nodeBounds.minY, view.y) - padding;
+      const maxX = Math.max(nodeBounds.maxX, view.x + view.width) + padding;
+      const maxY = Math.max(nodeBounds.maxY, view.y + view.height) + padding;
+      const width = Math.max(1, maxX - minX);
+      const height = Math.max(1, maxY - minY);
+      const scale = Math.min((miniWidth - 20) / width, (miniHeight - 18) / height);
+      const offsetX = (miniWidth - width * scale) / 2;
+      const offsetY = (miniHeight - height * scale) / 2;
+
+      const toMini = (x: number, y: number) => ({
+          x: offsetX + (x - minX) * scale,
+          y: offsetY + (y - minY) * scale,
+      });
+
+      return {
+          miniWidth,
+          miniHeight,
+          minX,
+          minY,
+          scale,
+          offsetX,
+          offsetY,
+          view,
+          nodeRects: nodes.map(node => {
+              const point = toMini(node.x, node.y);
+              return {
+                  id: node.id,
+                  x: point.x,
+                  y: point.y,
+                  width: Math.max(4, node.width * scale),
+                  height: Math.max(4, node.height * scale),
+                  selected: selectedNodeIds.has(node.id),
+              };
+          }),
+          viewportRect: {
+              ...toMini(view.x, view.y),
+              width: Math.max(8, view.width * scale),
+              height: Math.max(8, view.height * scale),
+          },
+      };
+  };
+
+  const jumpToMiniMapPoint = (event: React.MouseEvent<HTMLDivElement>) => {
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const mapRect = event.currentTarget.getBoundingClientRect();
+      const metrics = getMiniMapMetrics();
+      const localX = event.clientX - mapRect.left;
+      const localY = event.clientY - mapRect.top;
+      const worldX = metrics.minX + (localX - metrics.offsetX) / metrics.scale;
+      const worldY = metrics.minY + (localY - metrics.offsetY) / metrics.scale;
+      setTransform({
+          x: rect.width / 2 - worldX * transform.k,
+          y: rect.height / 2 - worldY * transform.k,
+          k: transform.k,
+      });
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -972,8 +2178,11 @@ const CanvasWithSidebar: React.FC = () => {
         setSelectedNodeIds(newSelection);
     } else if (dragMode === 'CONNECT') {
         setTempConnection(worldPos);
-        if (connectionStartRef.current?.type === 'source') {
-            const candidates = nodes.filter(n => n.id !== connectionStartRef.current?.nodeId).filter(n => n.type !== NodeType.ORIGINAL_IMAGE)
+        const start = connectionStartRef.current;
+        if (start) {
+            const candidates = nodes.filter(n => n.id !== start.nodeId)
+                // 正向起点(source)：候选为合法的下游节点；反向起点(target)：候选为合法的上游节点
+                .filter(n => start.type === 'source' ? canConnectNodes(start.nodeId, n.id) : canConnectNodes(n.id, start.nodeId))
                 .map(n => ({ node: n, dist: Math.sqrt(Math.pow(worldPos.x - (n.x + n.width/2), 2) + Math.pow(worldPos.y - (n.y + n.height/2), 2)) }))
                 .filter(item => item.dist < 500).sort((a, b) => a.dist - b.dist).slice(0, 3).map(item => item.node);
             setSuggestedNodes(candidates);
@@ -998,20 +2207,45 @@ const CanvasWithSidebar: React.FC = () => {
   };
 
   const handleMouseUp = (e: React.MouseEvent) => {
-    if (dragMode === 'CONNECT' && connectionStartRef.current?.type === 'source') {
-         setQuickAddMenu({ sourceId: connectionStartRef.current.nodeId, x: e.clientX, y: e.clientY, worldX: screenToWorld(e.clientX, e.clientY).x, worldY: screenToWorld(e.clientX, e.clientY).y });
+    // 连线拖到空白处释放：弹出快捷新建菜单。正向(从输出端口拖出)新建下游节点，反向(从输入端口拖出)新建上游节点。
+    if (dragMode === 'CONNECT' && connectionStartRef.current) {
+         const world = screenToWorld(e.clientX, e.clientY);
+         const direction = connectionStartRef.current.type === 'source' ? 'forward' : 'backward';
+         setQuickAddMenu({ sourceId: connectionStartRef.current.nodeId, x: e.clientX, y: e.clientY, worldX: world.x, worldY: world.y, direction });
     }
     if (dragMode !== 'NONE') { setDragMode('NONE'); setTempConnection(null); connectionStartRef.current = null; setSuggestedNodes([]); setSelectionBox(null); }
   };
 
+  // 校验一条 source→target 连线是否合法（与拖拽方向无关）。
+  const canConnectNodes = (sourceId: string, targetId: string): boolean => {
+      if (!sourceId || !targetId || sourceId === targetId) return false;
+      const source = nodes.find(n => n.id === sourceId);
+      const target = nodes.find(n => n.id === targetId);
+      if (!source || !target) return false;
+      // 原始图片节点为纯输入素材，没有输入端口，不可作为下游目标。
+      if (target.type === NodeType.ORIGINAL_IMAGE) return false;
+      const sourceCategory = NODE_MEDIA_CATEGORY[source.type];
+      const targetCategory = NODE_MEDIA_CATEGORY[target.type];
+      return ALLOWED_SOURCE_CATEGORIES[targetCategory]?.includes(sourceCategory) ?? false;
+  };
+
   const createConnection = (sourceId: string, targetId: string) => {
-      if (!connections.some(c => c.sourceId === sourceId && c.targetId === targetId)) setConnections(prev => [...prev, { id: generateId(), sourceId, targetId }]);
+      if (canConnectNodes(sourceId, targetId) && !connections.some(c => c.sourceId === sourceId && c.targetId === targetId)) {
+          setConnections(prev => [...prev, { id: generateId(), sourceId, targetId }]);
+      }
       setDragMode('NONE'); setTempConnection(null); connectionStartRef.current = null; setSuggestedNodes([]);
   };
 
   const handlePortMouseUp = (e: React.MouseEvent, nodeId: string, type: 'source' | 'target') => {
+      const start = connectionStartRef.current;
+      if (dragMode !== 'CONNECT' || !start) return;
+      // 在发起连接的同一节点上释放：视为未拖出连线，交由画布默认逻辑处理(如正向的快捷添加菜单)。
+      if (start.nodeId === nodeId) return;
       e.stopPropagation(); e.preventDefault();
-      if (dragMode === 'CONNECT' && connectionStartRef.current && connectionStartRef.current.type === 'source' && type === 'target' && connectionStartRef.current.nodeId !== nodeId) createConnection(connectionStartRef.current.nodeId, nodeId);
+      // 正向：从输出端口(source)拖出，落到目标节点的输入端口(target)
+      if (start.type === 'source' && type === 'target') createConnection(start.nodeId, nodeId);
+      // 反向：从输入端口(target)拖出，落到上游节点的输出端口(source)
+      else if (start.type === 'target' && type === 'source') createConnection(nodeId, start.nodeId);
   };
 
   const deleteNode = (id: string) => {
@@ -1029,16 +2263,687 @@ const CanvasWithSidebar: React.FC = () => {
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowNewWorkflowDialog(false)}>
             <div className={`w-[400px] p-6 rounded-2xl shadow-2xl border flex flex-col gap-4 transform transition-all scale-100 ${isDark ? 'bg-[#1A1D21] border-zinc-700 text-gray-200' : 'bg-white border-gray-200 text-gray-800'}`} onClick={(e) => e.stopPropagation()}>
                 <div>
-                    <h3 className="text-lg font-bold flex items-center gap-2"><Icons.FilePlus size={20} className="text-blue-500"/>新建工作流</h3>
-                    <p className={`text-xs mt-2 leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>是否在创建新工作流之前保存当前工作流？<br/>任何未保存的更改将永久丢失。</p>
+                    <h3 className="text-lg font-bold flex items-center gap-2"><Icons.FilePlus size={20} className="text-blue-500"/>清空当前画布</h3>
+                    <p className={`text-xs mt-2 leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>是否在清空画布之前保存当前项目？<br/>清空后节点和连线会从当前画布移除。</p>
                 </div>
                 <div className={`flex justify-end gap-2 mt-2 pt-4 border-t ${isDark ? 'border-zinc-800' : 'border-gray-100'}`}>
                     <button onClick={() => setShowNewWorkflowDialog(false)} className={`px-4 py-2 rounded-lg text-xs font-medium transition-colors ${isDark ? 'hover:bg-zinc-800 text-gray-400' : 'hover:bg-gray-100 text-gray-600'}`}>取消</button>
                     <button onClick={() => handleConfirmNew(false)} className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors ${isDark ? 'bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20' : 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-200'}`}>不保存</button>
-                    <button onClick={() => handleConfirmNew(true)} className={`px-4 py-2 rounded-lg text-xs font-bold text-white transition-colors shadow-lg shadow-blue-500/20 flex items-center gap-1.5 ${isDark ? 'bg-blue-600 hover:bg-blue-500' : 'bg-blue-500 hover:bg-blue-400'}`}><Icons.Save size={14}/>保存并新建</button>
+                    <button onClick={() => handleConfirmNew(true)} className={`px-4 py-2 rounded-lg text-xs font-bold text-white transition-colors shadow-lg shadow-blue-500/20 flex items-center gap-1.5 ${isDark ? 'bg-blue-600 hover:bg-blue-500' : 'bg-blue-500 hover:bg-blue-400'}`}><Icons.Save size={14}/>保存并清空</button>
                 </div>
             </div>
         </div>
+      );
+  };
+
+  const renderProjectDashboard = () => {
+      const statusClass = (status: ProjectDashboardItem['status']) => {
+          if (status === 'active') return isDark ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20' : 'bg-emerald-50 text-emerald-700 border-emerald-100';
+          if (status === 'draft') return isDark ? 'bg-amber-500/10 text-amber-300 border-amber-500/20' : 'bg-amber-50 text-amber-700 border-amber-100';
+          return isDark ? 'bg-zinc-800 text-zinc-400 border-zinc-700' : 'bg-gray-100 text-gray-500 border-gray-200';
+      };
+      const statusText: Record<ProjectDashboardItem['status'], string> = {
+          active: '制作中',
+          draft: '草稿',
+          archived: '归档',
+      };
+
+      return (
+          <div className={`min-h-screen w-full ${isDark ? 'bg-[#0b0c0e] text-zinc-100' : 'bg-[#f5f7fa] text-gray-900'}`}>
+              <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-8 py-7">
+                  <header className="flex items-center justify-between gap-6">
+                      <div className="flex items-center gap-3">
+                          <div className={`h-11 w-11 rounded-2xl flex items-center justify-center ${isDark ? 'bg-blue-500/15 text-blue-300' : 'bg-blue-100 text-blue-600'}`}>
+                              <Icons.Sparkles size={22} />
+                          </div>
+                          <div>
+                              <h1 className="text-xl font-bold">KC 无限画布项目管理</h1>
+                              <p className={`mt-1 text-sm ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>先选择项目，再进入对应画布继续创作和保存。</p>
+                          </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                          <button
+                              onClick={createProject}
+                              className={`h-10 rounded-xl px-4 text-sm font-semibold flex items-center gap-2 ${isDark ? 'bg-blue-600 text-white hover:bg-blue-500' : 'bg-blue-600 text-white hover:bg-blue-500'}`}
+                          >
+                              <Icons.FilePlus size={16} />
+                              新建项目
+                          </button>
+                          <button
+                              onClick={() => toggleTheme(!isDark)}
+                              className={`h-10 rounded-xl border px-3 text-sm font-semibold flex items-center gap-2 ${isDark ? 'border-zinc-800 text-zinc-400 hover:bg-zinc-900 hover:text-white' : 'border-gray-200 text-gray-600 hover:bg-white hover:text-gray-900'}`}
+                          >
+                              {isDark ? <Icons.Moon size={16} /> : <Icons.Sun size={16} />}
+                              {isDark ? '暗色' : '亮色'}
+                          </button>
+                      </div>
+                  </header>
+
+                  <section className="mt-8 grid grid-cols-4 gap-4">
+                      {[
+                          ['项目数', projects.length],
+                          ['制作中', projects.filter(project => project.status === 'active').length],
+                          ['分镜总数', projects.reduce((sum, project) => sum + project.shotCount, 0)],
+                          ['资产总数', projects.reduce((sum, project) => sum + project.assetCount, 0)],
+                      ].map(([label, value]) => (
+                          <div key={String(label)} className={`rounded-2xl border p-4 ${isDark ? 'border-zinc-800 bg-zinc-950/45' : 'border-gray-200 bg-white'}`}>
+                              <div className={`text-xs ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>{label}</div>
+                              <div className="mt-2 text-2xl font-bold tabular-nums">{value}</div>
+                          </div>
+                      ))}
+                  </section>
+
+                  <main className="mt-6 grid grid-cols-3 gap-4">
+                      {projects.map(project => (
+                          <button
+                              key={project.id}
+                              onClick={() => openProject(project)}
+                              className={`group rounded-2xl border p-5 text-left transition-all ${isDark ? 'border-zinc-800 bg-[#16181c] hover:border-blue-500/45 hover:bg-[#1a1d23]' : 'border-gray-200 bg-white hover:border-blue-300 hover:shadow-md'}`}
+                          >
+                              <div className="flex items-start justify-between gap-3">
+                                  <div className="min-w-0">
+                                      <div className={`inline-flex rounded-lg border px-2 py-1 text-[11px] font-semibold ${statusClass(project.status)}`}>
+                                          {statusText[project.status]}
+                                      </div>
+                                      <h2 className="mt-3 truncate text-lg font-bold">{project.name}</h2>
+                                      <p className={`mt-1 truncate text-sm ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>{project.id} / {project.directorGroup}</p>
+                                  </div>
+                                  <Icons.ChevronRight size={20} className={`mt-1 transition-transform group-hover:translate-x-1 ${isDark ? 'text-zinc-600' : 'text-gray-400'}`} />
+                              </div>
+                              <div className={`mt-5 grid grid-cols-3 gap-2 rounded-xl p-3 ${isDark ? 'bg-zinc-950/60' : 'bg-gray-50'}`}>
+                                  <div>
+                                      <div className={`text-[10px] ${isDark ? 'text-zinc-600' : 'text-gray-400'}`}>集数</div>
+                                      <div className="mt-1 text-sm font-semibold">{project.episodeCount}</div>
+                                  </div>
+                                  <div>
+                                      <div className={`text-[10px] ${isDark ? 'text-zinc-600' : 'text-gray-400'}`}>分镜</div>
+                                      <div className="mt-1 text-sm font-semibold">{project.shotCount}</div>
+                                  </div>
+                                  <div>
+                                      <div className={`text-[10px] ${isDark ? 'text-zinc-600' : 'text-gray-400'}`}>资产</div>
+                                      <div className="mt-1 text-sm font-semibold">{project.assetCount}</div>
+                                  </div>
+                              </div>
+                              <div className={`mt-4 flex items-center justify-between text-xs ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>
+                                  <span>{project.canvasName}</span>
+                                  <span>{project.lastSavedAt}</span>
+                              </div>
+                          </button>
+                      ))}
+                  </main>
+              </div>
+          </div>
+      );
+  };
+
+  const renderProjectDashboardV2 = () => {
+      const groupOptions = ['全部项目组', ...Array.from(new Set(projects.map(project => project.directorGroup || '未分组')))];
+      const typeOptions = ['全部项目类型', ...Array.from(new Set(projects.map(project => project.projectType || '短剧')))];
+      const normalizedSearch = projectSearchQuery.trim().toLowerCase();
+      const visibleProjects = projects.filter(project => {
+          const groupMatched = projectGroupFilter === '全部项目组' || project.directorGroup === projectGroupFilter;
+          const typeMatched = projectTypeFilter === '全部项目类型' || (project.projectType || '短剧') === projectTypeFilter;
+          const searchMatched = !normalizedSearch
+              || project.name.toLowerCase().includes(normalizedSearch)
+              || project.canvasName.toLowerCase().includes(normalizedSearch)
+              || project.directorGroup.toLowerCase().includes(normalizedSearch);
+          return groupMatched && typeMatched && searchMatched;
+      });
+      const selectClass = `h-10 rounded-xl border px-3 text-sm outline-none transition-colors ${
+          isDark ? 'border-zinc-800 bg-zinc-950/70 text-zinc-200 hover:border-zinc-700' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+      }`;
+      const searchClass = `h-10 w-full rounded-xl border pl-9 pr-3 text-sm outline-none transition-colors ${
+          isDark ? 'border-zinc-800 bg-zinc-950/70 text-zinc-100 placeholder:text-zinc-600 focus:border-blue-500' : 'border-gray-200 bg-white text-gray-900 placeholder:text-gray-400 focus:border-blue-500'
+      }`;
+
+      return (
+          <div className={`min-h-screen w-full ${isDark ? 'bg-[#0b0c0e] text-zinc-100' : 'bg-[#f5f7fa] text-gray-900'}`}>
+              <div className="mx-auto flex min-h-screen w-full max-w-[1680px] flex-col px-8 py-7">
+                  <header className="flex items-center justify-between gap-6">
+                      <div className="flex items-center gap-3">
+                          <div className={`h-11 w-11 rounded-2xl flex items-center justify-center ${isDark ? 'bg-blue-500/15 text-blue-300' : 'bg-blue-100 text-blue-600'}`}>
+                              <Icons.Sparkles size={22} />
+                          </div>
+                          <div>
+                              <h1 className="text-xl font-bold">KC 无限画布项目管理</h1>
+                              <p className={`mt-1 text-sm ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>先选择项目，再进入对应画布继续创作和保存。</p>
+                          </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                          <button
+                              onClick={createProject}
+                              className="h-10 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white flex items-center gap-2 hover:bg-blue-500"
+                          >
+                              <Icons.FilePlus size={16} />
+                              新建项目
+                          </button>
+                          <button
+                              onClick={() => toggleTheme(!isDark)}
+                              className={`h-10 rounded-xl border px-3 text-sm font-semibold flex items-center gap-2 ${isDark ? 'border-zinc-800 text-zinc-400 hover:bg-zinc-900 hover:text-white' : 'border-gray-200 text-gray-600 hover:bg-white hover:text-gray-900'}`}
+                          >
+                              {isDark ? <Icons.Moon size={16} /> : <Icons.Sun size={16} />}
+                              {isDark ? '暗色' : '亮色'}
+                          </button>
+                      </div>
+                  </header>
+
+                  <section className={`mt-8 flex flex-col gap-3 rounded-2xl border p-4 md:flex-row md:items-center ${isDark ? 'border-zinc-800 bg-zinc-950/35' : 'border-gray-200 bg-white/80'}`}>
+                      <div className="grid flex-1 grid-cols-1 gap-3 md:grid-cols-[180px_180px_minmax(240px,1fr)]">
+                          <select
+                              value={projectGroupFilter}
+                              onChange={(e) => setProjectGroupFilter(e.target.value)}
+                              className={selectClass}
+                              aria-label="项目组筛选"
+                          >
+                              {groupOptions.map(option => <option key={option} value={option}>{option}</option>)}
+                          </select>
+                          <select
+                              value={projectTypeFilter}
+                              onChange={(e) => setProjectTypeFilter(e.target.value)}
+                              className={selectClass}
+                              aria-label="项目类型筛选"
+                          >
+                              {typeOptions.map(option => <option key={option} value={option}>{option}</option>)}
+                          </select>
+                          <div className="relative">
+                              <Icons.Search size={16} className={`pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`} />
+                              <input
+                                  value={projectSearchQuery}
+                                  onChange={(e) => setProjectSearchQuery(e.target.value)}
+                                  className={searchClass}
+                                  placeholder="搜索项目名称、画布名称或导演组"
+                              />
+                          </div>
+                      </div>
+                      <div className={`text-sm ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>
+                          共 {visibleProjects.length} 个项目
+                      </div>
+                  </section>
+
+                  <main className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+                      {visibleProjects.map(project => (
+                          <button
+                              key={project.id}
+                              onClick={() => openProject(project)}
+                              className={`group min-h-[138px] rounded-2xl border p-4 text-left transition-all ${isDark ? 'border-zinc-800 bg-[#16181c] hover:border-blue-500/45 hover:bg-[#1a1d23]' : 'border-gray-200 bg-white hover:border-blue-300 hover:shadow-md'}`}
+                          >
+                              <div className="flex h-full flex-col justify-between gap-5">
+                                  <div className="min-w-0">
+                                      <h2 className="truncate text-base font-bold leading-6">{project.name}</h2>
+                                      <p className={`mt-2 truncate text-sm ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>{project.directorGroup}</p>
+                                  </div>
+                                  <div className={`flex items-center justify-between gap-2 text-xs ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>
+                                      <span>最后快照</span>
+                                      <span className="truncate font-medium">{project.lastSavedAt}</span>
+                                  </div>
+                              </div>
+                          </button>
+                      ))}
+                      {visibleProjects.length === 0 && (
+                          <div className={`col-span-full rounded-2xl border p-8 text-center text-sm ${isDark ? 'border-zinc-800 bg-zinc-950/40 text-zinc-500' : 'border-gray-200 bg-white text-gray-500'}`}>
+                              没有找到匹配的项目
+                          </div>
+                      )}
+                  </main>
+              </div>
+          </div>
+      );
+  };
+
+  const renderSaveResultModal = () => {
+      if (!saveResultTarget) return null;
+      const modeButtonClass = (mode: typeof saveResultMode) => `rounded-xl border px-3 py-2 text-left transition-all ${
+          saveResultMode === mode
+              ? (isDark ? 'border-blue-500 bg-blue-500/15 text-blue-200' : 'border-blue-500 bg-blue-50 text-blue-700')
+              : (isDark ? 'border-zinc-800 bg-zinc-950/45 text-zinc-400 hover:border-zinc-700 hover:text-zinc-100' : 'border-gray-200 bg-gray-50 text-gray-600 hover:border-gray-300 hover:text-gray-900')
+      }`;
+      const inputClass = `w-full rounded-xl border px-3 py-2 text-sm outline-none ${
+          isDark ? 'border-zinc-800 bg-zinc-950/60 text-zinc-100 placeholder:text-zinc-600 focus:border-blue-500' : 'border-gray-200 bg-white text-gray-900 placeholder:text-gray-400 focus:border-blue-500'
+      }`;
+
+      return (
+          <div className="fixed inset-0 z-[260] flex items-center justify-center bg-black/70 backdrop-blur-md" onClick={() => setSaveResultTarget(null)}>
+              <div className={`w-[720px] max-w-[92vw] rounded-3xl border shadow-2xl ${isDark ? 'border-zinc-800 bg-[#15171b] text-zinc-100' : 'border-gray-200 bg-white text-gray-900'}`} onClick={(event) => event.stopPropagation()}>
+                  <div className={`flex items-center justify-between border-b px-6 py-4 ${isDark ? 'border-zinc-800' : 'border-gray-100'}`}>
+                      <div>
+                          <h3 className="text-lg font-bold">保存结果</h3>
+                          <p className={`mt-1 text-xs ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>保存到项目素材，或作为资产版本沉淀给线性系统复用。</p>
+                      </div>
+                      <button className={`h-9 w-9 rounded-full flex items-center justify-center ${isDark ? 'hover:bg-zinc-800 text-zinc-400 hover:text-white' : 'hover:bg-gray-100 text-gray-500 hover:text-gray-900'}`} onClick={() => setSaveResultTarget(null)}>
+                          <Icons.X size={20} />
+                      </button>
+                  </div>
+
+                  <div className="grid grid-cols-[220px_1fr] gap-5 p-6">
+                      <div className={`overflow-hidden rounded-2xl border ${isDark ? 'border-zinc-800 bg-zinc-950' : 'border-gray-200 bg-gray-50'}`}>
+                          <div className="aspect-video w-full">
+                              {saveResultTarget.type === 'video'
+                                  ? <video src={saveResultTarget.url} className="h-full w-full object-cover" muted controls preload="metadata" />
+                                  : <img src={saveResultTarget.url} className="h-full w-full object-cover" alt="保存预览" />}
+                          </div>
+                          <div className="p-3">
+                              <div className={`text-xs ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>当前项目</div>
+                              <div className="mt-1 truncate text-sm font-semibold">{currentProject?.name || projectName}</div>
+                          </div>
+                      </div>
+
+                      <div className="space-y-4">
+                          <div>
+                              <label className={`text-xs font-semibold ${isDark ? 'text-zinc-400' : 'text-gray-600'}`}>名称</label>
+                              <input className={`${inputClass} mt-1.5`} value={saveResultName} onChange={(event) => setSaveResultName(event.target.value)} placeholder="输入素材或资产名称" />
+                          </div>
+
+                          <div className="grid grid-cols-3 gap-2">
+                              <button className={modeButtonClass('material')} onClick={() => setSaveResultMode('material')}>
+                                  <div className="text-sm font-semibold">项目素材</div>
+                                  <div className="mt-1 text-[11px] opacity-70">只保存到当前项目素材库</div>
+                              </button>
+                              <button className={modeButtonClass('new_asset')} onClick={() => setSaveResultMode('new_asset')}>
+                                  <div className="text-sm font-semibold">新资产</div>
+                                  <div className="mt-1 text-[11px] opacity-70">创建角色/场景/道具资产</div>
+                              </button>
+                              <button className={modeButtonClass('update_asset')} onClick={() => setSaveResultMode('update_asset')}>
+                                  <div className="text-sm font-semibold">更新资产</div>
+                                  <div className="mt-1 text-[11px] opacity-70">追加为已有资产新版本</div>
+                              </button>
+                          </div>
+
+                          {saveResultMode === 'new_asset' && (
+                              <div>
+                                  <label className={`text-xs font-semibold ${isDark ? 'text-zinc-400' : 'text-gray-600'}`}>资产类型</label>
+                                  <div className="mt-1.5 flex gap-2">
+                                      {[
+                                          ['role', '角色'],
+                                          ['scene', '场景'],
+                                          ['prop', '道具'],
+                                      ].map(([value, label]) => (
+                                          <button
+                                              key={value}
+                                              className={`h-9 flex-1 rounded-xl border text-sm font-semibold ${saveAssetType === value ? (isDark ? 'border-blue-500 bg-blue-500/15 text-blue-200' : 'border-blue-500 bg-blue-50 text-blue-700') : (isDark ? 'border-zinc-800 text-zinc-400 hover:bg-zinc-900' : 'border-gray-200 text-gray-600 hover:bg-gray-50')}`}
+                                              onClick={() => setSaveAssetType(value as AssetLibraryType)}
+                                          >
+                                              {label}
+                                          </button>
+                                      ))}
+                                  </div>
+                              </div>
+                          )}
+
+                          {saveResultMode === 'update_asset' && (
+                              <div>
+                                  <label className={`text-xs font-semibold ${isDark ? 'text-zinc-400' : 'text-gray-600'}`}>选择要更新的资产</label>
+                                  <select className={`${inputClass} mt-1.5`} value={saveTargetAssetId} onChange={(event) => setSaveTargetAssetId(event.target.value)}>
+                                      {DEMO_ASSET_LIBRARY.map(asset => (
+                                          <option key={asset.id} value={asset.id}>{asset.name} / {asset.version}</option>
+                                      ))}
+                                  </select>
+                                  <p className={`mt-1 text-[11px] ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>正式系统会保留历史版本，不覆盖旧结果。</p>
+                              </div>
+                          )}
+
+                          <div>
+                              <label className={`text-xs font-semibold ${isDark ? 'text-zinc-400' : 'text-gray-600'}`}>备注</label>
+                              <textarea className={`${inputClass} mt-1.5 min-h-[70px] resize-none`} value={saveResultNote} onChange={(event) => setSaveResultNote(event.target.value)} placeholder="可填写本次优化原因、适用分镜或版本说明" />
+                          </div>
+                      </div>
+                  </div>
+
+                  <div className={`flex items-center justify-between border-t px-6 py-4 ${isDark ? 'border-zinc-800' : 'border-gray-100'}`}>
+                      <div className={`text-xs ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>当前为原型演示，后续接项目素材库/资产库接口。</div>
+                      <div className="flex gap-2">
+                          <button className={`h-10 rounded-xl px-4 text-sm font-semibold ${isDark ? 'text-zinc-400 hover:bg-zinc-900 hover:text-white' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`} onClick={() => setSaveResultTarget(null)}>取消</button>
+                          <button className="h-10 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-500" onClick={handleConfirmSaveResult}>确认保存</button>
+                      </div>
+                  </div>
+              </div>
+          </div>
+      );
+  };
+
+  const renderCreditDashboard = () => {
+      if (!isCreditDashboardOpen) return null;
+      const statusText: Record<string, string> = {
+          estimated: '预计',
+          reserved: '已预扣',
+          confirmed: '已扣减',
+          refunded: '已返还',
+          failed: '异常',
+          idle: '未开始',
+      };
+      const taskRows = nodes
+          .filter(node => node.creditEstimate || node.creditStatus)
+          .map((node, index) => ({
+              id: node.id,
+              project: currentProject?.name || projectName,
+              group: currentProject?.directorGroup || node.directorGroupName || '-',
+              user: index % 2 === 0 ? '导演A' : '制片助理B',
+              type: node.type === NodeType.CREATIVE_DESC ? '文本分析' : node.type === NodeType.TEXT_TO_IMAGE ? '图片生成' : '视频生成',
+              model: node.model || '-',
+              credit: node.creditEstimate || getEstimatedCredits(node),
+              status: node.creditStatus || 'estimated',
+              nodeTitle: node.title,
+          }));
+      const fallbackRows = [
+          { id: 'mock_1', project: currentProject?.name || '演示项目', group: currentProject?.directorGroup || 'A组导演组', user: '导演A', type: '视频生成', model: 'Seedance 1.5 Pro', credit: 14, status: 'confirmed', nodeTitle: '第1集 第2场 分镜03' },
+          { id: 'mock_2', project: currentProject?.name || '演示项目', group: currentProject?.directorGroup || 'A组导演组', user: '制片助理B', type: '图片生成', model: 'Seedream 5.0', credit: 2, status: 'reserved', nodeTitle: '角色参考图' },
+          { id: 'mock_3', project: currentProject?.name || '演示项目', group: currentProject?.directorGroup || 'A组导演组', user: '导演A', type: '文本分析', model: 'Xiaomi MiMo 2.5 Pro', credit: 1, status: 'refunded', nodeTitle: '剧本角色表' },
+      ];
+      const rows = taskRows.length ? taskRows : fallbackRows;
+      const total = rows.reduce((sum, row) => sum + row.credit, 0);
+      const confirmed = rows.filter(row => row.status === 'confirmed').reduce((sum, row) => sum + row.credit, 0);
+      const reserved = rows.filter(row => row.status === 'reserved').reduce((sum, row) => sum + row.credit, 0);
+      const refunded = rows.filter(row => row.status === 'refunded').reduce((sum, row) => sum + row.credit, 0);
+
+      return (
+          <div className="fixed inset-0 z-[250] bg-black/70 backdrop-blur-md p-6" onClick={() => setIsCreditDashboardOpen(false)}>
+              <div className={`mx-auto flex h-full max-w-6xl flex-col rounded-3xl border shadow-2xl ${isDark ? 'border-zinc-800 bg-[#121417] text-zinc-100' : 'border-gray-200 bg-white text-gray-900'}`} onClick={(event) => event.stopPropagation()}>
+                  <div className={`flex items-center justify-between border-b px-6 py-4 ${isDark ? 'border-zinc-800' : 'border-gray-100'}`}>
+                      <div>
+                          <h3 className="text-xl font-bold">后台积分看板</h3>
+                          <p className={`mt-1 text-sm ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>按项目、导演组、人员、模型和任务类型查看画布消耗。</p>
+                      </div>
+                      <button className={`h-10 w-10 rounded-full flex items-center justify-center ${isDark ? 'hover:bg-zinc-800 text-zinc-400 hover:text-white' : 'hover:bg-gray-100 text-gray-500 hover:text-gray-900'}`} onClick={() => setIsCreditDashboardOpen(false)}>
+                          <Icons.X size={22} />
+                      </button>
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-4 p-6">
+                      {[
+                          ['今日消耗', total],
+                          ['已确认扣减', confirmed],
+                          ['当前预扣', reserved],
+                          ['失败返还', refunded],
+                      ].map(([label, value]) => (
+                          <div key={String(label)} className={`rounded-2xl border p-4 ${isDark ? 'border-zinc-800 bg-zinc-950/45' : 'border-gray-200 bg-gray-50'}`}>
+                              <div className={`text-xs ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>{label}</div>
+                              <div className="mt-2 text-2xl font-bold tabular-nums">{value}</div>
+                              <div className={`mt-1 text-[11px] ${isDark ? 'text-zinc-600' : 'text-gray-400'}`}>积分</div>
+                          </div>
+                      ))}
+                  </div>
+
+                  <div className="flex-1 overflow-auto px-6 pb-6">
+                      <table className="w-full border-separate border-spacing-y-2 text-sm">
+                          <thead>
+                              <tr className={isDark ? 'text-zinc-500' : 'text-gray-500'}>
+                                  {['项目', '导演组', '人员', '任务类型', '模型', '节点', '积分', '状态'].map(head => (
+                                      <th key={head} className="px-3 py-2 text-left text-xs font-semibold">{head}</th>
+                                  ))}
+                              </tr>
+                          </thead>
+                          <tbody>
+                              {rows.map(row => (
+                                  <tr key={row.id} className={isDark ? 'bg-zinc-950/55 text-zinc-200' : 'bg-gray-50 text-gray-800'}>
+                                      <td className="rounded-l-xl px-3 py-3">{row.project}</td>
+                                      <td className="px-3 py-3">{row.group}</td>
+                                      <td className="px-3 py-3">{row.user}</td>
+                                      <td className="px-3 py-3">{row.type}</td>
+                                      <td className="px-3 py-3">{row.model}</td>
+                                      <td className="px-3 py-3">{row.nodeTitle}</td>
+                                      <td className="px-3 py-3 font-semibold tabular-nums">{row.credit}</td>
+                                      <td className="rounded-r-xl px-3 py-3">
+                                          <span className={`rounded-lg px-2 py-1 text-xs font-semibold ${
+                                              row.status === 'confirmed'
+                                                  ? (isDark ? 'bg-emerald-500/10 text-emerald-300' : 'bg-emerald-50 text-emerald-700')
+                                                  : row.status === 'reserved'
+                                                      ? (isDark ? 'bg-blue-500/10 text-blue-300' : 'bg-blue-50 text-blue-700')
+                                                      : row.status === 'refunded'
+                                                          ? (isDark ? 'bg-zinc-800 text-zinc-300' : 'bg-gray-100 text-gray-600')
+                                                          : (isDark ? 'bg-amber-500/10 text-amber-300' : 'bg-amber-50 text-amber-700')
+                                          }`}>
+                                              {statusText[row.status] || row.status}
+                                          </span>
+                                      </td>
+                                  </tr>
+                              ))}
+                          </tbody>
+                      </table>
+                  </div>
+              </div>
+          </div>
+      );
+  };
+
+  const renderCreditDashboardV2 = () => {
+      if (!isCreditDashboardOpen) return null;
+      const statusText: Record<string, string> = {
+          estimated: '预计',
+          reserved: '已预扣',
+          confirmed: '已扣除',
+          refunded: '已返还',
+          failed: '异常',
+          idle: '未开始',
+      };
+      const rows = getCreditRows();
+      const activeProjectId = creditProjectId || currentProject?.id || projects[0]?.id || 'all';
+      const visibleRows = activeProjectId === 'all' ? rows : rows.filter(row => row.projectId === activeProjectId);
+      const total = visibleRows.reduce((sum, row) => sum + row.credit, 0);
+      const confirmed = visibleRows.filter(row => row.status === 'confirmed').reduce((sum, row) => sum + row.credit, 0);
+      const reserved = visibleRows.filter(row => row.status === 'reserved').reduce((sum, row) => sum + row.credit, 0);
+      const refunded = visibleRows.filter(row => row.status === 'refunded').reduce((sum, row) => sum + row.credit, 0);
+      const projectSummaries = projects.map(project => {
+          const projectRows = rows.filter(row => row.projectId === project.id);
+          return {
+              ...project,
+              total: projectRows.reduce((sum, row) => sum + row.credit, 0),
+              confirmed: projectRows.filter(row => row.status === 'confirmed').reduce((sum, row) => sum + row.credit, 0),
+              reserved: projectRows.filter(row => row.status === 'reserved').reduce((sum, row) => sum + row.credit, 0),
+          };
+      });
+
+      return (
+          <div className="fixed inset-0 z-[250] bg-black/70 backdrop-blur-md p-6" onClick={() => setIsCreditDashboardOpen(false)}>
+              <div className={`mx-auto flex h-full max-w-6xl flex-col rounded-3xl border shadow-2xl ${isDark ? 'border-zinc-800 bg-[#121417] text-zinc-100' : 'border-gray-200 bg-white text-gray-900'}`} onClick={(event) => event.stopPropagation()}>
+                  <div className={`flex items-center gap-4 border-b px-6 py-4 ${isDark ? 'border-zinc-800' : 'border-gray-100'}`}>
+                      <div className="min-w-0 flex-1">
+                          <h3 className="text-xl font-bold">项目积分看板</h3>
+                          <p className={`mt-1 text-sm ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>查看所有项目的大体消耗，默认展开当前项目明细。</p>
+                      </div>
+                      <select
+                          value={activeProjectId}
+                          onChange={(event) => setCreditProjectId(event.target.value)}
+                          className={`h-10 rounded-xl border px-3 text-sm outline-none ${isDark ? 'border-zinc-700 bg-zinc-950 text-zinc-200' : 'border-gray-200 bg-white text-gray-700'}`}
+                      >
+                          <option value="all">全部项目</option>
+                          {projects.map(project => (
+                              <option key={project.id} value={project.id}>{project.name}</option>
+                          ))}
+                      </select>
+                      <button className={`h-10 w-10 rounded-full flex items-center justify-center ${isDark ? 'hover:bg-zinc-800 text-zinc-400 hover:text-white' : 'hover:bg-gray-100 text-gray-500 hover:text-gray-900'}`} onClick={() => setIsCreditDashboardOpen(false)}>
+                          <Icons.X size={22} />
+                      </button>
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-4 px-6 pt-6">
+                      {[
+                          ['当前查看消耗', total],
+                          ['已确认扣除', confirmed],
+                          ['当前预扣', reserved],
+                          ['失败返还', refunded],
+                      ].map(([label, value]) => (
+                          <div key={String(label)} className={`rounded-2xl border p-4 ${isDark ? 'border-zinc-800 bg-zinc-950/45' : 'border-gray-200 bg-gray-50'}`}>
+                              <div className={`text-xs ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>{label}</div>
+                              <div className="mt-2 text-2xl font-bold tabular-nums">{value}</div>
+                              <div className={`mt-1 text-[11px] ${isDark ? 'text-zinc-600' : 'text-gray-400'}`}>积分</div>
+                          </div>
+                      ))}
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-3 px-6 py-4">
+                      {projectSummaries.map(project => (
+                          <button
+                              key={project.id}
+                              onClick={() => setCreditProjectId(project.id)}
+                              className={`rounded-2xl border p-3 text-left transition-all ${
+                                  activeProjectId === project.id
+                                      ? (isDark ? 'border-blue-500/60 bg-blue-500/10' : 'border-blue-300 bg-blue-50')
+                                      : (isDark ? 'border-zinc-800 bg-zinc-950/35 hover:border-zinc-700' : 'border-gray-200 bg-gray-50 hover:border-gray-300')
+                              }`}
+                          >
+                              <div className="truncate text-sm font-bold">{project.name}</div>
+                              <div className={`mt-1 truncate text-xs ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>{project.directorGroup}</div>
+                              <div className="mt-3 flex items-center justify-between text-xs">
+                                  <span className={isDark ? 'text-zinc-500' : 'text-gray-500'}>总消耗</span>
+                                  <span className="font-bold tabular-nums">{project.total}</span>
+                              </div>
+                          </button>
+                      ))}
+                  </div>
+
+                  <div className="flex-1 overflow-auto px-6 pb-6">
+                      <table className="w-full border-separate border-spacing-y-2 text-sm">
+                          <thead>
+                              <tr className={isDark ? 'text-zinc-500' : 'text-gray-500'}>
+                                  {['项目', '导演组', '人员', '任务类型', '模型', '节点', '积分', '状态'].map(head => (
+                                      <th key={head} className="px-3 py-2 text-left text-xs font-semibold">{head}</th>
+                                  ))}
+                              </tr>
+                          </thead>
+                          <tbody>
+                              {visibleRows.map(row => (
+                                  <tr key={row.id} className={isDark ? 'bg-zinc-950/55 text-zinc-200' : 'bg-gray-50 text-gray-800'}>
+                                      <td className="rounded-l-xl px-3 py-3">{row.project}</td>
+                                      <td className="px-3 py-3">{row.group}</td>
+                                      <td className="px-3 py-3">{row.user}</td>
+                                      <td className="px-3 py-3">{row.type}</td>
+                                      <td className="px-3 py-3">{row.model}</td>
+                                      <td className="px-3 py-3">{row.nodeTitle}</td>
+                                      <td className="px-3 py-3 font-semibold tabular-nums">{row.credit}</td>
+                                      <td className="rounded-r-xl px-3 py-3">
+                                          <span className={`rounded-lg px-2 py-1 text-xs font-semibold ${
+                                              row.status === 'confirmed'
+                                                  ? (isDark ? 'bg-emerald-500/10 text-emerald-300' : 'bg-emerald-50 text-emerald-700')
+                                                  : row.status === 'reserved'
+                                                      ? (isDark ? 'bg-blue-500/10 text-blue-300' : 'bg-blue-50 text-blue-700')
+                                                      : row.status === 'refunded'
+                                                          ? (isDark ? 'bg-zinc-800 text-zinc-300' : 'bg-gray-100 text-gray-600')
+                                                          : (isDark ? 'bg-amber-500/10 text-amber-300' : 'bg-amber-50 text-amber-700')
+                                          }`}>
+                                              {statusText[row.status] || row.status}
+                                          </span>
+                                      </td>
+                                  </tr>
+                              ))}
+                          </tbody>
+                      </table>
+                  </div>
+              </div>
+          </div>
+      );
+  };
+
+  const renderUserCreditPopover = () => {
+      if (!isUserCreditOpen) return null;
+      const stats = getUserCreditStats();
+      const confirmed = stats.rows.filter(row => row.status === 'confirmed').reduce((sum, row) => sum + row.credit, 0);
+      const reserved = stats.rows.filter(row => row.status === 'reserved').reduce((sum, row) => sum + row.credit, 0);
+
+      return (
+          <div
+              className={`absolute right-4 top-16 z-[120] w-80 rounded-2xl border p-4 shadow-2xl backdrop-blur-xl ${isDark ? 'border-zinc-800 bg-[#18181b]/95 text-zinc-100' : 'border-gray-200 bg-white/95 text-gray-900'}`}
+              onMouseDown={(event) => event.stopPropagation()}
+          >
+              <div className="flex items-center justify-between">
+                  <div>
+                      <div className="text-sm font-bold">当前用户积分</div>
+                      <div className={`mt-1 text-xs ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>{CURRENT_USER_NAME} 的可用额度和使用明细</div>
+                  </div>
+                  <button className={`h-8 w-8 rounded-lg flex items-center justify-center ${isDark ? 'hover:bg-zinc-800 text-zinc-500' : 'hover:bg-gray-100 text-gray-500'}`} onClick={() => setIsUserCreditOpen(false)}>
+                      <Icons.X size={16} />
+                  </button>
+              </div>
+              <div className="mt-4 grid grid-cols-3 gap-2">
+                  {[
+                      ['可用', stats.available],
+                      ['已扣', confirmed],
+                      ['预扣', reserved],
+                  ].map(([label, value]) => (
+                      <div key={String(label)} className={`rounded-xl border p-3 ${isDark ? 'border-zinc-800 bg-zinc-950/45' : 'border-gray-200 bg-gray-50'}`}>
+                          <div className={`text-[11px] ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>{label}</div>
+                          <div className="mt-1 text-lg font-bold tabular-nums">{value}</div>
+                      </div>
+                  ))}
+              </div>
+              <div className="mt-3 max-h-56 overflow-y-auto custom-scrollbar space-y-2">
+                  {stats.rows.slice(0, 6).map(row => (
+                      <div key={row.id} className={`rounded-xl px-3 py-2 text-xs ${isDark ? 'bg-zinc-950/55' : 'bg-gray-50'}`}>
+                          <div className="flex items-center justify-between gap-3">
+                              <span className="truncate font-semibold">{row.nodeTitle}</span>
+                              <span className="tabular-nums">{row.credit}</span>
+                          </div>
+                          <div className={`mt-1 truncate ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>{row.project} / {row.type}</div>
+                      </div>
+                  ))}
+              </div>
+          </div>
+      );
+  };
+
+  const renderCanvasNavigator = () => {
+      const metrics = getMiniMapMetrics();
+      const panelClass = isDark ? 'border-zinc-800 bg-[#18181b]/95 text-zinc-100' : 'border-gray-200 bg-white/95 text-gray-900';
+      const buttonClass = isDark ? 'text-zinc-400 hover:bg-white/5 hover:text-white' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900';
+
+      return (
+          <div className="absolute bottom-4 left-4 z-50 flex flex-col gap-2">
+              {isMiniMapOpen && (
+                  <div className={`rounded-2xl border p-2 shadow-2xl backdrop-blur-xl ${panelClass}`}>
+                      <div
+                          className={`relative overflow-hidden rounded-xl border cursor-crosshair ${isDark ? 'border-zinc-700 bg-zinc-950/70' : 'border-gray-200 bg-gray-50'}`}
+                          style={{ width: metrics.miniWidth, height: metrics.miniHeight }}
+                          onMouseDown={(event) => {
+                              event.stopPropagation();
+                              jumpToMiniMapPoint(event);
+                          }}
+                          title="点击小地图快速移动画布"
+                      >
+                          <svg width={metrics.miniWidth} height={metrics.miniHeight} className="absolute inset-0">
+                              {metrics.nodeRects.map(rect => (
+                                  <rect
+                                      key={rect.id}
+                                      x={rect.x}
+                                      y={rect.y}
+                                      width={rect.width}
+                                      height={rect.height}
+                                      rx={2}
+                                      fill={rect.selected ? '#60a5fa' : (isDark ? '#71717a' : '#9ca3af')}
+                                      opacity={rect.selected ? 0.9 : 0.55}
+                                  />
+                              ))}
+                              <rect
+                                  x={metrics.viewportRect.x}
+                                  y={metrics.viewportRect.y}
+                                  width={metrics.viewportRect.width}
+                                  height={metrics.viewportRect.height}
+                                  fill="transparent"
+                                  stroke={isDark ? '#e5e7eb' : '#111827'}
+                                  strokeWidth={1.5}
+                                  strokeDasharray="4 3"
+                              />
+                          </svg>
+                      </div>
+                  </div>
+              )}
+              <div className={`flex items-center gap-1 rounded-2xl border px-2 py-1.5 shadow-xl backdrop-blur-xl ${panelClass}`}>
+                  <button className={`h-9 w-9 rounded-xl flex items-center justify-center ${buttonClass}`} title="小地图" onClick={() => setIsMiniMapOpen(prev => !prev)}>
+                      <Icons.Map size={17} />
+                  </button>
+                  <button className={`h-9 w-9 rounded-xl flex items-center justify-center ${buttonClass}`} title="整理画布" onClick={arrangeCanvasNodes}>
+                      <Icons.LayoutGrid size={17} />
+                  </button>
+                  <button className={`h-9 w-9 rounded-xl flex items-center justify-center ${buttonClass}`} title={isDark ? '切换亮色' : '切换暗色'} onClick={() => toggleTheme(!isDark)}>
+                      {isDark ? <Icons.Moon size={17} /> : <Icons.Sun size={17} />}
+                  </button>
+                  <div className={`mx-1 h-5 w-px ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`} />
+                  <button className={`h-9 w-9 rounded-xl flex items-center justify-center ${buttonClass}`} title="缩小" onClick={() => zoomCanvas(-1)}>
+                      <Icons.Minus size={16} />
+                  </button>
+                  <span className={`min-w-12 text-center text-sm font-semibold tabular-nums ${isDark ? 'text-zinc-200' : 'text-gray-700'}`}>{Math.round(transform.k * 100)}%</span>
+                  <button className={`h-9 w-9 rounded-xl flex items-center justify-center ${buttonClass}`} title="放大" onClick={() => zoomCanvas(1)}>
+                      <Icons.Plus size={18} />
+                  </button>
+              </div>
+          </div>
       );
   };
 
@@ -1049,7 +2954,6 @@ const CanvasWithSidebar: React.FC = () => {
             {contextMenu.type === 'NODE' && contextMenu.nodeId && (() => {
                 const menuItemClass = `text-left px-3 py-2 text-xs transition-all duration-150 flex items-center gap-2.5 rounded-md mx-1 ${isDark ? 'text-gray-300 hover:bg-zinc-800/80 hover:text-white' : 'text-gray-700 hover:bg-gray-100 hover:text-black'}`;
                 const node = nodes.find(n => n.id === contextMenu.nodeId);
-                const canToggleVideoType = node?.type === NodeType.TEXT_TO_VIDEO || node?.type === NodeType.START_END_TO_VIDEO;
                 
                 return (
                     <>
@@ -1058,12 +2962,7 @@ const CanvasWithSidebar: React.FC = () => {
                         </button>
                         {contextMenu.nodeType === NodeType.ORIGINAL_IMAGE && (
                             <button className={menuItemClass} onClick={() => { triggerReplaceImage(contextMenu.nodeId!); setContextMenu(null); }}>
-                                <Icons.Upload size={14}/> 替换图片
-                            </button>
-                        )}
-                        {canToggleVideoType && (
-                            <button className={menuItemClass} onClick={() => { if (contextMenu.nodeId) { const newNode = nodes.find(n => n.id === contextMenu.nodeId); if (newNode) { const newType = newNode.type === NodeType.TEXT_TO_VIDEO ? NodeType.START_END_TO_VIDEO : NodeType.TEXT_TO_VIDEO; updateNodeData(contextMenu.nodeId, { type: newType, title: newType === NodeType.START_END_TO_VIDEO ? '首尾帧视频' : '生视频' }); } setContextMenu(null); } }}>
-                                <Icons.RefreshCw size={14}/> {node?.type === NodeType.TEXT_TO_VIDEO ? '切换为首尾帧模式' : '切换为普通视频模式'}
+                                <Icons.Upload size={14}/> 替换素材
                             </button>
                         )}
                         <button className={menuItemClass} onClick={() => { if (contextMenu.nodeId) copyImageToClipboard(contextMenu.nodeId); setContextMenu(null); }}>
@@ -1083,19 +2982,26 @@ const CanvasWithSidebar: React.FC = () => {
                         <button className={`${menuItemClass} ${!internalClipboard ? 'opacity-40 cursor-not-allowed' : ''}`} onClick={() => { performPaste({ x: contextMenu.worldX, y: contextMenu.worldY }); setContextMenu(null); }} disabled={!internalClipboard}>
                             <Icons.Copy size={14}/> 粘贴
                         </button>
+                        <button className={menuItemClass} onClick={() => { assetImportPositionRef.current = { x: contextMenu.worldX, y: contextMenu.worldY }; assetImportConnectionRef.current = null; assetInputRef.current?.click(); setContextMenu(null); }}>
+                            <Icons.Upload size={14}/> 本地上传
+                        </button>
                         <div className={`h-px my-1.5 mx-2 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`}></div>
                         <div className={`px-3 py-1 text-[9px] font-semibold uppercase tracking-wider ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>添加节点</div>
                         <button className={menuItemClass} onClick={() => { addNode(NodeType.TEXT_TO_IMAGE, contextMenu.worldX, contextMenu.worldY); setContextMenu(null); }}>
                             <div className="w-5 h-5 rounded bg-cyan-500/10 flex items-center justify-center"><Icons.Image size={12} className="text-cyan-400"/></div>
                             <span>生图</span>
                         </button>
+                        <button className={menuItemClass} onClick={() => { addNode(NodeType.CREATIVE_DESC, contextMenu.worldX, contextMenu.worldY); setContextMenu(null); }}>
+                            <div className="w-5 h-5 rounded bg-zinc-500/10 flex items-center justify-center"><Icons.FileText size={12} className={isDark ? 'text-zinc-300' : 'text-zinc-600'}/></div>
+                            <span>文本</span>
+                        </button>
                         <button className={menuItemClass} onClick={() => { addNode(NodeType.TEXT_TO_VIDEO, contextMenu.worldX, contextMenu.worldY); setContextMenu(null); }}>
                             <div className="w-5 h-5 rounded bg-purple-500/10 flex items-center justify-center"><Icons.Video size={12} className="text-purple-400"/></div>
                             <span>生视频</span>
                         </button>
-                        <button className={menuItemClass} onClick={() => { addNode(NodeType.START_END_TO_VIDEO, contextMenu.worldX, contextMenu.worldY); setContextMenu(null); }}>
-                            <div className="w-5 h-5 rounded bg-emerald-500/10 flex items-center justify-center"><Icons.Frame size={12} className="text-emerald-400"/></div>
-                            <span>首尾帧视频</span>
+                        <button className={menuItemClass} onClick={() => { assetImportPositionRef.current = { x: contextMenu.worldX, y: contextMenu.worldY }; assetImportConnectionRef.current = null; assetInputRef.current?.click(); setContextMenu(null); }}>
+                            <div className="w-5 h-5 rounded bg-emerald-500/10 flex items-center justify-center"><Icons.Upload size={12} className="text-emerald-400"/></div>
+                            <span>上传</span>
                         </button>
                     </>
                 );
@@ -1125,13 +3031,22 @@ const CanvasWithSidebar: React.FC = () => {
                 <div className="w-6 h-6 rounded-md bg-cyan-500/10 flex items-center justify-center"><Icons.Image size={14} className="text-cyan-400"/></div>
                 <span>生图</span>
             </button>
+            <button className={menuItemClass} onClick={() => handleQuickAddNode(NodeType.CREATIVE_DESC)}>
+                <div className="w-6 h-6 rounded-md bg-zinc-500/10 flex items-center justify-center"><Icons.FileText size={14} className={isDark ? 'text-zinc-300' : 'text-zinc-600'}/></div>
+                <span>文本</span>
+            </button>
             <button className={menuItemClass} onClick={() => handleQuickAddNode(NodeType.TEXT_TO_VIDEO)}>
                 <div className="w-6 h-6 rounded-md bg-purple-500/10 flex items-center justify-center"><Icons.Video size={14} className="text-purple-400"/></div>
                 <span>生视频</span>
             </button>
-            <button className={menuItemClass} onClick={() => handleQuickAddNode(NodeType.START_END_TO_VIDEO)}>
-                <div className="w-6 h-6 rounded-md bg-emerald-500/10 flex items-center justify-center"><Icons.Frame size={14} className="text-emerald-400"/></div>
-                <span>首尾帧视频</span>
+            <button className={menuItemClass} onClick={() => {
+                assetImportPositionRef.current = { x: quickAddMenu.worldX, y: quickAddMenu.worldY };
+                assetImportConnectionRef.current = { sourceId: quickAddMenu.sourceId, direction: quickAddMenu.direction };
+                assetInputRef.current?.click();
+                setQuickAddMenu(null);
+            }}>
+                <div className="w-6 h-6 rounded-md bg-emerald-500/10 flex items-center justify-center"><Icons.Upload size={14} className="text-emerald-400"/></div>
+                <span>上传</span>
             </button>
             
         </div>
@@ -1142,62 +3057,29 @@ const CanvasWithSidebar: React.FC = () => {
       setCanvasBg(dark ? '#0B0C0E' : '#F5F7FA');
   };
 
+  if (isCheckingAuth) {
+      return (
+          <div className="w-full h-screen flex items-center justify-center bg-[#0b0c0e] text-zinc-300">
+              <Icons.Loader2 size={24} className="animate-spin mr-2" />
+              加载中...
+          </div>
+      );
+  }
+
+  if (!isAuthenticated) {
+      return <LoginScreen onLogin={() => setIsAuthenticated(true)} />;
+  }
+
+  if (!currentProject) {
+      return renderProjectDashboardV2();
+  }
+
   return (
     <div className="w-full h-screen overflow-hidden flex relative font-sans text-gray-800">
-        {assetLibraryPopup && (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={handleAssetLibraryPopupClose}>
-          <div className={`rounded-2xl border shadow-2xl w-[400px] max-h-[500px] overflow-hidden ${isDark ? 'bg-zinc-900 border-zinc-700' : 'bg-white border-gray-200'}`} onClick={e => e.stopPropagation()}>
-            <div className={`px-5 py-4 border-b ${isDark ? 'border-zinc-800' : 'border-gray-100'} flex items-center justify-between`}>
-              <h3 className={`text-base font-bold ${isDark ? 'text-zinc-100' : 'text-gray-900'}`}>添加到资产素材库</h3>
-              <button onClick={handleAssetLibraryPopupClose} className={`p-1.5 rounded-lg ${isDark ? 'hover:bg-zinc-800 text-zinc-400' : 'hover:bg-gray-100 text-gray-500'}`}>✕</button>
-            </div>
-            <div className="p-5 space-y-3 overflow-y-auto max-h-[420px]">
-              {assetLibraryPopup.nodeType === 'image' ? (
-                <>
-                  <p className={`text-sm font-semibold ${isDark ? 'text-zinc-300' : 'text-gray-700'}`}>图片节点 — 选择添加方式</p>
-                  <div className="space-y-2">
-                    <p className={`text-xs font-semibold ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>资产</p>
-                    {(['role', 'scene', 'prop'] as const).map(type => (
-                      <button key={type} className={`w-full text-left p-3 rounded-xl border transition-all ${isDark ? 'border-zinc-800 hover:border-zinc-600 hover:bg-zinc-800/50' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}`}
-                        onClick={() => handleAddToAssetLibraryConfirm(type)}>
-                        <span className={`text-sm font-semibold ${isDark ? 'text-zinc-100' : 'text-gray-900'}`}>
-                          {type === 'role' ? '角色' : type === 'scene' ? '场景' : '道具'}
-                        </span>
-                        <span className={`block text-xs mt-0.5 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>筛选/搜索后精准添加到对应资产</span>
-                      </button>
-                    ))}
-                    <button className={`w-full text-left p-3 rounded-xl border transition-all ${isDark ? 'border-zinc-800 hover:border-zinc-600 hover:bg-zinc-800/50' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}`}
-                      onClick={() => handleAddToAssetLibraryConfirm('role', '', 'new')}>
-                      <span className={`text-sm font-semibold ${isDark ? 'text-green-300' : 'text-green-600'}`}>+ 新建资产</span>
-                      <span className={`block text-xs mt-0.5 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>选择类型并命名后添加到资产库</span>
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <p className={`text-sm font-semibold ${isDark ? 'text-zinc-300' : 'text-gray-700'}`}>视频节点 — 添加到分镜视频</p>
-                  <div className="space-y-2">
-                    <button className={`w-full text-left p-3 rounded-xl border transition-all ${isDark ? 'border-zinc-800 hover:border-zinc-600 hover:bg-zinc-800/50' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}`}
-                      onClick={() => handleAddToAssetLibraryConfirm('shot_clip')}>
-                      <span className={`text-sm font-semibold ${isDark ? 'text-zinc-100' : 'text-gray-900'}`}>添加到分镜片段</span>
-                      <span className={`block text-xs mt-0.5 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>按集/镜次进行筛选后添加</span>
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-      <WelcomeModal
+        <WelcomeModal
             isOpen={isWelcomeOpen}
             onClose={() => setIsWelcomeOpen(false)}
             isDark={isDark}
-        />
-        <SettingsModal 
-            isOpen={isSettingsOpen} 
-            onClose={() => setIsSettingsOpen(false)} 
-            isDark={isDark} 
         />
         <StorageModal
             isOpen={isStorageOpen}
@@ -1219,15 +3101,27 @@ const CanvasWithSidebar: React.FC = () => {
         <Sidebar 
           onAddNode={addNode} 
           onNewWorkflow={handleNewWorkflow}
+          onSaveProject={() => handleSaveProject()}
+          onBackToProjects={returnToProjectManagement}
+          onOpenCreditDashboard={() => setIsCreditDashboardOpen(true)}
           onImportAsset={() => assetInputRef.current?.click()}
           onOpenExportImport={() => setIsExportImportOpen(true)}
           nodes={[...nodes, ...deletedNodes]}
           onPreviewMedia={handleHistoryPreview}
+          onSaveAsset={saveAssetFile}
+          onOpenSaveResult={openSaveResultModal}
+          onCopyAsset={copyAssetToClipboard}
+          onDeleteAsset={deleteAssetFromLibrary}
+          assetLibrary={DEMO_ASSET_LIBRARY}
+          onAddAssetToCanvas={handleAddAssetToCanvas}
+          onAddMaterialToCanvas={handleAddMaterialToCanvas}
+          onToggleMaterialFavorite={handleToggleMaterialFavorite}
           isDark={isDark}
         />
         <input type="file" ref={workflowInputRef} hidden accept=".aistudio-flow,.json" onChange={handleLoadWorkflow} />
-        <input type="file" ref={assetInputRef} hidden accept="image/*,video/*" onChange={handleImportAsset} />
-        <input type="file" ref={replaceImageRef} hidden accept="image/*" onChange={handleReplaceImage} />
+        <input type="file" ref={assetInputRef} hidden accept="image/*,video/*,.txt,.md,.markdown,text/plain" onChange={handleImportAsset} />
+        <input type="file" ref={replaceImageRef} hidden accept="image/*,video/*" onChange={handleReplaceImage} />
+        <input type="file" ref={attachInputRef} hidden accept="image/*,video/*,.txt,.md,text/plain" onChange={handleAttachInputAsset} />
         <div 
             ref={containerRef}
             className={`flex-1 w-full h-full relative grid-pattern select-none ${dragMode === 'PAN' ? 'cursor-grabbing' : 'cursor-grab'}`}
@@ -1235,7 +3129,6 @@ const CanvasWithSidebar: React.FC = () => {
                 backgroundColor: canvasBg,
                 '--grid-color': isDark ? '#27272a' : '#E4E4E7'
             } as React.CSSProperties}
-            onWheel={handleWheel}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
@@ -1279,7 +3172,7 @@ const CanvasWithSidebar: React.FC = () => {
                     const isSelected = selectedConnectionId === conn.id;
                     
                     // 连接线颜色
-                    const lineColor = isSelected ? "#3b82f6" : (isDark ? "#6b7280" : "#9ca3af");
+                    const lineColor = isSelected ? (isDark ? "#d4d4d8" : "#52525b") : (isDark ? "#71717a" : "#9ca3af");
                     
                     // 计算贝塞尔曲线上 t=0.5 的实际中点位置
                     const t = 0.5;
@@ -1317,22 +3210,41 @@ const CanvasWithSidebar: React.FC = () => {
                             <path 
                                 d={d} 
                                 stroke={lineColor}
-                                strokeWidth={isSelected ? 3 : 2} 
+                                strokeWidth={isSelected ? 2.5 : 2}
                                 fill="none" 
                                 strokeLinecap="round"
+                                strokeDasharray="2 10"
+                                opacity={isSelected ? 0.9 : 0.56}
                                 style={{ pointerEvents: 'none' }}
-                            />
+                            >
+                                <animate
+                                    attributeName="stroke-dashoffset"
+                                    from="0"
+                                    to="-12"
+                                    dur="1.25s"
+                                    repeatCount="indefinite"
+                                />
+                            </path>
                             {/* 选中时的发光效果 */}
                             {isSelected && (
                                 <path 
                                     d={d} 
-                                    stroke="#3b82f6"
-                                    strokeWidth={6} 
+                                    stroke={lineColor}
+                                    strokeWidth={5}
                                     fill="none" 
                                     strokeLinecap="round"
-                                    opacity={0.3}
+                                    strokeDasharray="2 10"
+                                    opacity={0.16}
                                     style={{ pointerEvents: 'none' }}
-                                />
+                                >
+                                    <animate
+                                        attributeName="stroke-dashoffset"
+                                        from="0"
+                                        to="-12"
+                                        dur="1.25s"
+                                        repeatCount="indefinite"
+                                    />
+                                </path>
                             )}
                             {/* 删除按钮 - 使用纯 SVG 实现 */}
                             {isSelected && (
@@ -1378,26 +3290,30 @@ const CanvasWithSidebar: React.FC = () => {
                 {dragMode === 'CONNECT' && connectionStartRef.current && tempConnection && (() => {
                     const sourceNode = nodes.find(n => n.id === connectionStartRef.current?.nodeId);
                     if (!sourceNode) return null;
-                    
-                    const sx = sourceNode.x + sourceNode.width;
+
+                    // 反向连接(从输入端口拖出)时，预览线从节点左侧出发，曲线向左弯。
+                    const fromSource = connectionStartRef.current?.type === 'source';
+                    const sx = fromSource ? sourceNode.x + sourceNode.width : sourceNode.x;
                     const sy = sourceNode.y + sourceNode.height / 2;
                     const tx = tempConnection.x;
                     const ty = tempConnection.y;
-                    
+
                     const dist = Math.abs(tx - sx);
                     const cp = Math.max(30, dist * 0.3);
-                    
+
                     const minX = Math.min(sx, tx) - cp - 20;
                     const minY = Math.min(sy, ty) - 20;
                     const maxX = Math.max(sx, tx) + cp + 20;
                     const maxY = Math.max(sy, ty) + 20;
-                    
+
                     const relSx = sx - minX;
                     const relSy = sy - minY;
                     const relTx = tx - minX;
                     const relTy = ty - minY;
-                    
-                    const d = `M ${relSx} ${relSy} C ${relSx + cp} ${relSy}, ${relTx - cp} ${relTy}, ${relTx} ${relTy}`;
+
+                    const c1x = fromSource ? relSx + cp : relSx - cp;
+                    const c2x = fromSource ? relTx - cp : relTx + cp;
+                    const d = `M ${relSx} ${relSy} C ${c1x} ${relSy}, ${c2x} ${relTy}, ${relTx} ${relTy}`;
                     
                     return (
                         <svg 
@@ -1440,6 +3356,7 @@ const CanvasWithSidebar: React.FC = () => {
                         onConnectStart={(e, type) => handleConnectStart(e, node.id, type)}
                         onPortMouseUp={handlePortMouseUp}
                         onResizeStart={(e) => handleResizeStart(e, node.id)}
+                        onAttachInput={triggerAttachInput}
                         scale={transform.k}
                         isDark={isDark}
                     >
@@ -1450,12 +3367,20 @@ const CanvasWithSidebar: React.FC = () => {
                             selected={selectedNodeIds.has(node.id)}
                             showControls={selectedNodeIds.size === 1}
                             inputs={getInputImages(node.id)}
+                            inputMedia={getInputMedia(node.id)}
+                            onPreviewReference={handlePreviewReference}
                             onMaximize={handleMaximize}
                             onDownload={handleDownload}
                             onUpload={triggerReplaceImage}
+                            onSaveResult={openSaveResultModal}
+                            onCrop={handleCropStart}
+                            onMultiAngle={handleMultiAngleGenerate}
+                            onAnalyzeMedia={handleAnalyzeMedia}
+                            onAnalyzeScript={handleAnalyzeScript}
                             isSelecting={dragMode === 'SELECT'}
                             onDelete={deleteNode}
                             isDark={isDark}
+                            canvasScale={transform.k}
                         />
                     </BaseNode>
                 ))}
@@ -1464,7 +3389,7 @@ const CanvasWithSidebar: React.FC = () => {
                 <div className={`fixed z-50 border rounded-xl shadow-2xl p-2 flex flex-col gap-1 w-48 pointer-events-auto ${isDark ? 'bg-[#1A1D21] border-zinc-700' : 'bg-white border-gray-200'}`} style={{ left: lastMousePosRef.current.x + 20, top: lastMousePosRef.current.y }}>
                     <div className={`text-[10px] uppercase font-bold px-2 py-1 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Quick Connect</div>
                     {suggestedNodes.map(node => (
-                        <button key={node.id} className={`flex items-center gap-2 px-2 py-1.5 rounded text-left text-xs transition-colors ${isDark ? 'hover:bg-zinc-800 text-gray-300 hover:text-cyan-400' : 'hover:bg-gray-100 text-gray-700 hover:text-cyan-600'}`} onClick={(e) => { e.stopPropagation(); createConnection(connectionStartRef.current!.nodeId, node.id); }}>
+                        <button key={node.id} className={`flex items-center gap-2 px-2 py-1.5 rounded text-left text-xs transition-colors ${isDark ? 'hover:bg-zinc-800 text-gray-300 hover:text-cyan-400' : 'hover:bg-gray-100 text-gray-700 hover:text-cyan-600'}`} onClick={(e) => { e.stopPropagation(); const start = connectionStartRef.current!; if (start.type === 'source') createConnection(start.nodeId, node.id); else createConnection(node.id, start.nodeId); }}>
                             {node.type === NodeType.TEXT_TO_VIDEO ? <Icons.Video size={12} /> : <Icons.Image size={12} />}<span className="truncate">{node.title}</span>
                         </button>
                     ))}
@@ -1476,45 +3401,67 @@ const CanvasWithSidebar: React.FC = () => {
             
             {/* Top Left Project Name */}
             <div className="absolute top-4 left-4 z-50">
-                <div className={`flex items-center gap-2.5 px-2 py-1.5 rounded-2xl backdrop-blur-xl border transition-all duration-300 ${
+                <div className={`flex items-center gap-3 px-2.5 py-2 rounded-2xl backdrop-blur-xl border transition-all duration-300 ${
                     isDark 
                         ? 'bg-[#18181b]/90 border-zinc-800 shadow-xl' 
                         : 'bg-white/90 border-gray-200 shadow-lg'
                 }`}>
+                    <button
+                        type="button"
+                        onClick={returnToProjectManagement}
+                        title="返回项目列表"
+                        aria-label="返回项目列表"
+                        className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 font-bold transition-all ${
+                            isDark
+                                ? 'text-blue-300 hover:bg-blue-500/15 hover:text-blue-200'
+                                : 'text-blue-600 hover:bg-blue-50 hover:text-blue-700'
+                        }`}
+                    >
+                        <Icons.ChevronLeft size={18} strokeWidth={2.8} />
+                    </button>
                     {/* Logo */}
-                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
                         isDark ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-100 text-blue-600'
                     }`}>
                         <Icons.Sparkles size={16} />
                     </div>
                     
-                    {/* Project Name */}
-                    {isEditingProjectName ? (
-                        <input
-                            type="text"
-                            value={projectName}
-                            onChange={(e) => setProjectName(e.target.value)}
-                            onBlur={() => setIsEditingProjectName(false)}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter') setIsEditingProjectName(false);
-                                if (e.key === 'Escape') setIsEditingProjectName(false);
-                            }}
-                            autoFocus
-                            className={`w-36 px-2 py-1 rounded-lg text-sm font-medium border-0 outline-none bg-transparent ${
-                                isDark ? 'text-white' : 'text-gray-900'
-                            }`}
-                            placeholder="项目名称..."
-                        />
-                    ) : (
-                        <button
-                            onClick={() => setIsEditingProjectName(true)}
-                            className={`text-sm font-medium max-w-[140px] truncate transition-colors ${
-                                isDark ? 'text-gray-200 hover:text-white' : 'text-gray-800 hover:text-black'
-                            }`}
-                        >
-                            {projectName}
-                        </button>
-                    )}
+                    <div className="min-w-0">
+                        {isEditingProjectName ? (
+                            <input
+                                type="text"
+                                value={projectName}
+                                onChange={(e) => setProjectName(e.target.value)}
+                                onBlur={() => setIsEditingProjectName(false)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') setIsEditingProjectName(false);
+                                    if (e.key === 'Escape') setIsEditingProjectName(false);
+                                }}
+                                autoFocus
+                                className={`w-48 px-2 py-1 rounded-lg text-sm font-medium border-0 outline-none bg-transparent ${
+                                    isDark ? 'text-white' : 'text-gray-900'
+                                }`}
+                                placeholder="项目名称..."
+                            />
+                        ) : (
+                            <button
+                                onClick={() => setIsEditingProjectName(true)}
+                                className={`block text-left text-sm font-bold max-w-[220px] truncate transition-colors ${
+                                    isDark ? 'text-blue-100 hover:text-blue-200' : 'text-blue-700 hover:text-blue-800'
+                                }`}
+                            >
+                                {projectName}
+                            </button>
+                        )}
+                        <div className={`mt-0.5 flex items-center gap-2 text-[10px] whitespace-nowrap ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>
+                            <span>{currentProject.id}</span>
+                            <span className={`w-1 h-1 rounded-full ${isDark ? 'bg-zinc-700' : 'bg-gray-300'}`} />
+                            <span>{currentProject.directorGroup}</span>
+                            <span className={`w-1 h-1 rounded-full ${isDark ? 'bg-zinc-700' : 'bg-gray-300'}`} />
+                            <span>{saveStatus === 'saving' ? '保存中' : saveStatus === 'failed' ? '保存失败' : currentProject.lastSavedAt}</span>
+                        </div>
+                    </div>
+
                 </div>
             </div>
 
@@ -1526,29 +3473,72 @@ const CanvasWithSidebar: React.FC = () => {
                         : 'bg-white/90 border-gray-200 shadow-lg'
                 }`}>
                     {/* Zoom */}
-                    <span className={`px-3 py-1.5 text-sm font-medium tabular-nums ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                    <span className={`hidden px-3 py-1.5 text-sm font-medium tabular-nums ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
                         {Math.round(transform.k * 100)}%
                     </span>
                     
-                    <div className={`w-px h-5 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`} />
+                    <div className={`hidden w-px h-5 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`} />
+
+                    <button
+                        onClick={() => setIsUserCreditOpen(prev => !prev)}
+                        title="当前用户积分余额"
+                        className={`flex h-9 items-center gap-1.5 rounded-xl px-3 text-sm font-semibold transition-all ${
+                            isDark ? 'bg-amber-500/10 text-amber-200 hover:bg-amber-500/20' : 'bg-amber-50 text-amber-700 hover:bg-amber-100'
+                        }`}
+                    >
+                        <Icons.Coins size={15} />
+                        <span className="tabular-nums">{getUserCreditStats().available}</span>
+                    </button>
                     
                     {/* Download */}
                     <button
+                        onClick={() => handleSaveProject()}
+                        title={saveStatus === 'saved' ? '已保存' : '保存项目'}
+                        className={`flex h-9 w-9 items-center justify-center rounded-xl text-sm font-medium transition-all ${
+                            saveStatus === 'saved'
+                                ? (isDark ? 'text-emerald-400 hover:bg-emerald-500/10' : 'text-emerald-600 hover:bg-emerald-50')
+                                : saveStatus === 'failed'
+                                    ? (isDark ? 'text-red-400 hover:bg-red-500/10' : 'text-red-600 hover:bg-red-50')
+                                    : (isDark ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100')
+                        }`}
+                    >
+                        {saveStatus === 'saving' ? <Icons.Loader2 size={15} className="animate-spin" /> : <Icons.Save size={15} />}
+                        <span className="sr-only">{saveStatus === 'saved' ? '已保存' : '保存项目'}</span>
+                    </button>
+
+                    <div className={`w-px h-5 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`} />
+
+                    {/* Download backup */}
+                    <button
                         onClick={() => setIsExportImportOpen(true)}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-all ${
+                        title="导入/导出备份"
+                        className={`flex h-9 w-9 items-center justify-center rounded-xl text-sm font-medium transition-all ${
                             isDark ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                         }`}
                     >
                         <Icons.Download size={15} />
-                        <span>下载</span>
+                        <span className="sr-only">导入/导出备份</span>
                     </button>
                     
                     <div className={`w-px h-5 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`} />
+
+                    {/* Credit dashboard */}
+                    <button
+                        onClick={() => setIsCreditDashboardOpen(true)}
+                        className={`hidden items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-all ${
+                            isDark ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                        }`}
+                    >
+                        <Icons.Database size={15} />
+                        <span>积分看板</span>
+                    </button>
+
+                    <div className={`hidden w-px h-5 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`} />
                     
                     {/* Theme */}
                     <button
                         onClick={() => toggleTheme(!isDark)}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-all ${
+                        className={`hidden items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-all ${
                             isDark ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                         }`}
                     >
@@ -1559,11 +3549,22 @@ const CanvasWithSidebar: React.FC = () => {
                     {/* Clear */}
                     <button
                         onClick={handleNewWorkflow}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-all ${
+                        title="清空画布"
+                        className={`flex h-9 w-9 items-center justify-center rounded-xl text-sm font-medium transition-all ${
                             isDark ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                         }`}
                     >
-                        <span>清空</span>
+                        <Icons.Trash2 size={15} />
+                        <span className="sr-only">清空画布</span>
+                    </button>
+                    <button
+                        onClick={returnToProjectManagement}
+                        className={`hidden items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-all ${
+                            isDark ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                        }`}
+                    >
+                        <Icons.FolderOpen size={15} />
+                        <span>项目</span>
                     </button>
                     
                     <div className={`w-px h-5 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`} />
@@ -1571,31 +3572,26 @@ const CanvasWithSidebar: React.FC = () => {
                     {/* Storage */}
                     <button
                         onClick={handleOpenStorageSettings}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-all ${
+                        title="存储设置"
+                        className={`flex h-9 w-9 items-center justify-center rounded-xl text-sm font-medium transition-all ${
                             storageDirName 
                                 ? (isDark ? 'text-emerald-400 hover:bg-emerald-500/10' : 'text-emerald-600 hover:bg-emerald-50')
                                 : (isDark ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100')
                         }`}
                     >
                         <Icons.FolderOpen size={15} />
-                        <span>存储</span>
+                        <span className="sr-only">存储设置</span>
                     </button>
                     
-                    {/* API Settings */}
-                    <button
-                        onClick={() => setIsSettingsOpen(true)}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-all ${
-                            isDark ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                        }`}
-                    >
-                        <Icons.Settings size={15} />
-                        <span>API 设置</span>
-                    </button>
                 </div>
             </div>
+            {renderCanvasNavigator()}
+            {renderUserCreditPopover()}
             {renderContextMenu()}
             {renderQuickAddMenu()}
             {renderNewWorkflowDialog()}
+            {renderSaveResultModal()}
+            {renderCreditDashboardV2()}
             {previewMedia && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md animate-in fade-in duration-200" onClick={() => setPreviewMedia(null)}>
                     <div className="relative max-w-[90vw] max-h-[90vh] bg-black rounded-lg shadow-2xl overflow-hidden border border-zinc-700" onClick={(e) => e.stopPropagation()}>
@@ -1603,6 +3599,30 @@ const CanvasWithSidebar: React.FC = () => {
                          {previewMedia.type === 'video' ? <video src={previewMedia.url} controls autoPlay className="max-w-full max-h-[90vh]" /> : <img src={previewMedia.url} alt="Preview" className="max-w-full max-h-[90vh] object-contain" />}
                     </div>
                 </div>
+            )}
+            {previewText && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md animate-in fade-in duration-200" onClick={() => setPreviewText(null)}>
+                    <div className={`relative w-[min(760px,92vw)] max-h-[86vh] rounded-2xl shadow-2xl border overflow-hidden ${isDark ? 'bg-[#18181b] border-zinc-700 text-zinc-100' : 'bg-white border-gray-200 text-gray-900'}`} onClick={(e) => e.stopPropagation()}>
+                        <div className={`h-14 px-5 flex items-center justify-between border-b ${isDark ? 'border-zinc-800' : 'border-gray-100'}`}>
+                            <div className="flex items-center gap-2 min-w-0">
+                                <Icons.FileText size={18} />
+                                <span className="font-semibold truncate">{previewText.title}</span>
+                            </div>
+                            <button className={`w-9 h-9 rounded-full flex items-center justify-center ${isDark ? 'hover:bg-zinc-800 text-zinc-400 hover:text-white' : 'hover:bg-gray-100 text-gray-500 hover:text-gray-900'}`} onClick={() => setPreviewText(null)}><Icons.X size={20} /></button>
+                        </div>
+                        <pre className={`max-h-[calc(86vh-56px)] overflow-auto whitespace-pre-wrap break-words p-5 text-sm leading-7 ${isDark ? 'text-zinc-200' : 'text-gray-700'}`}>{previewText.text}</pre>
+                    </div>
+                </div>
+            )}
+            {cropTarget && (
+                <CropModal
+                    imageSrc={cropTarget.imageSrc}
+                    sourceTitle={cropTarget.title}
+                    initialAspectRatio={cropTarget.aspectRatio}
+                    isDark={isDark}
+                    onClose={() => setCropTarget(null)}
+                    onConfirm={handleCropConfirm}
+                />
             )}
         </div>
     </div>
