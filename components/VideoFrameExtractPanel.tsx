@@ -6,7 +6,7 @@ interface VideoFrameExtractPanelProps {
   videoSrc: string;
   isDark: boolean;
   onClose: () => void;
-  onExtractFrame: (imageDataUrl: string, timeSeconds: number) => void;
+  onExtractFrame: (imageDataUrl: string, timeSeconds: number, videoWidth: number, videoHeight: number) => void;
 }
 
 const formatTime = (seconds: number): string => {
@@ -116,7 +116,7 @@ export const VideoFrameExtractPanel: React.FC<VideoFrameExtractPanelProps> = ({
     if (!ctx) return;
     ctx.drawImage(video, 0, 0);
     const dataUrl = canvas.toDataURL('image/png');
-    onExtractFrame(dataUrl, currentTime);
+    onExtractFrame(dataUrl, currentTime, video.videoWidth, video.videoHeight);
   };
 
   if (!isOpen) return null;

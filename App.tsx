@@ -3909,18 +3909,22 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                     videoSrc={frameExtractTarget.videoSrc}
                     isDark={isDark}
                     onClose={() => setFrameExtractTarget(null)}
-                    onExtractFrame={(imageDataUrl, timeSeconds) => {
+                    onExtractFrame={(imageDataUrl, timeSeconds, videoWidth, videoHeight) => {
                         const sourceNode = nodes.find(n => n.id === frameExtractTarget.nodeId);
                         if (!sourceNode) { setFrameExtractTarget(null); return; }
+                        const ratio = videoWidth && videoHeight ? videoWidth / videoHeight : 16 / 9;
+                        const baseSize = 480;
+                        const nodeW = ratio >= 1 ? baseSize : Math.round(baseSize * ratio);
+                        const nodeH = ratio >= 1 ? Math.round(baseSize / ratio) : baseSize;
                         const newId = `node_${Date.now()}`;
                         const newNode: NodeData = {
                             id: newId,
-                            type: NodeType.ORIGINAL_IMAGE,
+                            type: NodeType.TEXT_TO_IMAGE,
                             x: sourceNode.x + sourceNode.width + 60,
                             y: sourceNode.y,
-                            width: 400,
-                            height: 400,
-                            title: `截帧_${String(Math.floor(timeSeconds / 60)).padStart(2, '0')}${String(Math.floor(timeSeconds % 60)).padStart(2, '0')}_${sourceNode.title}`.slice(0, 30),
+                            width: nodeW,
+                            height: nodeH,
+                            title: `截帧_${String(Math.floor(timeSeconds / 60)).padStart(2, '0')}:${String(Math.floor(timeSeconds % 60)).padStart(2, '0')}_${sourceNode.title}`.slice(0, 30),
                             imageSrc: imageDataUrl,
                             source: 'canvas',
                         };
