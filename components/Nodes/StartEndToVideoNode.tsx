@@ -249,8 +249,9 @@ export const StartEndToVideoNode: React.FC<StartEndToVideoNodeProps> = ({
                              <LocalEditableTitle title={data.title} onUpdate={(t) => updateData(data.id, { title: t })} isDark={true} />
                          </div>
                          
-                         {/* Action Buttons */}
-            ) : (
+                          </div>
+                      </>
+                  ) : (
                 <div className={`w-full h-full flex flex-col items-center justify-center ${emptyStateTextColor}`}>
                     <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-4 ${emptyStateIconColor}`}>
                         <Icons.Frame size={28} className="opacity-60"/>

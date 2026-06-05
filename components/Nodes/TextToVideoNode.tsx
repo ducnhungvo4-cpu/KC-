@@ -213,8 +213,9 @@ export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
                              <LocalEditableTitle title={data.title} onUpdate={(t) => updateData(data.id, { title: t })} isDark={true} />
                          </div>
                          
-                         {/* Action Buttons */}
-            ) : (
+                          </div>
+                      </>
+                  ) : (
                 <div className={`w-full h-full flex flex-col items-center justify-center ${emptyStateTextColor}`}>
                     <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-4 ${emptyStateIconColor}`}>
                         <Icons.Film size={28} className="opacity-60"/>
