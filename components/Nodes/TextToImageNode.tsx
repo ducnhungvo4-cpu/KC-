@@ -34,7 +34,7 @@ interface TextToImageNodeProps {
 }
 
 export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
-    data, updateData, onGenerate, selected, showControls, inputs = [], inputMedia = [], onPreviewReference, onMaximize, onDownload, onUpload, onSaveResult, onCrop, onMultiAngle, onMultiGrid, onRepaint, onLighting, onPanorama, onOutpaint, onToggleFavoriteArtifact, isArtifactFavorited, isDark = true, isSelecting, canvasScale = 1
+    data, updateData, onGenerate, selected, showControls, inputs = [], inputMedia = [], onPreviewReference, onMaximize, onDownload, onUpload, onSaveResult, onCrop, onMultiAngle, onMultiGrid, onRepaint, onLighting, onPanorama, onOutpaint, onToggleFavoriteArtifact, isArtifactFavorited, onAddToAssetLibrary, isDark = true, isSelecting, canvasScale = 1
 }) => {
     const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
     const [deferredInputs, setDeferredInputs] = useState(false);
@@ -42,7 +42,7 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
     const [imageModels, setImageModels] = useState<string[]>([]);
     const [isAngleEditorOpen, setIsAngleEditorOpen] = useState(false);
     const [isFunctionMenuOpen, setIsFunctionMenuOpen] = useState(false);
-    const [isGridMenuOpen, setIsGridMenuOpen] = useState(false);
+    const [isCropMenuOpen, setIsCropMenuOpen] = useState(false);
     const [anglePrompt, setAnglePrompt] = useState('');
     const [angleConsistency, setAngleConsistency] = useState<'standard' | 'high'>('high');
     const [angleBackground, setAngleBackground] = useState<'keep' | 'clean' | 'solid'>('clean');
@@ -287,21 +287,8 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
         {isSelectedAndStable && showControls && hasResult && (
             <div className="absolute bottom-full left-1/2 mb-4 z-[75] flex flex-col items-center gap-2 pointer-events-none" style={panelTransform}>
                 {/* Multi-grid dropdown */}
-                {isGridMenuOpen && (
-                    <div className={`pointer-events-auto rounded-xl border p-1.5 shadow-2xl backdrop-blur-xl min-w-[180px] ${isDark ? 'bg-[#202020]/95 border-zinc-700' : 'bg-white/95 border-gray-200'}`} onMouseDown={(e) => e.stopPropagation()}>
-                        {['多机位九宫格','多机位九宫格4K','剧情推演四宫格','角色脸部三视图','产品三视图','25宫格连贯分镜','电影级光影校正','角色三视图生成'].map(preset => (
-                            <button key={preset} className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-colors ${isDark ? 'text-zinc-300 hover:bg-zinc-800 hover:text-white' : 'text-gray-700 hover:bg-gray-100'}`} onClick={() => { onMultiGrid?.(data.id, preset); setIsGridMenuOpen(false); }}>
-                                <Icons.LayoutGrid size={13} className="inline mr-2 opacity-60" />{preset}
-                            </button>
-                        ))}
-                    </div>
-                )}
                 {/* Main toolbar */}
                 <div className={`pointer-events-auto flex items-center gap-1.5 rounded-2xl border px-3 py-2 shadow-2xl backdrop-blur-xl ${isDark ? 'bg-[#202020]/95 border-zinc-700 text-zinc-100' : 'bg-white/95 border-gray-200 text-gray-900'}`} onMouseDown={(e) => e.stopPropagation()}>
-                    <button className={`h-9 px-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onPanorama?.(data.id)} title="基于当前图片生成 720° 全景图">
-                        <Icons.Globe size={16} />
-                        <span>全景</span>
-                    </button>
                     <button className={`h-9 px-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => setIsAngleEditorOpen(true)} title="多角度控制">
                         <Icons.RefreshCw size={16} />
                         <span>多角度</span>
@@ -310,22 +297,31 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
                         <Icons.Sun size={16} />
                         <span>打光</span>
                     </button>
-                    <button className={`h-9 px-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-colors ${isGridMenuOpen ? (isDark ? 'bg-zinc-800 text-blue-400' : 'bg-gray-100 text-blue-600') : (isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100')}`} onClick={() => setIsGridMenuOpen(!isGridMenuOpen)} title="多宫格分镜图预设">
-                        <Icons.LayoutGrid size={16} />
-                        <span>九宫格</span>
-                        <Icons.ChevronDown size={12} />
-                    </button>
-                    <button className={`h-9 px-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onRepaint?.(data.id)} title="选区局部重新生成">
-                        <Icons.Edit3 size={16} />
-                        <span>重绘</span>
-                    </button>
                     <button className={`h-9 px-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onOutpaint?.(data.id)} title="向外扩展画面边界">
                         <Icons.Maximize2 size={16} />
                         <span>扩图</span>
                     </button>
-                    <button className={`h-9 px-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onCrop?.(data.id)} title="按画幅裁切">
-                        <Icons.Crop size={16} />
-                        <span>裁剪</span>
+                    {/* 裁剪/高清 dropdown */}
+                    <div className="relative">
+                        <button className={`h-9 px-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-colors ${isCropMenuOpen ? (isDark ? 'bg-zinc-800 text-blue-400' : 'bg-gray-100 text-blue-600') : (isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100')}`} onClick={() => setIsCropMenuOpen(!isCropMenuOpen)} title="裁剪与高清处理">
+                            <Icons.Crop size={16} />
+                            <span>裁剪</span>
+                            <Icons.ChevronDown size={12} />
+                        </button>
+                        {isCropMenuOpen && (
+                            <div className={`absolute bottom-full mb-1 left-0 pointer-events-auto rounded-xl border p-1.5 shadow-2xl backdrop-blur-xl min-w-[140px] ${isDark ? 'bg-[#202020]/95 border-zinc-700' : 'bg-white/95 border-gray-200'}`} onMouseDown={(e) => e.stopPropagation()}>
+                                <button className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-colors ${isDark ? 'text-zinc-300 hover:bg-zinc-800 hover:text-white' : 'text-gray-700 hover:bg-gray-100'}`} onClick={() => { onCrop?.(data.id); setIsCropMenuOpen(false); }}>
+                                    <Icons.Crop size={13} className="inline mr-2 opacity-60" />按画幅裁切
+                                </button>
+                                <button className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-colors ${isDark ? 'text-zinc-300 hover:bg-zinc-800 hover:text-white' : 'text-gray-700 hover:bg-gray-100'}`} onClick={() => { /* TODO: 一键高清 */ onCrop?.(data.id); setIsCropMenuOpen(false); }} title="一键提升图片分辨率">
+                                    <Icons.TrendingUp size={13} className="inline mr-2 opacity-60" />一键高清
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                    <button className={`h-9 px-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onAddToAssetLibrary?.(data.id)} title="添加到资产素材库">
+                        <Icons.Database size={16} />
+                        <span>素材库</span>
                     </button>
                     <div className={`w-px h-6 mx-1 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`} />
                     <button className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onUpload?.(data.id)} title="上传">
