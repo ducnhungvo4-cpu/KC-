@@ -756,52 +756,6 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Panel */}
       {renderPanel()}
-      {assetMenu && (
-        <div
-          className={`fixed z-[260] min-w-[150px] rounded-xl border py-1.5 shadow-2xl backdrop-blur-xl ${isDark ? 'bg-zinc-900/95 border-zinc-700/80' : 'bg-white/95 border-gray-200'}`}
-          style={{ left: assetMenu.x, top: assetMenu.y }}
-          onMouseDown={(event) => event.stopPropagation()}
-        >
-          <button
-            className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2.5 rounded-lg ${isDark ? 'text-gray-300 hover:bg-zinc-800 hover:text-white' : 'text-gray-700 hover:bg-gray-100 hover:text-black'}`}
-            onClick={() => { onAddMaterialToCanvas(assetMenu.item);  }}
-          >
-            <Icons.ImagePlus size={14} /> 添加到画布
-          </button>
-          <button
-            className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2.5 rounded-lg ${isDark ? 'text-gray-300 hover:bg-zinc-800 hover:text-white' : 'text-gray-700 hover:bg-gray-100 hover:text-black'}`}
-            onClick={() => { onToggleMaterialFavorite(assetMenu.item.nodeId, assetMenu.item.url, assetMenu.item.type);  }}
-          >
-            <Icons.Star size={14} fill={assetMenu.item.isFavorite ? 'currentColor' : 'none'} /> {assetMenu.item.isFavorite ? '取消收藏' : '收藏'}
-          </button>
-          <div className={`h-px my-1 mx-2 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`} />
-          <button
-            className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2.5 rounded-lg ${isDark ? 'text-gray-300 hover:bg-zinc-800 hover:text-white' : 'text-gray-700 hover:bg-gray-100 hover:text-black'}`}
-            onClick={() => { onOpenSaveResult(assetMenu.item.nodeId);  }}
-          >
-            <Icons.Database size={14} /> 存入项目/更新资产
-          </button>
-          <button
-            className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2.5 rounded-lg ${isDark ? 'text-gray-300 hover:bg-zinc-800 hover:text-white' : 'text-gray-700 hover:bg-gray-100 hover:text-black'}`}
-            onClick={() => { onSaveAsset(assetMenu.item.url, assetMenu.item.type, assetMenu.item.title);  }}
-          >
-            <Icons.Save size={14} /> 保存到本地
-          </button>
-          <button
-            className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2.5 rounded-lg ${isDark ? 'text-gray-300 hover:bg-zinc-800 hover:text-white' : 'text-gray-700 hover:bg-gray-100 hover:text-black'}`}
-            onClick={() => { onCopyAsset(assetMenu.item.url, assetMenu.item.type);  }}
-          >
-            <Icons.Copy size={14} /> 复制
-          </button>
-          <div className={`h-px my-1 mx-2 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`} />
-          <button
-            className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2.5 rounded-lg text-red-400 ${isDark ? 'hover:bg-red-500/10 hover:text-red-300' : 'hover:bg-red-50 hover:text-red-600'}`}
-            onClick={() => { onDeleteAsset(assetMenu.item.nodeId, assetMenu.item.url, assetMenu.item.type);  }}
-          >
-            <Icons.Trash2 size={14} /> 删除
-          </button>
-        </div>
-      )}
     </>
   );
 };
