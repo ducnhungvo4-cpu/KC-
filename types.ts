@@ -62,8 +62,25 @@ export interface NodeData {
   creditEstimate?: number;
   creditStatus?: 'idle' | 'estimated' | 'reserved' | 'confirmed' | 'failed' | 'refunded';
 
+  // Camera movement preset for video generation
+  cameraMovement?: string;
+
   // UI State
   activeToolbarItem?: string;
+}
+
+export interface PromptTemplate {
+  id: string;
+  category: string;
+  title: string;
+  prompt: string;
+}
+
+export interface CameraMovementPreset {
+  key: string;
+  label: string;
+  description: string;
+  icon: string;
 }
 
 export type AssetLibraryType = 'role' | 'scene' | 'prop';

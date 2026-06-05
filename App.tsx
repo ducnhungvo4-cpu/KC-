@@ -49,7 +49,7 @@ const DEMO_ASSET_LIBRARY: AssetLibraryItem[] = [
         version: 'v4',
         updatedAt: '今天 10:24',
         previewUrl: createDemoAssetPreview('角色 / 陆沉', '#60a5fa', '#172554'),
-        description: '25-30岁，冷静克制，深色外套，短剧男主核心资产。',
+        description: '25-30岁，冷静克制，深色外套，短剧男主核心资产�?,
     },
     {
         id: 'asset_role_002',
@@ -59,7 +59,7 @@ const DEMO_ASSET_LIBRARY: AssetLibraryItem[] = [
         version: 'v3',
         updatedAt: '昨天 18:10',
         previewUrl: createDemoAssetPreview('角色 / 林夏', '#f472b6', '#4a044e'),
-        description: '24岁，干练敏感，浅色风衣，主要情绪线角色。',
+        description: '24岁，干练敏感，浅色风衣，主要情绪线角色�?,
     },
     {
         id: 'asset_scene_001',
@@ -69,7 +69,7 @@ const DEMO_ASSET_LIBRARY: AssetLibraryItem[] = [
         version: 'v2',
         updatedAt: '昨天 16:32',
         previewUrl: createDemoAssetPreview('场景 / 仓库', '#f59e0b', '#422006'),
-        description: '大空间、冷色光、远处蓝色光源，适合悬疑段落。',
+        description: '大空间、冷色光、远处蓝色光源，适合悬疑段落�?,
     },
     {
         id: 'asset_scene_002',
@@ -79,7 +79,7 @@ const DEMO_ASSET_LIBRARY: AssetLibraryItem[] = [
         version: 'v1',
         updatedAt: '05-30 21:08',
         previewUrl: createDemoAssetPreview('场景 / 街口', '#38bdf8', '#082f49'),
-        description: '夜景、湿地反光、霓虹灯，适合追逐和对峙。',
+        description: '夜景、湿地反光、霓虹灯，适合追逐和对峙�?,
     },
     {
         id: 'asset_prop_001',
@@ -89,15 +89,15 @@ const DEMO_ASSET_LIBRARY: AssetLibraryItem[] = [
         version: 'v5',
         updatedAt: '今天 09:40',
         previewUrl: createDemoAssetPreview('道具 / 芯片', '#34d399', '#064e3b'),
-        description: '核心线索道具，半透明蓝色发光材质。',
+        description: '核心线索道具，半透明蓝色发光材质�?,
     },
 ];
 
 const DEMO_PROJECT_META = {
     id: 'KC-DRAMA-001',
-    name: '《隐秘回响》',
+    name: '《隐秘回响�?,
     directorGroup: 'A组导演组',
-    lastSavedAt: '刚刚已保存',
+    lastSavedAt: '刚刚已保�?,
 };
 type ProjectDashboardItem = {
     id: string;
@@ -150,31 +150,31 @@ const DEFAULT_PROJECTS: ProjectDashboardItem[] = [
         episodeCount: 24,
         shotCount: 316,
         assetCount: 42,
-        lastSavedAt: '未保存',
+        lastSavedAt: '未保�?,
     },
     {
         id: 'KC-DRAMA-002',
-        name: '《雾港来信》',
-        canvasName: '《雾港来信》 无限画布',
+        name: '《雾港来信�?,
+        canvasName: '《雾港来信�?无限画布',
         directorGroup: 'B组导演组',
         projectType: '短剧',
         status: 'draft',
         episodeCount: 18,
         shotCount: 208,
         assetCount: 31,
-        lastSavedAt: '未保存',
+        lastSavedAt: '未保�?,
     },
     {
         id: 'KC-DRAMA-003',
-        name: '《逆光证人》',
-        canvasName: '《逆光证人》 无限画布',
+        name: '《逆光证人�?,
+        canvasName: '《逆光证人�?无限画布',
         directorGroup: 'C组导演组',
         projectType: '短剧',
         status: 'active',
         episodeCount: 30,
         shotCount: 452,
         assetCount: 57,
-        lastSavedAt: '未保存',
+        lastSavedAt: '未保�?,
     },
 ];
 
@@ -209,7 +209,7 @@ const getSeedCanvasesForProject = (project: ProjectDashboardItem): ProjectCanvas
         },
         createProjectCanvas(project, {
             id: `${project.id}__shot_review`,
-            name: '分镜精修与多轮迭代',
+            name: '分镜精修与多轮迭�?,
             owner: '制片助理B',
             permissionRole: 'editor',
             nodeCount: 4,
@@ -239,8 +239,8 @@ const getDefaultCanvasPermissions = (canvas: ProjectCanvasItem): CanvasPermissio
 ];
 
 const ROLE_LABELS: Record<CanvasPermissionRole, string> = {
-    owner: '拥有者',
-    editor: '可编辑',
+    owner: '拥有�?,
+    editor: '可编�?,
     viewer: '只读',
 };
 
@@ -251,9 +251,9 @@ const DEMO_LINEAR_SHOT = {
     episodeNo: 1,
     sceneNo: 2,
     shotNo: 3,
-    shotName: '第1集 第2场 分镜03',
-    shotDescription: '男主推门进入废弃仓库，看到远处闪烁的蓝色光源，镜头从背后缓慢推近。',
-    prompt: '废弃仓库内，男主推门进入，远处蓝色光源闪烁，低角度跟拍，悬疑短剧质感，冷色调，细节清晰，电影感灯光。',
+    shotName: '�?�?�?�?分镜03',
+    shotDescription: '男主推门进入废弃仓库，看到远处闪烁的蓝色光源，镜头从背后缓慢推近�?,
+    prompt: '废弃仓库内，男主推门进入，远处蓝色光源闪烁，低角度跟拍，悬疑短剧质感，冷色调，细节清晰，电影感灯光�?,
     model: 'Seedance 1.5 Pro',
     aspectRatio: '16:9',
     resolution: '720p',
@@ -263,7 +263,7 @@ const DEMO_LINEAR_SHOT = {
     linearPageUrl: '#linear-shot-demo',
 };
 
-// 节点媒体类别：正向/反向连接共用同一套合法性校验规则。
+// 节点媒体类别：正�?反向连接共用同一套合法性校验规则�?
 type MediaCategory = 'image' | 'video' | 'audio' | 'text';
 
 const NODE_MEDIA_CATEGORY: Record<NodeType, MediaCategory> = {
@@ -278,10 +278,10 @@ const NODE_MEDIA_CATEGORY: Record<NodeType, MediaCategory> = {
 };
 
 // 目标节点（下游）允许接收的来源节点（上游）类别：
-// - 图片节点：可接图片、文字
-// - 视频节点：可接图片、文字
-// - 音频节点：可接文字
-// - 文字节点：可接图片、视频、文字
+// - 图片节点：可接图片、文�?
+// - 视频节点：可接图片、文�?
+// - 音频节点：可接文�?
+// - 文字节点：可接图片、视频、文�?
 const ALLOWED_SOURCE_CATEGORIES: Record<MediaCategory, MediaCategory[]> = {
     image: ['image', 'text'],
     video: ['image', 'text'],
@@ -300,6 +300,17 @@ const getNodeSizeForAspectRatio = (aspectRatio = '1:1', baseSize = IMAGE_NODE_BA
     }
 
     return { width: baseSize, height: Math.round(baseSize / ratio) };
+};
+
+const generateMockFrame = (title: string, frameIndex: number, width: number, height: number) => {
+    const hue = (frameIndex * 67 + 120) % 360;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+      <rect width="100%" height="100%" fill="hsl(${hue}, 40%, 15%)"/>
+      <rect x="10%" y="10%" width="80%" height="80%" rx="16" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.15)"/>
+      <text x="50%" y="42%" text-anchor="middle" fill="rgba(255,255,255,0.8)" font-size="${Math.max(16, width / 20)}" font-family="Arial" font-weight="700">截帧 ${frameIndex + 1}</text>
+      <text x="50%" y="58%" text-anchor="middle" fill="rgba(255,255,255,0.5)" font-size="${Math.max(12, width / 30)}" font-family="Arial">${title.slice(0, 20)}</text>
+    </svg>`;
+    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg.trim())}`;
 };
 
 const getClosestAspectRatio = (width: number, height: number, options = IMAGE_ASPECT_RATIOS) => {
@@ -361,7 +372,7 @@ const CanvasWithSidebar: React.FC = () => {
   const [isNewCanvasOpen, setIsNewCanvasOpen] = useState(false);
   const [newCanvasName, setNewCanvasName] = useState('');
   const [isCanvasPermissionOpen, setIsCanvasPermissionOpen] = useState(false);
-  const [projectGroupFilter, setProjectGroupFilter] = useState('全部项目组');
+  const [projectGroupFilter, setProjectGroupFilter] = useState('全部项目�?);
   const [projectTypeFilter, setProjectTypeFilter] = useState('全部项目类型');
   const [projectSearchQuery, setProjectSearchQuery] = useState('');
   const [nodes, setNodes] = useState<NodeData[]>([]);
@@ -398,7 +409,7 @@ const CanvasWithSidebar: React.FC = () => {
       return () => window.removeEventListener('kc-auth-expired', handleExpired);
   }, []);
 
-  // 清除旧版本原型遗留的 Sora 2 配置，避免影响 KC 默认模型。
+  // 清除旧版本原型遗留的 Sora 2 配置，避免影�?KC 默认模型�?
   useEffect(() => {
       if (typeof window !== 'undefined') {
           try {
@@ -406,7 +417,7 @@ const CanvasWithSidebar: React.FC = () => {
               const stored = localStorage.getItem(sora2Key);
               if (stored) {
                   const parsed = JSON.parse(stored);
-                  // 如果 endpoint 是旧的 chat completions，清除配置
+                  // 如果 endpoint 是旧�?chat completions，清除配�?
                   if (parsed.endpoint === '/v1/chat/completions') {
                       localStorage.removeItem(sora2Key);
                       console.log('[App] Cleared old Sora 2 config with old endpoint');
@@ -721,7 +732,7 @@ const CanvasWithSidebar: React.FC = () => {
     const getDefaultTitle = (t: NodeType) => {
         switch (t) {
             case NodeType.TEXT_TO_IMAGE: return '生图';
-            case NodeType.TEXT_TO_VIDEO: return '生视频';
+            case NodeType.TEXT_TO_VIDEO: return '生视�?;
             case NodeType.TEXT_TO_AUDIO: return '音频节点';
             case NodeType.CREATIVE_DESC: return 'Text';
             default: return `原始图片_${Date.now()}`;
@@ -806,7 +817,7 @@ const CanvasWithSidebar: React.FC = () => {
       const getDefaultTitle = (t: NodeType) => {
           switch (t) {
               case NodeType.TEXT_TO_IMAGE: return '生图';
-              case NodeType.TEXT_TO_VIDEO: return '生视频';
+              case NodeType.TEXT_TO_VIDEO: return '生视�?;
               case NodeType.TEXT_TO_AUDIO: return '音频节点';
               case NodeType.CREATIVE_DESC: return 'Text';
               default: return `原始图片_${Date.now()}`;
@@ -828,7 +839,7 @@ const CanvasWithSidebar: React.FC = () => {
           }
       };
 
-      // 反向新建时，新节点位于锚点上游(左侧)，让其右边缘对齐落点；正向保持原有左边缘对齐落点。
+      // 反向新建时，新节点位于锚点上�?左侧)，让其右边缘对齐落点；正向保持原有左边缘对齐落点�?
       const isBackward = quickAddMenu.direction === 'backward';
       const newNode: NodeData = {
           id: newId,
@@ -854,7 +865,7 @@ const CanvasWithSidebar: React.FC = () => {
           outputArtifacts: []
       };
 
-      // 反向：新节点作为上游(source)，锚点为下游(target)；正向：保持原有方向。
+      // 反向：新节点作为上游(source)，锚点为下游(target)；正向：保持原有方向�?
       const newConnection = isBackward
           ? { id: generateId(), sourceId: newId, targetId: quickAddMenu.sourceId, canvasId: currentCanvas?.id }
           : { id: generateId(), sourceId: quickAddMenu.sourceId, targetId: newId, canvasId: currentCanvas?.id };
@@ -1170,7 +1181,7 @@ const CanvasWithSidebar: React.FC = () => {
 
   const handleImportWorkflow = (data: { nodes: NodeData[], connections: Connection[], transform?: CanvasTransform, projectName?: string }) => {
       if (guardReadOnly('导入备份')) return;
-      // 保存当前有内容的节点到历史
+      // 保存当前有内容的节点到历�?
       const withContent = nodes.filter(n => n.imageSrc || n.videoSrc);
       if (withContent.length > 0) setDeletedNodes(prev => [...prev, ...withContent]);
       
@@ -1333,7 +1344,7 @@ const CanvasWithSidebar: React.FC = () => {
           // Audio generation
           else if (node.type === NodeType.TEXT_TO_AUDIO) {
             const audioText = [connectedText, node.prompt || ''].filter(Boolean).join('\n\n').trim();
-            if (!audioText) throw new Error("请输入要合成的文本");
+            if (!audioText) throw new Error("请输入要合成的文�?);
             results = await generateAudio(
                 audioText,
                 node.model || 'Minimax-speech-2.8-hd',
@@ -1343,11 +1354,11 @@ const CanvasWithSidebar: React.FC = () => {
                 node.voiceVolume || 1
             );
           }
-          // Start-End Frame to Video generation (首尾帧模式)
+          // Start-End Frame to Video generation (首尾帧模�?
           else if (node.type === NodeType.START_END_TO_VIDEO) {
             // 添加 _FL 后缀来标识首尾帧模式
             const modelWithFL = (node.model || 'Seedance 1.5 Pro') + '_FL';
-            // 如果设置了 swapFrames，交换首尾帧顺序
+            // 如果设置�?swapFrames，交换首尾帧顺序
             const orderedInputs = node.swapFrames && inputs.length >= 2 ? [inputs[1], inputs[0]] : inputs;
             results = await generateVideo(
                 node.prompt || '', orderedInputs, node.aspectRatio, modelWithFL, node.resolution, node.duration, node.count || 1, node.promptOptimize
@@ -1374,7 +1385,7 @@ const CanvasWithSidebar: React.FC = () => {
               
               updateNodeData(nodeId, updates);
           } else {
-              throw new Error("未返回结果");
+              throw new Error("未返回结�?);
           }
       }
     } catch (e) {
@@ -1390,7 +1401,7 @@ const CanvasWithSidebar: React.FC = () => {
       if (!node) return;
       const inputMedia = getInputMedia(node.id).filter(item => item.type === 'image' || item.type === 'video');
       if (!inputMedia.length) {
-          alert("请先把图片或视频节点连接到文本节点前面");
+          alert("请先把图片或视频节点连接到文本节点前�?);
           return;
       }
 
@@ -1417,7 +1428,7 @@ const CanvasWithSidebar: React.FC = () => {
       const node = nodes.find(n => n.id === nodeId);
       if (!node) return;
       if (!node.prompt?.trim()) {
-          alert("请先在文本节点里输入或粘贴剧本内容");
+          alert("请先在文本节点里输入或粘贴剧本内�?);
           return;
       }
 
@@ -1489,7 +1500,7 @@ const CanvasWithSidebar: React.FC = () => {
       const actionText = saveResultMode === 'material'
           ? '已保存到项目素材'
           : saveResultMode === 'new_asset'
-              ? '已保存为新资产'
+              ? '已保存为新资�?
               : `已更新资产版本：${selectedAsset?.name || '未选择资产'}`;
       alert(`${actionText}\n\n原型说明：当前为前端演示保存状态，正式系统会调用素材库/资产库接口并保留历史版本。`);
       setSaveResultTarget(null);
@@ -1499,7 +1510,7 @@ const CanvasWithSidebar: React.FC = () => {
 
   const handlePreviewReference = (item: InputMedia) => {
       if (item.type === 'text') {
-          setPreviewText({ title: item.title || '参考文本', text: item.text || '' });
+          setPreviewText({ title: item.title || '参考文�?, text: item.text || '' });
           return;
       }
       setPreviewMedia({ url: item.url, type: item.type });
@@ -1551,14 +1562,14 @@ const CanvasWithSidebar: React.FC = () => {
   };
 
   const handleMultiAngleGenerate = async (nodeId: string, options: MultiAngleOptions) => {
-      if (guardReadOnly('生成多角度结果')) return;
+      if (guardReadOnly('生成多角度结�?)) return;
       const source = nodes.find(n => n.id === nodeId);
       if (!source?.imageSrc) {
-          alert("当前节点没有可用于多角度控制的图片");
+          alert("当前节点没有可用于多角度控制的图�?);
           return;
       }
       if (!options.angles.length) {
-          alert("请至少选择一个角度");
+          alert("请至少选择一个角�?);
           return;
       }
 
@@ -1611,8 +1622,228 @@ const CanvasWithSidebar: React.FC = () => {
           updateNodeData(nodeId, { isLoading: false });
       } catch (e) {
           console.error(e);
-          alert(`多角度生成失败: ${(e as Error).message}`);
+          alert(`多角度生成失�? ${(e as Error).message}`);
           updateNodeData(nodeId, { isLoading: false });
+      }
+  };
+
+  const handleExtractFrames = (nodeId: string) => {
+      if (guardReadOnly('视频截帧')) return;
+      const source = nodes.find(n => n.id === nodeId);
+      if (!source?.videoSrc) { alert('当前节点没有可截帧的视频'); return; }
+      const frameCount = 4;
+      const { width, height } = getNodeSizeForAspectRatio(source.aspectRatio || '16:9');
+      const newNodes: NodeData[] = [];
+      for (let i = 0; i < frameCount; i++) {
+          newNodes.push({
+              id: generateId(),
+              type: NodeType.ORIGINAL_IMAGE,
+              x: source.x + source.width + 90 + (i % 2) * (width + 40),
+              y: source.y + Math.floor(i / 2) * (height + 40),
+              width, height,
+              title: `截帧 ${i + 1} - ${source.title}`.slice(0, 30),
+              imageSrc: generateMockFrame(source.title, i, width, height),
+              aspectRatio: source.aspectRatio || '16:9',
+              projectId: source.projectId || currentProject?.id,
+              canvasId: source.canvasId || currentCanvas?.id,
+              source: 'canvas',
+          });
+      }
+      setNodes(prev => [...prev, ...newNodes]);
+      setConnections(prev => [...prev, ...newNodes.map(n => ({ id: generateId(), sourceId: nodeId, targetId: n.id, canvasId: currentCanvas?.id }))]);
+      alert(`已从视频提取 ${frameCount} 帧为图片节点`);
+  };
+
+  const handleRemoveSubtitles = (nodeId: string) => {
+      if (guardReadOnly('智能去字�?)) return;
+      const source = nodes.find(n => n.id === nodeId);
+      if (!source?.videoSrc) { alert('当前节点没有可处理的视频'); return; }
+      updateNodeData(nodeId, { isLoading: true });
+      setTimeout(() => {
+          const { width, height } = getNodeSizeForAspectRatio(source.aspectRatio || '16:9', VIDEO_NODE_BASE_HEIGHT);
+          const newId = generateId();
+          const newNode: NodeData = {
+              id: newId,
+              type: NodeType.TEXT_TO_VIDEO,
+              x: source.x + source.width + 90,
+              y: source.y,
+              width, height,
+              title: `去字�?- ${source.title}`.slice(0, 30),
+              videoSrc: source.videoSrc,
+              aspectRatio: source.aspectRatio || '16:9',
+              model: source.model,
+              projectId: source.projectId || currentProject?.id,
+              canvasId: source.canvasId || currentCanvas?.id,
+              source: 'canvas',
+          };
+          setNodes(prev => [...prev, newNode]);
+          setConnections(prev => [...prev, { id: generateId(), sourceId: nodeId, targetId: newId, canvasId: currentCanvas?.id }]);
+          updateNodeData(nodeId, { isLoading: false });
+          alert('智能去字幕完成（原型演示�?);
+      }, 1500);
+  };
+
+  const handleEnhanceVideo = (nodeId: string) => {
+      if (guardReadOnly('视频增分')) return;
+      const source = nodes.find(n => n.id === nodeId);
+      if (!source?.videoSrc) { alert('当前节点没有可增分的视频'); return; }
+      updateNodeData(nodeId, { isLoading: true });
+      setTimeout(() => {
+          const { width, height } = getNodeSizeForAspectRatio(source.aspectRatio || '16:9', VIDEO_NODE_BASE_HEIGHT);
+          const newId = generateId();
+          const newNode: NodeData = {
+              id: newId,
+              type: NodeType.TEXT_TO_VIDEO,
+              x: source.x + source.width + 90,
+              y: source.y + height + 40,
+              width, height,
+              title: `增分 - ${source.title}`.slice(0, 30),
+              videoSrc: source.videoSrc,
+              aspectRatio: source.aspectRatio || '16:9',
+              resolution: '1080p',
+              model: source.model,
+              projectId: source.projectId || currentProject?.id,
+              canvasId: source.canvasId || currentCanvas?.id,
+              source: 'canvas',
+          };
+          setNodes(prev => [...prev, newNode]);
+          setConnections(prev => [...prev, { id: generateId(), sourceId: nodeId, targetId: newId, canvasId: currentCanvas?.id }]);
+          updateNodeData(nodeId, { isLoading: false });
+          alert('视频增分完成（原型演示：帧插�?2x + 超分辨率 1080p�?);
+      }, 2000);
+  };
+
+  const handleMultiGrid = (nodeId: string, preset: string) => {
+      if (guardReadOnly('多宫格分镜图')) return;
+      const source = nodes.find(n => n.id === nodeId);
+      if (!source?.imageSrc) { alert('当前节点没有图片'); return; }
+      updateNodeData(nodeId, { isLoading: true });
+      setTimeout(() => {
+          const { width, height } = getNodeSizeForAspectRatio(source.aspectRatio || '1:1');
+          const newId = generateId();
+          const newNode: NodeData = {
+              id: newId, type: NodeType.TEXT_TO_IMAGE,
+              x: source.x + source.width + 90, y: source.y,
+              width, height,
+              title: `${preset} - ${source.title}`.slice(0, 30),
+              imageSrc: generateMockFrame(preset, 0, width, height),
+              aspectRatio: source.aspectRatio || '1:1',
+              model: source.model, projectId: source.projectId || currentProject?.id,
+              canvasId: source.canvasId || currentCanvas?.id, source: 'canvas',
+          };
+          setNodes(prev => [...prev, newNode]);
+          setConnections(prev => [...prev, { id: generateId(), sourceId: nodeId, targetId: newId, canvasId: currentCanvas?.id }]);
+          updateNodeData(nodeId, { isLoading: false });
+          alert(`${preset} 生成完成（原型演示）`);
+      }, 1500);
+  };
+
+  const handleRepaint = (nodeId: string) => {
+      if (guardReadOnly('图片局部重�?)) return;
+      const source = nodes.find(n => n.id === nodeId);
+      if (!source?.imageSrc) { alert('当前节点没有图片'); return; }
+      updateNodeData(nodeId, { isLoading: true });
+      setTimeout(() => {
+          const { width, height } = getNodeSizeForAspectRatio(source.aspectRatio || '1:1');
+          const newId = generateId();
+          const newNode: NodeData = {
+              id: newId, type: NodeType.TEXT_TO_IMAGE,
+              x: source.x + source.width + 90, y: source.y,
+              width, height,
+              title: `重绘 - ${source.title}`.slice(0, 30),
+              imageSrc: source.imageSrc,
+              aspectRatio: source.aspectRatio || '1:1',
+              model: source.model, projectId: source.projectId || currentProject?.id,
+              canvasId: source.canvasId || currentCanvas?.id, source: 'canvas',
+          };
+          setNodes(prev => [...prev, newNode]);
+          setConnections(prev => [...prev, { id: generateId(), sourceId: nodeId, targetId: newId, canvasId: currentCanvas?.id }]);
+          updateNodeData(nodeId, { isLoading: false });
+          alert('局部重绘完成（原型演示：正式版将打开选区编辑器）');
+      }, 1200);
+  };
+
+  const handleLighting = (nodeId: string) => {
+      if (guardReadOnly('打光')) return;
+      const source = nodes.find(n => n.id === nodeId);
+      if (!source?.imageSrc) { alert('当前节点没有图片'); return; }
+      updateNodeData(nodeId, { isLoading: true });
+      setTimeout(() => {
+          const { width, height } = getNodeSizeForAspectRatio(source.aspectRatio || '1:1');
+          const newId = generateId();
+          const newNode: NodeData = {
+              id: newId, type: NodeType.TEXT_TO_IMAGE,
+              x: source.x + source.width + 90, y: source.y,
+              width, height,
+              title: `打光 - ${source.title}`.slice(0, 30),
+              imageSrc: source.imageSrc,
+              aspectRatio: source.aspectRatio || '1:1',
+              model: source.model, projectId: source.projectId || currentProject?.id,
+              canvasId: source.canvasId || currentCanvas?.id, source: 'canvas',
+          };
+          setNodes(prev => [...prev, newNode]);
+          setConnections(prev => [...prev, { id: generateId(), sourceId: nodeId, targetId: newId, canvasId: currentCanvas?.id }]);
+          updateNodeData(nodeId, { isLoading: false });
+          alert('打光调整完成（原型演示：正式版将打开打光编辑器面板）');
+      }, 1200);
+  };
+
+  const handlePanorama = (nodeId: string) => {
+      if (guardReadOnly('720°全景')) return;
+      const source = nodes.find(n => n.id === nodeId);
+      if (!source?.imageSrc) { alert('当前节点没有图片'); return; }
+      updateNodeData(nodeId, { isLoading: true });
+      setTimeout(() => {
+          const { width, height } = getNodeSizeForAspectRatio('2:1');
+          const newId = generateId();
+          const newNode: NodeData = {
+              id: newId, type: NodeType.TEXT_TO_IMAGE,
+              x: source.x + source.width + 90, y: source.y,
+              width, height,
+              title: `720°全景 - ${source.title}`.slice(0, 30),
+              imageSrc: generateMockFrame('720° 全景环绕', 0, width, height),
+              aspectRatio: '2:1',
+              model: source.model, projectId: source.projectId || currentProject?.id,
+              canvasId: source.canvasId || currentCanvas?.id, source: 'canvas',
+          };
+          setNodes(prev => [...prev, newNode]);
+          setConnections(prev => [...prev, { id: generateId(), sourceId: nodeId, targetId: newId, canvasId: currentCanvas?.id }]);
+          updateNodeData(nodeId, { isLoading: false });
+          alert('720° 全景环绕生成完成（原型演示）');
+      }, 2000);
+  };
+
+  const handleOutpaint = (nodeId: string) => {
+      if (guardReadOnly('AI扩图')) return;
+      const source = nodes.find(n => n.id === nodeId);
+      if (!source?.imageSrc) { alert('当前节点没有图片'); return; }
+      updateNodeData(nodeId, { isLoading: true });
+      setTimeout(() => {
+          const { width, height } = getNodeSizeForAspectRatio(source.aspectRatio || '1:1');
+          const newId = generateId();
+          const newNode: NodeData = {
+              id: newId, type: NodeType.TEXT_TO_IMAGE,
+              x: source.x + source.width + 90, y: source.y,
+              width: Math.round(width * 1.3), height: Math.round(height * 1.3),
+              title: `扩图 - ${source.title}`.slice(0, 30),
+              imageSrc: source.imageSrc,
+              aspectRatio: source.aspectRatio || '1:1',
+              model: source.model, projectId: source.projectId || currentProject?.id,
+              canvasId: source.canvasId || currentCanvas?.id, source: 'canvas',
+          };
+          setNodes(prev => [...prev, newNode]);
+          setConnections(prev => [...prev, { id: generateId(), sourceId: nodeId, targetId: newId, canvasId: currentCanvas?.id }]);
+          updateNodeData(nodeId, { isLoading: false });
+          alert('AI 扩图完成（原型演示）');
+      }, 1500);
+  };
+
+  const handleApplyPrompt = (prompt: string) => {
+      const selectedId = Array.from(selectedNodeIds)[0];
+      if (selectedId) {
+          updateNodeData(selectedId, { prompt });
+      } else {
+          alert('请先选中一个节点，再应用提示词');
       }
   };
 
@@ -1623,7 +1854,7 @@ const CanvasWithSidebar: React.FC = () => {
               const res = await fetch(node.imageSrc);
               const blob = await res.blob();
               await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob as Blob })]);
-              alert("图片已复制到剪贴板");
+              alert("图片已复制到剪贴�?);
           } catch (e) { console.error(e); alert("复制图片失败"); }
       }
   };
@@ -2084,15 +2315,15 @@ const CanvasWithSidebar: React.FC = () => {
       const now = Date.now();
       const newProject: ProjectDashboardItem = {
           id: `KC-DRAMA-${now}`,
-          name: `新项目 ${projects.length + 1}`,
-          canvasName: `新项目 ${projects.length + 1} 无限画布`,
-          directorGroup: '未分组',
+          name: `新项�?${projects.length + 1}`,
+          canvasName: `新项�?${projects.length + 1} 无限画布`,
+          directorGroup: '未分�?,
           projectType: '短剧',
           status: 'draft',
           episodeCount: 0,
           shotCount: 0,
           assetCount: 0,
-          lastSavedAt: '未保存',
+          lastSavedAt: '未保�?,
       };
       const nextProjects = [newProject, ...projects];
       persistProjectSummaries(nextProjects);
@@ -2127,7 +2358,7 @@ const CanvasWithSidebar: React.FC = () => {
 
   const createCanvasInCurrentProject = () => {
       if (!currentProject) return;
-      const name = newCanvasName.trim() || `${currentProject.name} 子画布 ${projectCanvases.length + 1}`;
+      const name = newCanvasName.trim() || `${currentProject.name} 子画�?${projectCanvases.length + 1}`;
       const canvas = createProjectCanvas(currentProject, {
           id: `${currentProject.id}__canvas_${Date.now()}`,
           name,
@@ -2135,7 +2366,7 @@ const CanvasWithSidebar: React.FC = () => {
           permissionRole: 'owner',
           status: 'draft',
           createdAt: '刚刚',
-          lastSavedAt: '未保存',
+          lastSavedAt: '未保�?,
           nodeCount: 0,
           assetCount: 0,
       });
@@ -2267,7 +2498,7 @@ const CanvasWithSidebar: React.FC = () => {
           await navigator.clipboard.writeText(url);
       } catch (error) {
           console.error(error);
-          alert('复制素材失败，请尝试先保存到本地。');
+          alert('复制素材失败，请尝试先保存到本地�?);
       }
   };
 
@@ -2449,12 +2680,12 @@ const CanvasWithSidebar: React.FC = () => {
       });
   };
 
-  // 画布容器只有在“已登录 + 已打开项目”后才渲染，手势监听需在此之后再挂载。
+  // 画布容器只有在“已登录 + 已打开项目”后才渲染，手势监听需在此之后再挂载�?
   const isCanvasMounted = isAuthenticated && !!currentProject;
 
-  // 触控板手势：双指滑动平移画布，双指捏合(张开放大/收拢缩小)缩放。
-  // 采用原生非 passive 监听以真正阻止浏览器默认的页面滚动/缩放/前进后退（React 的 onWheel 默认 passive，preventDefault 无效）。
-  // 用 requestAnimationFrame 把高频手势事件合并到每帧只计算一次，避免大组件逐事件重渲染导致卡顿。
+  // 触控板手势：双指滑动平移画布，双指捏�?张开放大/收拢缩小)缩放�?
+  // 采用原生�?passive 监听以真正阻止浏览器默认的页面滚�?缩放/前进后退（React �?onWheel 默认 passive，preventDefault 无效）�?
+  // �?requestAnimationFrame 把高频手势事件合并到每帧只计算一次，避免大组件逐事件重渲染导致卡顿�?
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -2492,7 +2723,7 @@ const CanvasWithSidebar: React.FC = () => {
       e.preventDefault();
       const rect = el.getBoundingClientRect();
       if (e.ctrlKey || e.metaKey) {
-        // 捏合缩放：deltaY<0 张开放大，deltaY>0 收拢缩小；以光标位置为锚点
+        // 捏合缩放：deltaY<0 张开放大，deltaY>0 收拢缩小；以光标位置为锚�?
         zoomFactor *= Math.exp(-e.deltaY * 0.01);
         anchorX = e.clientX - rect.left;
         anchorY = e.clientY - rect.top;
@@ -2509,7 +2740,7 @@ const CanvasWithSidebar: React.FC = () => {
       el.removeEventListener('wheel', onWheel);
       if (rafId != null) cancelAnimationFrame(rafId);
     };
-  }, [isCanvasMounted]);
+  }, [isCanvasMounted, currentCanvas]);
 
   const zoomCanvas = (direction: 1 | -1) => {
       const rect = containerRef.current?.getBoundingClientRect();
@@ -2743,7 +2974,7 @@ const CanvasWithSidebar: React.FC = () => {
         const start = connectionStartRef.current;
         if (start) {
             const candidates = nodes.filter(n => n.id !== start.nodeId)
-                // 正向起点(source)：候选为合法的下游节点；反向起点(target)：候选为合法的上游节点
+                // 正向起点(source)：候选为合法的下游节点；反向起点(target)：候选为合法的上游节�?
                 .filter(n => start.type === 'source' ? canConnectNodes(start.nodeId, n.id) : canConnectNodes(n.id, start.nodeId))
                 .map(n => ({ node: n, dist: Math.sqrt(Math.pow(worldPos.x - (n.x + n.width/2), 2) + Math.pow(worldPos.y - (n.y + n.height/2), 2)) }))
                 .filter(item => item.dist < 500).sort((a, b) => a.dist - b.dist).slice(0, 3).map(item => item.node);
@@ -2769,7 +3000,7 @@ const CanvasWithSidebar: React.FC = () => {
   };
 
   const handleMouseUp = (e: React.MouseEvent) => {
-    // 连线拖到空白处释放：弹出快捷新建菜单。正向(从输出端口拖出)新建下游节点，反向(从输入端口拖出)新建上游节点。
+    // 连线拖到空白处释放：弹出快捷新建菜单。正�?从输出端口拖�?新建下游节点，反�?从输入端口拖�?新建上游节点�?
     if (dragMode === 'CONNECT' && connectionStartRef.current) {
          const world = screenToWorld(e.clientX, e.clientY);
          const direction = connectionStartRef.current.type === 'source' ? 'forward' : 'backward';
@@ -2778,13 +3009,13 @@ const CanvasWithSidebar: React.FC = () => {
     if (dragMode !== 'NONE') { setDragMode('NONE'); setTempConnection(null); connectionStartRef.current = null; setSuggestedNodes([]); setSelectionBox(null); }
   };
 
-  // 校验一条 source→target 连线是否合法（与拖拽方向无关）。
+  // 校验一�?source→target 连线是否合法（与拖拽方向无关）�?
   const canConnectNodes = (sourceId: string, targetId: string): boolean => {
       if (!sourceId || !targetId || sourceId === targetId) return false;
       const source = nodes.find(n => n.id === sourceId);
       const target = nodes.find(n => n.id === targetId);
       if (!source || !target) return false;
-      // 原始图片节点为纯输入素材，没有输入端口，不可作为下游目标。
+      // 原始图片节点为纯输入素材，没有输入端口，不可作为下游目标�?
       if (target.type === NodeType.ORIGINAL_IMAGE) return false;
       const sourceCategory = NODE_MEDIA_CATEGORY[source.type];
       const targetCategory = NODE_MEDIA_CATEGORY[target.type];
@@ -2805,7 +3036,7 @@ const CanvasWithSidebar: React.FC = () => {
   const handlePortMouseUp = (e: React.MouseEvent, nodeId: string, type: 'source' | 'target') => {
       const start = connectionStartRef.current;
       if (dragMode !== 'CONNECT' || !start) return;
-      // 在发起连接的同一节点上释放：视为未拖出连线，交由画布默认逻辑处理(如正向的快捷添加菜单)。
+      // 在发起连接的同一节点上释放：视为未拖出连线，交由画布默认逻辑处理(如正向的快捷添加菜单)�?
       if (start.nodeId === nodeId) return;
       e.stopPropagation(); e.preventDefault();
       // 正向：从输出端口(source)拖出，落到目标节点的输入端口(target)
@@ -2834,12 +3065,12 @@ const CanvasWithSidebar: React.FC = () => {
             <div className={`w-[400px] p-6 rounded-2xl shadow-2xl border flex flex-col gap-4 transform transition-all scale-100 ${isDark ? 'bg-[#1A1D21] border-zinc-700 text-gray-200' : 'bg-white border-gray-200 text-gray-800'}`} onClick={(e) => e.stopPropagation()}>
                 <div>
                     <h3 className="text-lg font-bold flex items-center gap-2"><Icons.FilePlus size={20} className="text-blue-500"/>清空当前画布</h3>
-                    <p className={`text-xs mt-2 leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>是否在清空画布之前保存当前项目？<br/>清空后节点和连线会从当前画布移除。</p>
+                    <p className={`text-xs mt-2 leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>是否在清空画布之前保存当前项目？<br/>清空后节点和连线会从当前画布移除�?/p>
                 </div>
                 <div className={`flex justify-end gap-2 mt-2 pt-4 border-t ${isDark ? 'border-zinc-800' : 'border-gray-100'}`}>
                     <button onClick={() => setShowNewWorkflowDialog(false)} className={`px-4 py-2 rounded-lg text-xs font-medium transition-colors ${isDark ? 'hover:bg-zinc-800 text-gray-400' : 'hover:bg-gray-100 text-gray-600'}`}>取消</button>
-                    <button onClick={() => handleConfirmNew(false)} className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors ${isDark ? 'bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20' : 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-200'}`}>不保存</button>
-                    <button onClick={() => handleConfirmNew(true)} className={`px-4 py-2 rounded-lg text-xs font-bold text-white transition-colors shadow-lg shadow-blue-500/20 flex items-center gap-1.5 ${isDark ? 'bg-blue-600 hover:bg-blue-500' : 'bg-blue-500 hover:bg-blue-400'}`}><Icons.Save size={14}/>保存并清空</button>
+                    <button onClick={() => handleConfirmNew(false)} className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors ${isDark ? 'bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20' : 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-200'}`}>不保�?/button>
+                    <button onClick={() => handleConfirmNew(true)} className={`px-4 py-2 rounded-lg text-xs font-bold text-white transition-colors shadow-lg shadow-blue-500/20 flex items-center gap-1.5 ${isDark ? 'bg-blue-600 hover:bg-blue-500' : 'bg-blue-500 hover:bg-blue-400'}`}><Icons.Save size={14}/>保存并清�?/button>
                 </div>
             </div>
         </div>
@@ -2853,7 +3084,7 @@ const CanvasWithSidebar: React.FC = () => {
           return isDark ? 'bg-zinc-800 text-zinc-400 border-zinc-700' : 'bg-gray-100 text-gray-500 border-gray-200';
       };
       const statusText: Record<ProjectDashboardItem['status'], string> = {
-          active: '制作中',
+          active: '制作�?,
           draft: '草稿',
           archived: '归档',
       };
@@ -2868,7 +3099,7 @@ const CanvasWithSidebar: React.FC = () => {
                           </div>
                           <div>
                               <h1 className="text-xl font-bold">KC 无限画布项目管理</h1>
-                              <p className={`mt-1 text-sm ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>先选择项目，再进入对应画布继续创作和保存。</p>
+                              <p className={`mt-1 text-sm ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>先选择项目，再进入对应画布继续创作和保存�?/p>
                           </div>
                       </div>
                       <div className="flex items-center gap-2">
@@ -2891,8 +3122,8 @@ const CanvasWithSidebar: React.FC = () => {
 
                   <section className="mt-8 grid grid-cols-4 gap-4">
                       {[
-                          ['项目数', projects.length],
-                          ['制作中', projects.filter(project => project.status === 'active').length],
+                          ['项目�?, projects.length],
+                          ['制作�?, projects.filter(project => project.status === 'active').length],
                           ['分镜总数', projects.reduce((sum, project) => sum + project.shotCount, 0)],
                           ['资产总数', projects.reduce((sum, project) => sum + project.assetCount, 0)],
                       ].map(([label, value]) => (
@@ -2947,11 +3178,11 @@ const CanvasWithSidebar: React.FC = () => {
   };
 
   const renderProjectDashboardV2 = () => {
-      const groupOptions = ['全部项目组', ...Array.from(new Set(projects.map(project => project.directorGroup || '未分组')))];
+      const groupOptions = ['全部项目�?, ...Array.from(new Set(projects.map(project => project.directorGroup || '未分�?)))];
       const typeOptions = ['全部项目类型', ...Array.from(new Set(projects.map(project => project.projectType || '短剧')))];
       const normalizedSearch = projectSearchQuery.trim().toLowerCase();
       const visibleProjects = projects.filter(project => {
-          const groupMatched = projectGroupFilter === '全部项目组' || project.directorGroup === projectGroupFilter;
+          const groupMatched = projectGroupFilter === '全部项目�? || project.directorGroup === projectGroupFilter;
           const typeMatched = projectTypeFilter === '全部项目类型' || (project.projectType || '短剧') === projectTypeFilter;
           const searchMatched = !normalizedSearch
               || project.name.toLowerCase().includes(normalizedSearch)
@@ -2976,7 +3207,7 @@ const CanvasWithSidebar: React.FC = () => {
                           </div>
                           <div>
                               <h1 className="text-xl font-bold">KC 无限画布项目管理</h1>
-                              <p className={`mt-1 text-sm ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>先选择项目，再进入对应画布继续创作和保存。</p>
+                              <p className={`mt-1 text-sm ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>先选择项目，再进入对应画布继续创作和保存�?/p>
                           </div>
                       </div>
                       <div className="flex items-center gap-2">
@@ -3008,12 +3239,12 @@ const CanvasWithSidebar: React.FC = () => {
                               </div>
                               <div>
                                   <div className="text-base font-bold">画布空间</div>
-                                  <div className={`mt-1 text-sm ${isDark ? 'text-blue-100/70' : 'text-blue-700/70'}`}>直接创建内部无限画布项目，适合发散创作和节点式迭代。</div>
+                                  <div className={`mt-1 text-sm ${isDark ? 'text-blue-100/70' : 'text-blue-700/70'}`}>直接创建内部无限画布项目，适合发散创作和节点式迭代�?/div>
                               </div>
                           </div>
                       </button>
                       <button
-                          onClick={() => alert('原型说明：正式接入时，该入口放在线性系统“上传剧本”旁边，点击后进入原有剧本上传和拆分流程。')}
+                          onClick={() => alert('原型说明：正式接入时，该入口放在线性系统“上传剧本”旁边，点击后进入原有剧本上传和拆分流程�?)}
                           className={`group rounded-2xl border p-5 text-left transition-all ${isDark ? 'border-zinc-800 bg-zinc-950/35 hover:border-zinc-700 hover:bg-zinc-950/55' : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'}`}
                       >
                           <div className="flex items-center gap-3">
@@ -3022,7 +3253,7 @@ const CanvasWithSidebar: React.FC = () => {
                               </div>
                               <div>
                                   <div className="text-base font-bold">上传剧本</div>
-                                  <div className={`mt-1 text-sm ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>沿用线性工作流：上传剧本、拆集拆场、生成分镜，再按需跳入画布。</div>
+                                  <div className={`mt-1 text-sm ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>沿用线性工作流：上传剧本、拆集拆场、生成分镜，再按需跳入画布�?/div>
                               </div>
                           </div>
                       </button>
@@ -3034,7 +3265,7 @@ const CanvasWithSidebar: React.FC = () => {
                               value={projectGroupFilter}
                               onChange={(e) => setProjectGroupFilter(e.target.value)}
                               className={selectClass}
-                              aria-label="项目组筛选"
+                              aria-label="项目组筛�?
                           >
                               {groupOptions.map(option => <option key={option} value={option}>{option}</option>)}
                           </select>
@@ -3042,7 +3273,7 @@ const CanvasWithSidebar: React.FC = () => {
                               value={projectTypeFilter}
                               onChange={(e) => setProjectTypeFilter(e.target.value)}
                               className={selectClass}
-                              aria-label="项目类型筛选"
+                              aria-label="项目类型筛�?
                           >
                               {typeOptions.map(option => <option key={option} value={option}>{option}</option>)}
                           </select>
@@ -3052,12 +3283,12 @@ const CanvasWithSidebar: React.FC = () => {
                                   value={projectSearchQuery}
                                   onChange={(e) => setProjectSearchQuery(e.target.value)}
                                   className={searchClass}
-                                  placeholder="搜索项目名称、画布名称或导演组"
+                                  placeholder="搜索项目名称、画布名称或导演�?
                               />
                           </div>
                       </div>
                       <div className={`text-sm ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>
-                          共 {visibleProjects.length} 个项目
+                          �?{visibleProjects.length} 个项�?
                       </div>
                   </section>
 
@@ -3074,7 +3305,7 @@ const CanvasWithSidebar: React.FC = () => {
                                       <p className={`mt-2 truncate text-sm ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>{project.directorGroup}</p>
                                   </div>
                                   <div className={`flex items-center justify-between gap-2 text-xs ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>
-                                      <span>最后快照</span>
+                                      <span>最后快�?/span>
                                       <span className="truncate font-medium">{project.lastSavedAt}</span>
                                   </div>
                               </div>
@@ -3082,7 +3313,7 @@ const CanvasWithSidebar: React.FC = () => {
                       ))}
                       {visibleProjects.length === 0 && (
                           <div className={`col-span-full rounded-2xl border p-8 text-center text-sm ${isDark ? 'border-zinc-800 bg-zinc-950/40 text-zinc-500' : 'border-gray-200 bg-white text-gray-500'}`}>
-                              没有找到匹配的项目
+                              没有找到匹配的项�?
                           </div>
                       )}
                   </main>
@@ -3102,8 +3333,8 @@ const CanvasWithSidebar: React.FC = () => {
               <div className={`w-[460px] max-w-[92vw] rounded-3xl border p-6 shadow-2xl ${isDark ? 'border-zinc-800 bg-[#15171b] text-zinc-100' : 'border-gray-200 bg-white text-gray-900'}`} onClick={(event) => event.stopPropagation()}>
                   <div className="flex items-start justify-between gap-4">
                       <div>
-                          <h3 className="text-lg font-bold">新建子画布</h3>
-                          <p className={`mt-1 text-xs leading-5 ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>同一个短剧项目可以按角色、分镜、导演成员或阶段拆成多个画布，降低误操作和前端压力。</p>
+                          <h3 className="text-lg font-bold">新建子画�?/h3>
+                          <p className={`mt-1 text-xs leading-5 ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>同一个短剧项目可以按角色、分镜、导演成员或阶段拆成多个画布，降低误操作和前端压力�?/p>
                       </div>
                       <button className={`h-9 w-9 rounded-full flex items-center justify-center ${isDark ? 'hover:bg-zinc-800 text-zinc-400 hover:text-white' : 'hover:bg-gray-100 text-gray-500 hover:text-gray-900'}`} onClick={() => setIsNewCanvasOpen(false)}>
                           <Icons.X size={20} />
@@ -3115,16 +3346,16 @@ const CanvasWithSidebar: React.FC = () => {
                           value={newCanvasName}
                           onChange={(event) => setNewCanvasName(event.target.value)}
                           className={`${inputClass} mt-1.5`}
-                          placeholder={`${currentProject.name} 子画布 ${projectCanvases.length + 1}`}
+                          placeholder={`${currentProject.name} 子画�?${projectCanvases.length + 1}`}
                           autoFocus
                       />
                   </div>
                   <div className={`mt-4 rounded-2xl border p-4 text-xs leading-5 ${isDark ? 'border-zinc-800 bg-zinc-950/50 text-zinc-400' : 'border-gray-200 bg-gray-50 text-gray-600'}`}>
-                      新建后会进入一张空画布；保存时写入 `canvases` 级数据，节点和连线都会带上当前 `canvas_id`。
+                      新建后会进入一张空画布；保存时写入 `canvases` 级数据，节点和连线都会带上当�?`canvas_id`�?
                   </div>
                   <div className="mt-6 flex justify-end gap-2">
                       <button className={`h-10 rounded-xl px-4 text-sm font-semibold ${isDark ? 'text-zinc-400 hover:bg-zinc-900 hover:text-white' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`} onClick={() => setIsNewCanvasOpen(false)}>取消</button>
-                      <button className="h-10 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-500" onClick={createCanvasInCurrentProject}>创建并进入</button>
+                      <button className="h-10 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-500" onClick={createCanvasInCurrentProject}>创建并进�?/button>
                   </div>
               </div>
           </div>
@@ -3143,7 +3374,7 @@ const CanvasWithSidebar: React.FC = () => {
                   <div className={`flex items-center justify-between border-b px-6 py-4 ${isDark ? 'border-zinc-800' : 'border-gray-100'}`}>
                       <div>
                           <h3 className="text-lg font-bold">画布权限管理</h3>
-                          <p className={`mt-1 text-xs ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>MVP 原型先演示画布级权限字段，正式系统对接 `canvas_permissions` 表。</p>
+                          <p className={`mt-1 text-xs ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>MVP 原型先演示画布级权限字段，正式系统对�?`canvas_permissions` 表�?/p>
                       </div>
                       <button className={`h-9 w-9 rounded-full flex items-center justify-center ${isDark ? 'hover:bg-zinc-800 text-zinc-400 hover:text-white' : 'hover:bg-gray-100 text-gray-500 hover:text-gray-900'}`} onClick={() => setIsCanvasPermissionOpen(false)}>
                           <Icons.X size={20} />
@@ -3164,8 +3395,8 @@ const CanvasWithSidebar: React.FC = () => {
                                           onChange={(event) => updateCanvasRole(canvas.id, event.target.value as CanvasPermissionRole)}
                                           className={selectClass}
                                       >
-                                          <option value="owner">拥有者</option>
-                                          <option value="editor">可编辑</option>
+                                          <option value="owner">拥有�?/option>
+                                          <option value="editor">可编�?/option>
                                           <option value="viewer">只读</option>
                                       </select>
                                   </div>
@@ -3173,7 +3404,7 @@ const CanvasWithSidebar: React.FC = () => {
                           ))}
                       </div>
                       <div className={`mt-5 rounded-2xl border p-4 text-xs leading-5 ${isDark ? 'border-zinc-800 bg-zinc-950/45 text-zinc-400' : 'border-gray-200 bg-white text-gray-600'}`}>
-                          当前画布权限样例：{canvasPermissions.length ? canvasPermissions.map(item => `${item.userName} ${ROLE_LABELS[item.role]}`).join(' / ') : '选择画布后加载权限'}。
+                          当前画布权限样例：{canvasPermissions.length ? canvasPermissions.map(item => `${item.userName} ${ROLE_LABELS[item.role]}`).join(' / ') : '选择画布后加载权�?}�?
                       </div>
                   </div>
               </div>
@@ -3184,7 +3415,7 @@ const CanvasWithSidebar: React.FC = () => {
   const renderCanvasListPage = () => {
       if (!currentProject) return null;
       const statusText: Record<ProjectCanvasItem['status'], string> = {
-          active: '制作中',
+          active: '制作�?,
           draft: '草稿',
           archived: '归档',
       };
@@ -3193,7 +3424,7 @@ const CanvasWithSidebar: React.FC = () => {
           if (role === 'editor') return isDark ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20' : 'bg-emerald-50 text-emerald-700 border-emerald-100';
           return isDark ? 'bg-zinc-800 text-zinc-300 border-zinc-700' : 'bg-gray-100 text-gray-600 border-gray-200';
       };
-      const canvasCountText = projectCanvases.length === 1 ? '1 个画布，已保持单人直进体验' : `${projectCanvases.length} 个子画布`;
+      const canvasCountText = projectCanvases.length === 1 ? '1 个画布，已保持单人直进体�? : `${projectCanvases.length} 个子画布`;
 
       return (
           <div className={`min-h-screen w-full ${isDark ? 'bg-[#0b0c0e] text-zinc-100' : 'bg-[#f5f7fa] text-gray-900'}`}>
@@ -3245,8 +3476,8 @@ const CanvasWithSidebar: React.FC = () => {
                       <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
                           {[
                               ['项目类型', currentProject.projectType],
-                              ['项目组', currentProject.directorGroup],
-                              ['子画布', projectCanvases.length],
+                              ['项目�?, currentProject.directorGroup],
+                              ['子画�?, projectCanvases.length],
                               ['项目素材', currentProject.assetCount],
                           ].map(([label, value]) => (
                               <div key={String(label)} className={`rounded-2xl border p-4 ${isDark ? 'border-zinc-800 bg-zinc-950/45' : 'border-gray-200 bg-white'}`}>
@@ -3277,16 +3508,16 @@ const CanvasWithSidebar: React.FC = () => {
                               </div>
                               <div className={`mt-5 grid grid-cols-2 gap-2 rounded-xl p-3 ${isDark ? 'bg-zinc-950/60' : 'bg-gray-50'}`}>
                                   <div>
-                                      <div className={`text-[10px] ${isDark ? 'text-zinc-600' : 'text-gray-400'}`}>节点数</div>
+                                      <div className={`text-[10px] ${isDark ? 'text-zinc-600' : 'text-gray-400'}`}>节点�?/div>
                                       <div className="mt-1 text-sm font-semibold">{canvas.nodeCount}</div>
                                   </div>
                                   <div>
-                                      <div className={`text-[10px] ${isDark ? 'text-zinc-600' : 'text-gray-400'}`}>素材数</div>
+                                      <div className={`text-[10px] ${isDark ? 'text-zinc-600' : 'text-gray-400'}`}>素材�?/div>
                                       <div className="mt-1 text-sm font-semibold">{canvas.assetCount}</div>
                                   </div>
                               </div>
                               <div className={`mt-4 flex items-center justify-between text-xs ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>
-                                  <span>{canvas.entrySource === 'linear_workflow' ? '线性分镜入口' : '画布空间入口'}</span>
+                                  <span>{canvas.entrySource === 'linear_workflow' ? '线性分镜入�? : '画布空间入口'}</span>
                                   <span>{canvas.lastSavedAt}</span>
                               </div>
                           </button>
@@ -3316,7 +3547,7 @@ const CanvasWithSidebar: React.FC = () => {
                   <div className={`flex items-center justify-between border-b px-6 py-4 ${isDark ? 'border-zinc-800' : 'border-gray-100'}`}>
                       <div>
                           <h3 className="text-lg font-bold">保存结果</h3>
-                          <p className={`mt-1 text-xs ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>保存到项目素材，或作为资产版本沉淀给线性系统复用。</p>
+                          <p className={`mt-1 text-xs ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>保存到项目素材，或作为资产版本沉淀给线性系统复用�?/p>
                       </div>
                       <button className={`h-9 w-9 rounded-full flex items-center justify-center ${isDark ? 'hover:bg-zinc-800 text-zinc-400 hover:text-white' : 'hover:bg-gray-100 text-gray-500 hover:text-gray-900'}`} onClick={() => setSaveResultTarget(null)}>
                           <Icons.X size={20} />
@@ -3339,16 +3570,16 @@ const CanvasWithSidebar: React.FC = () => {
                       <div className="space-y-4">
                           <div>
                               <label className={`text-xs font-semibold ${isDark ? 'text-zinc-400' : 'text-gray-600'}`}>名称</label>
-                              <input className={`${inputClass} mt-1.5`} value={saveResultName} onChange={(event) => setSaveResultName(event.target.value)} placeholder="输入素材或资产名称" />
+                              <input className={`${inputClass} mt-1.5`} value={saveResultName} onChange={(event) => setSaveResultName(event.target.value)} placeholder="输入素材或资产名�? />
                           </div>
 
                           <div className="grid grid-cols-3 gap-2">
                               <button className={modeButtonClass('material')} onClick={() => setSaveResultMode('material')}>
                                   <div className="text-sm font-semibold">项目素材</div>
-                                  <div className="mt-1 text-[11px] opacity-70">只保存到当前项目素材库</div>
+                                  <div className="mt-1 text-[11px] opacity-70">只保存到当前项目素材�?/div>
                               </button>
                               <button className={modeButtonClass('new_asset')} onClick={() => setSaveResultMode('new_asset')}>
-                                  <div className="text-sm font-semibold">新资产</div>
+                                  <div className="text-sm font-semibold">新资�?/div>
                                   <div className="mt-1 text-[11px] opacity-70">创建角色/场景/道具资产</div>
                               </button>
                               <button className={modeButtonClass('update_asset')} onClick={() => setSaveResultMode('update_asset')}>
@@ -3386,19 +3617,19 @@ const CanvasWithSidebar: React.FC = () => {
                                           <option key={asset.id} value={asset.id}>{asset.name} / {asset.version}</option>
                                       ))}
                                   </select>
-                                  <p className={`mt-1 text-[11px] ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>正式系统会保留历史版本，不覆盖旧结果。</p>
+                                  <p className={`mt-1 text-[11px] ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>正式系统会保留历史版本，不覆盖旧结果�?/p>
                               </div>
                           )}
 
                           <div>
                               <label className={`text-xs font-semibold ${isDark ? 'text-zinc-400' : 'text-gray-600'}`}>备注</label>
-                              <textarea className={`${inputClass} mt-1.5 min-h-[70px] resize-none`} value={saveResultNote} onChange={(event) => setSaveResultNote(event.target.value)} placeholder="可填写本次优化原因、适用分镜或版本说明" />
+                              <textarea className={`${inputClass} mt-1.5 min-h-[70px] resize-none`} value={saveResultNote} onChange={(event) => setSaveResultNote(event.target.value)} placeholder="可填写本次优化原因、适用分镜或版本说�? />
                           </div>
                       </div>
                   </div>
 
                   <div className={`flex items-center justify-between border-t px-6 py-4 ${isDark ? 'border-zinc-800' : 'border-gray-100'}`}>
-                      <div className={`text-xs ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>当前为原型演示，后续接项目素材库/资产库接口。</div>
+                      <div className={`text-xs ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>当前为原型演示，后续接项目素材库/资产库接口�?/div>
                       <div className="flex gap-2">
                           <button className={`h-10 rounded-xl px-4 text-sm font-semibold ${isDark ? 'text-zinc-400 hover:bg-zinc-900 hover:text-white' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`} onClick={() => setSaveResultTarget(null)}>取消</button>
                           <button className="h-10 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-500" onClick={handleConfirmSaveResult}>确认保存</button>
@@ -3413,11 +3644,11 @@ const CanvasWithSidebar: React.FC = () => {
       if (!isCreditDashboardOpen) return null;
       const statusText: Record<string, string> = {
           estimated: '预计',
-          reserved: '已预扣',
-          confirmed: '已扣减',
-          refunded: '已返还',
+          reserved: '已预�?,
+          confirmed: '已扣�?,
+          refunded: '已返�?,
           failed: '异常',
-          idle: '未开始',
+          idle: '未开�?,
       };
       const taskRows = nodes
           .filter(node => node.creditEstimate || node.creditStatus)
@@ -3433,9 +3664,9 @@ const CanvasWithSidebar: React.FC = () => {
               nodeTitle: node.title,
           }));
       const fallbackRows = [
-          { id: 'mock_1', project: currentProject?.name || '演示项目', group: currentProject?.directorGroup || 'A组导演组', user: '导演A', type: '视频生成', model: 'Seedance 1.5 Pro', credit: 14, status: 'confirmed', nodeTitle: '第1集 第2场 分镜03' },
+          { id: 'mock_1', project: currentProject?.name || '演示项目', group: currentProject?.directorGroup || 'A组导演组', user: '导演A', type: '视频生成', model: 'Seedance 1.5 Pro', credit: 14, status: 'confirmed', nodeTitle: '�?�?�?�?分镜03' },
           { id: 'mock_2', project: currentProject?.name || '演示项目', group: currentProject?.directorGroup || 'A组导演组', user: '制片助理B', type: '图片生成', model: 'Seedream 5.0', credit: 2, status: 'reserved', nodeTitle: '角色参考图' },
-          { id: 'mock_3', project: currentProject?.name || '演示项目', group: currentProject?.directorGroup || 'A组导演组', user: '导演A', type: '文本分析', model: 'Xiaomi MiMo 2.5 Pro', credit: 1, status: 'refunded', nodeTitle: '剧本角色表' },
+          { id: 'mock_3', project: currentProject?.name || '演示项目', group: currentProject?.directorGroup || 'A组导演组', user: '导演A', type: '文本分析', model: 'Xiaomi MiMo 2.5 Pro', credit: 1, status: 'refunded', nodeTitle: '剧本角色�? },
       ];
       const rows = taskRows.length ? taskRows : fallbackRows;
       const total = rows.reduce((sum, row) => sum + row.credit, 0);
@@ -3449,7 +3680,7 @@ const CanvasWithSidebar: React.FC = () => {
                   <div className={`flex items-center justify-between border-b px-6 py-4 ${isDark ? 'border-zinc-800' : 'border-gray-100'}`}>
                       <div>
                           <h3 className="text-xl font-bold">后台积分看板</h3>
-                          <p className={`mt-1 text-sm ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>按项目、导演组、人员、模型和任务类型查看画布消耗。</p>
+                          <p className={`mt-1 text-sm ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>按项目、导演组、人员、模型和任务类型查看画布消耗�?/p>
                       </div>
                       <button className={`h-10 w-10 rounded-full flex items-center justify-center ${isDark ? 'hover:bg-zinc-800 text-zinc-400 hover:text-white' : 'hover:bg-gray-100 text-gray-500 hover:text-gray-900'}`} onClick={() => setIsCreditDashboardOpen(false)}>
                           <Icons.X size={22} />
@@ -3458,8 +3689,8 @@ const CanvasWithSidebar: React.FC = () => {
 
                   <div className="grid grid-cols-4 gap-4 p-6">
                       {[
-                          ['今日消耗', total],
-                          ['已确认扣减', confirmed],
+                          ['今日消�?, total],
+                          ['已确认扣�?, confirmed],
                           ['当前预扣', reserved],
                           ['失败返还', refunded],
                       ].map(([label, value]) => (
@@ -3475,7 +3706,7 @@ const CanvasWithSidebar: React.FC = () => {
                       <table className="w-full border-separate border-spacing-y-2 text-sm">
                           <thead>
                               <tr className={isDark ? 'text-zinc-500' : 'text-gray-500'}>
-                                  {['项目', '导演组', '人员', '任务类型', '模型', '节点', '积分', '状态'].map(head => (
+                                  {['项目', '导演�?, '人员', '任务类型', '模型', '节点', '积分', '状�?].map(head => (
                                       <th key={head} className="px-3 py-2 text-left text-xs font-semibold">{head}</th>
                                   ))}
                               </tr>
@@ -3517,11 +3748,11 @@ const CanvasWithSidebar: React.FC = () => {
       if (!isCreditDashboardOpen) return null;
       const statusText: Record<string, string> = {
           estimated: '预计',
-          reserved: '已预扣',
-          confirmed: '已扣除',
-          refunded: '已返还',
+          reserved: '已预�?,
+          confirmed: '已扣�?,
+          refunded: '已返�?,
           failed: '异常',
-          idle: '未开始',
+          idle: '未开�?,
       };
       const rows = getCreditRows();
       const activeProjectId = creditProjectId || currentProject?.id || projects[0]?.id || 'all';
@@ -3546,7 +3777,7 @@ const CanvasWithSidebar: React.FC = () => {
                   <div className={`flex items-center gap-4 border-b px-6 py-4 ${isDark ? 'border-zinc-800' : 'border-gray-100'}`}>
                       <div className="min-w-0 flex-1">
                           <h3 className="text-xl font-bold">项目积分看板</h3>
-                          <p className={`mt-1 text-sm ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>查看所有项目的大体消耗，默认展开当前项目明细。</p>
+                          <p className={`mt-1 text-sm ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>查看所有项目的大体消耗，默认展开当前项目明细�?/p>
                       </div>
                       <select
                           value={activeProjectId}
@@ -3565,8 +3796,8 @@ const CanvasWithSidebar: React.FC = () => {
 
                   <div className="grid grid-cols-4 gap-4 px-6 pt-6">
                       {[
-                          ['当前查看消耗', total],
-                          ['已确认扣除', confirmed],
+                          ['当前查看消�?, total],
+                          ['已确认扣�?, confirmed],
                           ['当前预扣', reserved],
                           ['失败返还', refunded],
                       ].map(([label, value]) => (
@@ -3592,7 +3823,7 @@ const CanvasWithSidebar: React.FC = () => {
                               <div className="truncate text-sm font-bold">{project.name}</div>
                               <div className={`mt-1 truncate text-xs ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>{project.directorGroup}</div>
                               <div className="mt-3 flex items-center justify-between text-xs">
-                                  <span className={isDark ? 'text-zinc-500' : 'text-gray-500'}>总消耗</span>
+                                  <span className={isDark ? 'text-zinc-500' : 'text-gray-500'}>总消�?/span>
                                   <span className="font-bold tabular-nums">{project.total}</span>
                               </div>
                           </button>
@@ -3603,7 +3834,7 @@ const CanvasWithSidebar: React.FC = () => {
                       <table className="w-full border-separate border-spacing-y-2 text-sm">
                           <thead>
                               <tr className={isDark ? 'text-zinc-500' : 'text-gray-500'}>
-                                  {['项目', '导演组', '人员', '任务类型', '模型', '节点', '积分', '状态'].map(head => (
+                                  {['项目', '导演�?, '人员', '任务类型', '模型', '节点', '积分', '状�?].map(head => (
                                       <th key={head} className="px-3 py-2 text-left text-xs font-semibold">{head}</th>
                                   ))}
                               </tr>
@@ -3704,7 +3935,7 @@ const CanvasWithSidebar: React.FC = () => {
                               event.stopPropagation();
                               jumpToMiniMapPoint(event);
                           }}
-                          title="点击小地图快速移动画布"
+                          title="点击小地图快速移动画�?
                       >
                           <svg width={metrics.miniWidth} height={metrics.miniHeight} className="absolute inset-0">
                               {metrics.nodeRects.map(rect => (
@@ -3734,7 +3965,7 @@ const CanvasWithSidebar: React.FC = () => {
                   </div>
               )}
               <div className={`flex items-center gap-1 rounded-2xl border px-2 py-1.5 shadow-xl backdrop-blur-xl ${panelClass}`}>
-                  <button className={`h-9 w-9 rounded-xl flex items-center justify-center ${buttonClass}`} title="小地图" onClick={() => setIsMiniMapOpen(prev => !prev)}>
+                  <button className={`h-9 w-9 rounded-xl flex items-center justify-center ${buttonClass}`} title="小地�? onClick={() => setIsMiniMapOpen(prev => !prev)}>
                       <Icons.Map size={17} />
                   </button>
                   <button className={`h-9 w-9 rounded-xl flex items-center justify-center ${buttonClass}`} title="整理画布" onClick={arrangeCanvasNodes}>
@@ -3806,7 +4037,7 @@ const CanvasWithSidebar: React.FC = () => {
                         </button>
                         <button className={menuItemClass} onClick={() => { addNode(NodeType.TEXT_TO_VIDEO, contextMenu.worldX, contextMenu.worldY); setContextMenu(null); }}>
                             <div className="w-5 h-5 rounded bg-purple-500/10 flex items-center justify-center"><Icons.Video size={12} className="text-purple-400"/></div>
-                            <span>生视频</span>
+                            <span>生视�?/span>
                         </button>
                         <button className={menuItemClass} onClick={() => { addNode(NodeType.TEXT_TO_AUDIO, contextMenu.worldX, contextMenu.worldY); setContextMenu(null); }}>
                             <div className="w-5 h-5 rounded bg-amber-500/10 flex items-center justify-center"><Icons.Music size={12} className="text-amber-300"/></div>
@@ -3836,7 +4067,7 @@ const CanvasWithSidebar: React.FC = () => {
             onMouseDown={(e) => e.stopPropagation()}
         >
             <div className={`px-3 pb-2 mb-1 text-[11px] font-semibold border-b ${isDark ? 'text-gray-200 border-zinc-800' : 'text-gray-800 border-gray-100'}`}>
-                连接到节点
+                连接到节�?
             </div>
             
             <div className={groupLabelClass}>生成</div>
@@ -3850,7 +4081,7 @@ const CanvasWithSidebar: React.FC = () => {
             </button>
             <button className={menuItemClass} onClick={() => handleQuickAddNode(NodeType.TEXT_TO_VIDEO)}>
                 <div className="w-6 h-6 rounded-md bg-purple-500/10 flex items-center justify-center"><Icons.Video size={14} className="text-purple-400"/></div>
-                <span>生视频</span>
+                <span>生视�?/span>
             </button>
             <button className={menuItemClass} onClick={() => handleQuickAddNode(NodeType.TEXT_TO_AUDIO)}>
                 <div className="w-6 h-6 rounded-md bg-amber-500/10 flex items-center justify-center"><Icons.Music size={14} className="text-amber-300"/></div>
@@ -3878,7 +4109,7 @@ const CanvasWithSidebar: React.FC = () => {
       return (
           <div className="w-full h-screen flex items-center justify-center bg-[#0b0c0e] text-zinc-300">
               <Icons.Loader2 size={24} className="animate-spin mr-2" />
-              加载中...
+              加载�?..
           </div>
       );
   }
@@ -3937,6 +4168,7 @@ const CanvasWithSidebar: React.FC = () => {
           onAddAssetToCanvas={handleAddAssetToCanvas}
           onAddMaterialToCanvas={handleAddMaterialToCanvas}
           onToggleMaterialFavorite={toggleMaterialFavorite}
+          onApplyPrompt={handleApplyPrompt}
           isDark={isDark}
         />
         <input type="file" ref={workflowInputRef} hidden accept=".aistudio-flow,.json" onChange={handleLoadWorkflow} />
@@ -3957,14 +4189,14 @@ const CanvasWithSidebar: React.FC = () => {
             onDragOver={handleDragOver}
             onDrop={handleDrop}
         >
-            <div className="absolute origin-top-left will-change-transform" style={{ transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.k})` }}>
+            <div className="absolute origin-top-left will-change-transform" style={{ transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.k})`, '--canvas-scale': transform.k } as React.CSSProperties}>
                 {/* Connection Lines - Rendered as absolute positioned divs with SVG */}
                 {connections.map(conn => {
                     const source = nodes.find(n => n.id === conn.sourceId);
                     const target = nodes.find(n => n.id === conn.targetId);
                     if (!source || !target) return null;
                     
-                    // 源节点右侧输出端口位置
+                    // 源节点右侧输出端口位�?
                     const sx = source.x + source.width;
                     const sy = source.y + source.height / 2;
                     // 目标节点左侧输入端口位置
@@ -3983,7 +4215,7 @@ const CanvasWithSidebar: React.FC = () => {
                     const svgWidth = maxX - minX;
                     const svgHeight = maxY - minY;
                     
-                    // 相对于SVG的坐标
+                    // 相对于SVG的坐�?
                     const relSx = sx - minX;
                     const relSy = sy - minY;
                     const relTx = tx - minX;
@@ -3992,10 +4224,10 @@ const CanvasWithSidebar: React.FC = () => {
                     const d = `M ${relSx} ${relSy} C ${relSx + cp} ${relSy}, ${relTx - cp} ${relTy}, ${relTx} ${relTy}`;
                     const isSelected = selectedConnectionId === conn.id;
                     
-                    // 连接线颜色
+                    // 连接线颜�?
                     const lineColor = isSelected ? (isDark ? "#d4d4d8" : "#52525b") : (isDark ? "#71717a" : "#9ca3af");
                     
-                    // 计算贝塞尔曲线上 t=0.5 的实际中点位置
+                    // 计算贝塞尔曲线上 t=0.5 的实际中点位�?
                     const t = 0.5;
                     const p0x = relSx, p0y = relSy;
                     const p1x = relSx + cp, p1y = relSy;
@@ -4067,7 +4299,7 @@ const CanvasWithSidebar: React.FC = () => {
                                     />
                                 </path>
                             )}
-                            {/* 删除按钮 - 使用纯 SVG 实现 */}
+                            {/* 删除按钮 - 使用�?SVG 实现 */}
                             {isSelected && (
                                 <g 
                                     style={{ pointerEvents: 'auto', cursor: 'pointer' }}
@@ -4107,12 +4339,12 @@ const CanvasWithSidebar: React.FC = () => {
                     );
                 })}
                 
-                {/* 拖拽连接预览线 */}
+                {/* 拖拽连接预览�?*/}
                 {dragMode === 'CONNECT' && connectionStartRef.current && tempConnection && (() => {
                     const sourceNode = nodes.find(n => n.id === connectionStartRef.current?.nodeId);
                     if (!sourceNode) return null;
 
-                    // 反向连接(从输入端口拖出)时，预览线从节点左侧出发，曲线向左弯。
+                    // 反向连接(从输入端口拖�?时，预览线从节点左侧出发，曲线向左弯�?
                     const fromSource = connectionStartRef.current?.type === 'source';
                     const sx = fromSource ? sourceNode.x + sourceNode.width : sourceNode.x;
                     const sy = sourceNode.y + sourceNode.height / 2;
@@ -4198,6 +4430,14 @@ const CanvasWithSidebar: React.FC = () => {
                             onSaveResult={openSaveResultModal}
                             onCrop={handleCropStart}
                             onMultiAngle={handleMultiAngleGenerate}
+                            onExtractFrames={handleExtractFrames}
+                            onRemoveSubtitles={handleRemoveSubtitles}
+                            onEnhanceVideo={handleEnhanceVideo}
+                            onMultiGrid={handleMultiGrid}
+                            onRepaint={handleRepaint}
+                            onLighting={handleLighting}
+                            onPanorama={handlePanorama}
+                            onOutpaint={handleOutpaint}
                             onAnalyzeMedia={handleAnalyzeMedia}
                             onAnalyzeScript={handleAnalyzeScript}
                             isSelecting={dragMode === 'SELECT'}
@@ -4270,7 +4510,7 @@ const CanvasWithSidebar: React.FC = () => {
                             <button
                                 onClick={() => {
                                     if (isReadOnlyCanvas) {
-                                        guardReadOnly('重命名画布');
+                                        guardReadOnly('重命名画�?);
                                         return;
                                     }
                                     setIsEditingProjectName(true);
@@ -4289,7 +4529,7 @@ const CanvasWithSidebar: React.FC = () => {
                             <span className={`w-1 h-1 rounded-full ${isDark ? 'bg-zinc-700' : 'bg-gray-300'}`} />
                             <span>{ROLE_LABELS[currentCanvas.permissionRole]}</span>
                             <span className={`w-1 h-1 rounded-full ${isDark ? 'bg-zinc-700' : 'bg-gray-300'}`} />
-                            <span>{saveStatus === 'saving' ? '保存中' : saveStatus === 'failed' ? '保存失败' : currentCanvas.lastSavedAt}</span>
+                            <span>{saveStatus === 'saving' ? '保存�? : saveStatus === 'failed' ? '保存失败' : currentCanvas.lastSavedAt}</span>
                         </div>
                     </div>
 
@@ -4332,7 +4572,7 @@ const CanvasWithSidebar: React.FC = () => {
                     {/* Download */}
                     <button
                         onClick={() => handleSaveProject()}
-                        title={saveStatus === 'saved' ? '已保存' : '保存项目'}
+                        title={saveStatus === 'saved' ? '已保�? : '保存项目'}
                         className={`flex h-9 w-9 items-center justify-center rounded-xl text-sm font-medium transition-all ${
                             saveStatus === 'saved'
                                 ? (isDark ? 'text-emerald-400 hover:bg-emerald-500/10' : 'text-emerald-600 hover:bg-emerald-50')
@@ -4342,7 +4582,7 @@ const CanvasWithSidebar: React.FC = () => {
                         }`}
                     >
                         {saveStatus === 'saving' ? <Icons.Loader2 size={15} className="animate-spin" /> : <Icons.Save size={15} />}
-                        <span className="sr-only">{saveStatus === 'saved' ? '已保存' : '保存项目'}</span>
+                        <span className="sr-only">{saveStatus === 'saved' ? '已保�? : '保存项目'}</span>
                     </button>
 
                     <div className={`w-px h-5 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`} />

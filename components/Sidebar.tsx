@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, memo, useMemo } from 'react';
 import { Icons } from './Icons';
-import { AssetLibraryItem, AssetLibraryScope, AssetLibraryType, MaterialLibraryItem, NodeType, NodeData } from '../types';
+import { AssetLibraryItem, AssetLibraryScope, AssetLibraryType, MaterialLibraryItem, NodeType, NodeData, PromptTemplate } from '../types';
 
 interface SidebarProps {
   onAddNode: (type: NodeType) => void;
@@ -20,10 +20,28 @@ interface SidebarProps {
   onAddAssetToCanvas: (asset: AssetLibraryItem) => void;
   onAddMaterialToCanvas: (item: MaterialLibraryItem) => void;
   onToggleMaterialFavorite: (nodeId: string, url: string, type: 'image' | 'video') => void;
+  onApplyPrompt?: (prompt: string) => void;
   isDark?: boolean;
 }
 
-type ActivePanel = 'ADD' | 'HISTORY' | 'ASSET_LIBRARY' | 'ASSETS' | 'PROJECT' | null;
+type ActivePanel = 'ADD' | 'HISTORY' | 'ASSET_LIBRARY' | 'ASSETS' | 'PROJECT' | 'PROMPT_LIBRARY' | null;
+
+const PROMPT_TEMPLATES: PromptTemplate[] = [
+  { id: 'p1', category: '人物', title: '电影级人物特写', prompt: '电影级人物特写，柔和的伦勃朗光，浅景深，肤色自然，眼神有故事感，35mm 镜头质感' },
+  { id: 'p2', category: '人物', title: '赛博朋克角色', prompt: '赛博朋克风格角色全身像，霓虹灯反射，机械改造细节，雨夜街道背景，高对比度' },
+  { id: 'p3', category: '人物', title: '古风人像', prompt: '中国古风人像，汉服造型，水墨画背景，自然光线，淡雅色调，意境悠远' },
+  { id: 'p4', category: '场景', title: '电影级室内', prompt: '电影级室内场景，暖色调台灯光，木质家具，窗外夜景，胶片质感，景深柔和' },
+  { id: 'p5', category: '场景', title: '末日废土', prompt: '末日废土场景，荒芜城市废墟，锈蚀金属，雾气弥漫，戏剧性天光，超写实风格' },
+  { id: 'p6', category: '场景', title: '奇幻森林', prompt: '奇幻森林场景，巨型蘑菇和发光植物，萤火虫飞舞，薄雾缭绕，魔幻氛围' },
+  { id: 'p7', category: '产品', title: '高端产品摄影', prompt: '高端产品摄影，纯黑背景，单侧主光，产品轮廓光，反射面材质，商业广告品质' },
+  { id: 'p8', category: '产品', title: '美食特写', prompt: '美食特写摄影，顶光 + 侧面补光，食材纹理清晰，微距浅景深，暖色调，令人食欲大开' },
+  { id: 'p9', category: '风格', title: '日式动漫', prompt: '日式动漫风格，细腻线条，柔和渐变色彩，樱花背景，角色表情生动' },
+  { id: 'p10', category: '风格', title: '水彩手绘', prompt: '水彩手绘风格，笔触自然随性，颜料晕染效果，留白意境，纸张纹理' },
+  { id: 'p11', category: '风格', title: '像素艺术', prompt: '16-bit 像素艺术风格，复古游戏画面，有限调色板，清晰像素边缘，怀旧氛围' },
+  { id: 'p12', category: '风格', title: '3D 写实渲染', prompt: '3D 写实渲染，Octane Render 品质，全局光照，PBR 材质，8K 细节纹理' },
+];
+
+const PROMPT_CATEGORIES = ['全部', '人物', '场景', '产品', '风格'];
 type AssetItem = MaterialLibraryItem & {
     nodeId: string;
     type: 'image' | 'video';
@@ -90,6 +108,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onAddAssetToCanvas,
   onAddMaterialToCanvas,
   onToggleMaterialFavorite,
+  onApplyPrompt,
   isDark = true
 }) => {
   const [activePanel, setActivePanel] = useState<ActivePanel>(null);
@@ -608,6 +627,52 @@ const Sidebar: React.FC<SidebarProps> = ({
     );
   };
 
+  const [promptCategory, setPromptCategory] = useState<string>('全部');
+
+  const filteredPrompts = useMemo(() => {
+    if (promptCategory === '全部') return PROMPT_TEMPLATES;
+    return PROMPT_TEMPLATES.filter(t => t.category === promptCategory);
+  }, [promptCategory]);
+
+  const renderPromptLibraryPanel = () => (
+    <div className="h-full flex flex-col gap-3">
+      <div className={`flex gap-1 rounded-xl p-1 ${isDark ? 'bg-zinc-950/45' : 'bg-gray-100'}`}>
+        {PROMPT_CATEGORIES.map(cat => (
+          <button
+            key={cat}
+            className={`h-7 px-2.5 rounded-lg text-[11px] font-semibold transition-all ${
+              promptCategory === cat
+                ? (isDark ? 'bg-blue-500/20 text-blue-300' : 'bg-white text-blue-600 shadow-sm')
+                : (isDark ? 'text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200' : 'text-gray-500 hover:bg-white/70 hover:text-gray-800')
+            }`}
+            onClick={() => setPromptCategory(cat)}
+          >
+            {cat}
+          </button>
+        ))}
+      </div>
+      <div className="flex-1 overflow-y-auto space-y-2 no-scrollbar">
+        {filteredPrompts.map(template => (
+          <button
+            key={template.id}
+            className={`w-full text-left p-3 rounded-xl border transition-all group ${
+              isDark
+                ? 'border-zinc-800 hover:border-zinc-600 hover:bg-zinc-800/50'
+                : 'border-gray-100 hover:border-gray-300 hover:bg-gray-50'
+            }`}
+            onClick={() => { onApplyPrompt?.(template.prompt); setActivePanel(null); }}
+          >
+            <div className="flex items-center justify-between mb-1">
+              <span className={`text-xs font-semibold ${textMain}`}>{template.title}</span>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-md ${isDark ? 'bg-zinc-800 text-zinc-400' : 'bg-gray-100 text-gray-500'}`}>{template.category}</span>
+            </div>
+            <div className={`text-[11px] leading-relaxed line-clamp-2 ${textSub}`}>{template.prompt}</div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
   // 渲染面板内容
   const renderPanel = () => {
     if (!activePanel) return null;
@@ -723,12 +788,16 @@ const Sidebar: React.FC<SidebarProps> = ({
         title = '素材库';
         content = renderAssetsPanel();
         break;
+      case 'PROMPT_LIBRARY':
+        title = '提示词库';
+        content = renderPromptLibraryPanel();
+        break;
     }
 
     return (
       <div 
         ref={panelRef}
-        className={`fixed left-[76px] top-1/2 -translate-y-1/2 ${activePanel === 'ASSETS' || activePanel === 'ASSET_LIBRARY' ? 'w-80 h-[70vh]' : 'w-64 max-h-[80vh]'} ${bgMain} backdrop-blur-xl border ${borderColor} rounded-2xl z-[190] flex flex-col shadow-xl animate-in slide-in-from-left-2 duration-200`}
+        className={`fixed left-[76px] top-1/2 -translate-y-1/2 ${activePanel === 'ASSETS' || activePanel === 'ASSET_LIBRARY' || activePanel === 'PROMPT_LIBRARY' ? 'w-80 h-[70vh]' : 'w-64 max-h-[80vh]'} ${bgMain} backdrop-blur-xl border ${borderColor} rounded-2xl z-[190] flex flex-col shadow-xl animate-in slide-in-from-left-2 duration-200`}
       >
         {/* Panel Header */}
         <div className={`px-4 py-3 border-b ${borderColor} flex items-center justify-between shrink-0`}>
@@ -764,6 +833,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         <SidebarButton icon={Icons.Coins} tooltip="积分看板" onClick={onOpenCreditDashboard} />
         <SidebarButton icon={Icons.Database} panel="ASSET_LIBRARY" tooltip="资产库" />
         <SidebarButton icon={Icons.Images} panel="ASSETS" tooltip="素材库" />
+        <SidebarButton icon={Icons.Library} panel="PROMPT_LIBRARY" tooltip="提示词库" />
         <SidebarButton icon={Icons.Upload} tooltip="导入素材" onClick={onImportAsset} />
         
       </div>

@@ -23,6 +23,14 @@ interface NodeContentProps {
   onAnalyzeMedia?: (nodeId: string) => void;
   onAnalyzeScript?: (nodeId: string) => void;
   onPreviewReference?: (item: InputMedia) => void;
+  onExtractFrames?: (nodeId: string) => void;
+  onRemoveSubtitles?: (nodeId: string) => void;
+  onEnhanceVideo?: (nodeId: string) => void;
+  onMultiGrid?: (nodeId: string, preset: string) => void;
+  onRepaint?: (nodeId: string) => void;
+  onLighting?: (nodeId: string) => void;
+  onPanorama?: (nodeId: string) => void;
+  onOutpaint?: (nodeId: string) => void;
   onToggleFavoriteArtifact?: (nodeId: string, url: string, type: 'image' | 'video') => void;
   isArtifactFavorited?: (nodeId: string, url: string) => boolean;
   isSelecting?: boolean;
@@ -56,8 +64,10 @@ const NodeContentComponent: React.FC<NodeContentProps> = (props) => {
 export const NodeContent = memo(NodeContentComponent, (prev, next) => {
     if (prev.isSelecting !== next.isSelecting) return false;
     if (prev.isDark !== next.isDark) return false;
-    if (prev.canvasScale !== next.canvasScale) return false;
-    
+    // canvasScale intentionally NOT compared: zoom counter-scaling is handled by the
+    // --canvas-scale CSS var (see each node's panelTransform), so changing zoom must
+    // never re-render heavy nodes (large base64 media stays off the gesture hot path).
+
     // Check Inputs
     if (prev.inputs !== next.inputs) {
          if (prev.inputs?.length !== next.inputs?.length) return false;

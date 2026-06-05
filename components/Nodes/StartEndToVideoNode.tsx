@@ -36,9 +36,10 @@ export const StartEndToVideoNode: React.FC<StartEndToVideoNodeProps> = ({
     const [videoModels, setVideoModels] = useState<string[]>([]);
 
     const isSelectedAndStable = selected && !isSelecting;
-    const panelScale = 1 / Math.max(canvasScale, 0.1);
+    // Panel stays a constant screen size while zooming via the --canvas-scale CSS var,
+    // so zoom no longer re-renders the node (heavy base64 media stays off the hot path).
     const panelTransform: React.CSSProperties = {
-        transform: `translateX(-50%) scale(${panelScale})`,
+        transform: 'translateX(-50%) scale(calc(1 / var(--canvas-scale, 1)))',
         transformOrigin: 'top center',
     };
     
