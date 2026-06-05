@@ -3582,6 +3582,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                             onAnalyzeScript={handleAnalyzeScript}
                             isSelecting={dragMode === 'SELECT'}
                             onDelete={deleteNode}
+                            onAddToAssetLibrary={handleOpenAssetSelection}
                             isDark={isDark}
                             canvasScale={transform.k}
                         />
@@ -3663,11 +3664,20 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                                 className={`flex items-center gap-1.5 text-[11px] font-medium px-2 py-0.5 rounded-lg transition-colors ${isDark ? 'text-zinc-400 hover:text-white hover:bg-white/5' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`}
                             >
                                 <Icons.LayoutGrid size={12} />
-                                <span className="max-w-[120px] truncate">{activeSubCanvas?.name || '选择画布'}</span>
+                                <span className="max-w-[200px] truncate">{activeSubCanvas?.name || '选择画布'}</span>
                                 <Icons.ChevronDown size={10} />
                             </button>
                             {isSubCanvasListOpen && (
-                                <div className={`absolute top-full left-0 mt-1 w-56 rounded-xl border shadow-2xl py-1.5 z-[210] backdrop-blur-xl ${isDark ? 'bg-[#18181b]/98 border-zinc-700' : 'bg-white/98 border-gray-200'}`} onMouseDown={(e) => e.stopPropagation()}>
+                                <div className={`absolute top-full left-0 mt-1 w-64 rounded-xl border shadow-2xl py-1.5 z-[210] backdrop-blur-xl ${isDark ? 'bg-[#18181b]/98 border-zinc-700' : 'bg-white/98 border-gray-200'}`} onMouseDown={(e) => e.stopPropagation()}>
+                                    {/* New Canvas Button - Prominent, at top */}
+                                    <button
+                                        className={`w-[calc(100%-8px)] mx-1 mb-1.5 px-3 py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition-all ${isDark ? 'bg-blue-500/15 text-blue-400 hover:bg-blue-500/25 border border-blue-500/30' : 'bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200'}`}
+                                        onClick={handleCreateSubCanvas}
+                                    >
+                                        <Icons.Plus size={13} strokeWidth={2.5} />
+                                        新建子画布
+                                    </button>
+                                    <div className={`h-px mx-2 mb-1 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`} />
                                     <div className={`px-3 py-1 text-[9px] font-semibold uppercase tracking-wider ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>子画布</div>
                                     {subCanvases.map(canvas => (
                                         <div key={canvas.id} className={`flex items-center gap-2 px-2 py-1.5 mx-1 rounded-lg transition-colors ${activeSubCanvasId === canvas.id ? (isDark ? 'bg-blue-500/10' : 'bg-blue-50') : (isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50')}`}>
@@ -3702,14 +3712,6 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                                             </button>
                                         </div>
                                     ))}
-                                    <div className={`h-px my-1 mx-2 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`} />
-                                    <button
-                                        className={`w-full text-left px-3 py-2 mx-1 rounded-lg text-xs flex items-center gap-2 transition-colors ${isDark ? 'text-blue-400 hover:bg-blue-500/10' : 'text-blue-600 hover:bg-blue-50'}`}
-                                        onClick={handleCreateSubCanvas}
-                                    >
-                                        <Icons.Plus size={12} />
-                                        新建子画布
-                                    </button>
                                 </div>
                             )}
                         </div>
