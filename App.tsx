@@ -1,326 +1,21 @@
 
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import Sidebar from './components/Sidebar';
-import { AssetLibraryItem, AssetLibraryType, CanvasPermission, CanvasPermissionRole, InputMedia, MaterialLibraryItem, MultiAngleOptions, NodeData, ProjectCanvasItem, Connection, CanvasTransform, Point, DragMode, NodeType, AddToAssetType, ShotClip } from './types';
+import { NodeData, Connection, CanvasTransform, Point, DragMode, NodeType, AddToAssetType, ShotClip } from './types';
 import BaseNode from './components/Nodes/BaseNode';
 import { NodeContent } from './components/Nodes/NodeContent';
 import { Icons } from './components/Icons';
-import { analyzeConnectedMedia, analyzeScriptAssets, generateCreativeDescription, generateImage, generateVideo, generateAudio, generateMultiAngleImages } from './services/geminiService';
+import { generateCreativeDescription, generateImage, generateVideo } from './services/geminiService';
 import { storageService } from './services/storageService';
 import { ThemeSwitcher } from './components/ThemeSwitcher';
+import { SettingsModal } from './components/Settings/SettingsModal';
 import { StorageModal } from './components/Settings/StorageModal';
 import { ExportImportModal } from './components/Settings/ExportImportModal';
 import { WelcomeModal, hasShownWelcome } from './components/Settings/WelcomeModal';
-import { CropModal } from './components/CropModal';
-import { LoginScreen } from './components/LoginScreen';
-import { authService } from './services/authService';
 
 const DEFAULT_NODE_WIDTH = 320;
 const DEFAULT_NODE_HEIGHT = 240; 
 const EMPTY_ARRAY: string[] = [];
-const IMAGE_NODE_BASE_SIZE = 400;
-const VIDEO_NODE_BASE_HEIGHT = 400;
-const IMAGE_ASPECT_RATIOS = ['1:1', '3:4', '4:3', '9:16', '16:9'];
-const VIDEO_ASPECT_RATIOS = ['1:1', '3:4', '4:3', '9:16', '16:9', '21:9', '9:21'];
-const createDemoAssetPreview = (label: string, accent: string, background: string) => {
-    const svg = `
-      <svg xmlns="http://www.w3.org/2000/svg" width="640" height="480" viewBox="0 0 640 480">
-        <defs>
-          <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
-            <stop offset="0%" stop-color="${background}"/>
-            <stop offset="100%" stop-color="#111827"/>
-          </linearGradient>
-        </defs>
-        <rect width="640" height="480" fill="url(#bg)"/>
-        <rect x="52" y="52" width="536" height="376" rx="36" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.24)" stroke-width="2"/>
-        <circle cx="320" cy="198" r="76" fill="${accent}" opacity="0.88"/>
-        <rect x="186" y="298" width="268" height="48" rx="24" fill="rgba(255,255,255,0.14)"/>
-        <text x="320" y="328" text-anchor="middle" fill="#f8fafc" font-size="28" font-family="Arial, sans-serif" font-weight="700">${label}</text>
-      </svg>`;
-    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-};
-
-const DEMO_ASSET_LIBRARY: AssetLibraryItem[] = [
-    {
-        id: 'asset_role_001',
-        type: 'role',
-        scope: 'project',
-        name: '男主-陆沉',
-        version: 'v4',
-        updatedAt: '今天 10:24',
-        previewUrl: createDemoAssetPreview('角色 / 陆沉', '#60a5fa', '#172554'),
-        description: '25-30岁，冷静克制，深色外套，短剧男主核心资产�?,
-    },
-    {
-        id: 'asset_role_002',
-        type: 'role',
-        scope: 'project',
-        name: '女主-林夏',
-        version: 'v3',
-        updatedAt: '昨天 18:10',
-        previewUrl: createDemoAssetPreview('角色 / 林夏', '#f472b6', '#4a044e'),
-        description: '24岁，干练敏感，浅色风衣，主要情绪线角色�?,
-    },
-    {
-        id: 'asset_scene_001',
-        type: 'scene',
-        scope: 'project',
-        name: '废弃仓库',
-        version: 'v2',
-        updatedAt: '昨天 16:32',
-        previewUrl: createDemoAssetPreview('场景 / 仓库', '#f59e0b', '#422006'),
-        description: '大空间、冷色光、远处蓝色光源，适合悬疑段落�?,
-    },
-    {
-        id: 'asset_scene_002',
-        type: 'scene',
-        scope: 'public',
-        name: '雨夜街口',
-        version: 'v1',
-        updatedAt: '05-30 21:08',
-        previewUrl: createDemoAssetPreview('场景 / 街口', '#38bdf8', '#082f49'),
-        description: '夜景、湿地反光、霓虹灯，适合追逐和对峙�?,
-    },
-    {
-        id: 'asset_prop_001',
-        type: 'prop',
-        scope: 'public',
-        name: '蓝色芯片',
-        version: 'v5',
-        updatedAt: '今天 09:40',
-        previewUrl: createDemoAssetPreview('道具 / 芯片', '#34d399', '#064e3b'),
-        description: '核心线索道具，半透明蓝色发光材质�?,
-    },
-];
-
-const DEMO_PROJECT_META = {
-    id: 'KC-DRAMA-001',
-    name: '《隐秘回响�?,
-    directorGroup: 'A组导演组',
-    lastSavedAt: '刚刚已保�?,
-};
-type ProjectDashboardItem = {
-    id: string;
-    name: string;
-    canvasName: string;
-    directorGroup: string;
-    projectType: string;
-    status: 'active' | 'draft' | 'archived';
-    episodeCount: number;
-    shotCount: number;
-    assetCount: number;
-    lastSavedAt: string;
-};
-
-type CreditRow = {
-    id: string;
-    projectId: string;
-    project: string;
-    group: string;
-    user: string;
-    type: string;
-    model: string;
-    credit: number;
-    status: NonNullable<NodeData['creditStatus']> | 'estimated';
-    nodeTitle: string;
-};
-
-const USER_CREDIT_LIMIT = 1200;
-const CURRENT_USER_NAME = '导演A';
-
-const KC_PROJECT_STORAGE_PREFIX = 'KC_CANVAS_PROJECT_';
-const KC_PROJECT_SUMMARIES_KEY = 'KC_CANVAS_PROJECT_SUMMARIES';
-const KC_CANVAS_LIST_PREFIX = 'KC_CANVAS_LIST_';
-const KC_CANVAS_STORAGE_PREFIX = 'KC_CANVAS_WORKSPACE_';
-const KC_CANVAS_PERMISSIONS_PREFIX = 'KC_CANVAS_PERMISSIONS_';
-
-const normalizeProjectSummary = (project: ProjectDashboardItem): ProjectDashboardItem => ({
-    ...project,
-    projectType: project.projectType || '短剧',
-});
-
-const DEFAULT_PROJECTS: ProjectDashboardItem[] = [
-    {
-        id: DEMO_PROJECT_META.id,
-        name: DEMO_PROJECT_META.name,
-        canvasName: `${DEMO_PROJECT_META.name} 无限画布`,
-        directorGroup: DEMO_PROJECT_META.directorGroup,
-        projectType: '短剧',
-        status: 'active',
-        episodeCount: 24,
-        shotCount: 316,
-        assetCount: 42,
-        lastSavedAt: '未保�?,
-    },
-    {
-        id: 'KC-DRAMA-002',
-        name: '《雾港来信�?,
-        canvasName: '《雾港来信�?无限画布',
-        directorGroup: 'B组导演组',
-        projectType: '短剧',
-        status: 'draft',
-        episodeCount: 18,
-        shotCount: 208,
-        assetCount: 31,
-        lastSavedAt: '未保�?,
-    },
-    {
-        id: 'KC-DRAMA-003',
-        name: '《逆光证人�?,
-        canvasName: '《逆光证人�?无限画布',
-        directorGroup: 'C组导演组',
-        projectType: '短剧',
-        status: 'active',
-        episodeCount: 30,
-        shotCount: 452,
-        assetCount: 57,
-        lastSavedAt: '未保�?,
-    },
-];
-
-const createProjectCanvas = (
-    project: ProjectDashboardItem,
-    overrides: Partial<ProjectCanvasItem> = {}
-): ProjectCanvasItem => ({
-    id: overrides.id || `${project.id}__main`,
-    projectId: project.id,
-    name: overrides.name || project.canvasName,
-    owner: overrides.owner || CURRENT_USER_NAME,
-    permissionRole: overrides.permissionRole || 'owner',
-    status: overrides.status || project.status,
-    nodeCount: overrides.nodeCount ?? 0,
-    assetCount: overrides.assetCount ?? project.assetCount,
-    lastSavedAt: overrides.lastSavedAt || project.lastSavedAt,
-    createdAt: overrides.createdAt || '06/01 15:53',
-    entrySource: overrides.entrySource || 'canvas_space',
-});
-
-const getSeedCanvasesForProject = (project: ProjectDashboardItem): ProjectCanvasItem[] => {
-    const mainCanvas = createProjectCanvas(project);
-    if (project.id !== DEMO_PROJECT_META.id) return [mainCanvas];
-
-    return [
-        {
-            ...mainCanvas,
-            name: `${project.name} 主创作画布`,
-            nodeCount: 6,
-            assetCount: project.assetCount,
-            lastSavedAt: project.lastSavedAt,
-        },
-        createProjectCanvas(project, {
-            id: `${project.id}__shot_review`,
-            name: '分镜精修与多轮迭�?,
-            owner: '制片助理B',
-            permissionRole: 'editor',
-            nodeCount: 4,
-            assetCount: 12,
-            lastSavedAt: '06/01 15:53',
-            createdAt: '06/01 14:20',
-            entrySource: 'linear_workflow',
-        }),
-    ];
-};
-
-const getDefaultCanvasPermissions = (canvas: ProjectCanvasItem): CanvasPermission[] => [
-    {
-        id: `${canvas.id}_perm_owner`,
-        canvasId: canvas.id,
-        userName: canvas.owner,
-        role: 'owner',
-        updatedAt: canvas.lastSavedAt,
-    },
-    {
-        id: `${canvas.id}_perm_editor`,
-        canvasId: canvas.id,
-        userName: CURRENT_USER_NAME,
-        role: canvas.permissionRole === 'viewer' ? 'viewer' : 'editor',
-        updatedAt: canvas.lastSavedAt,
-    },
-];
-
-const ROLE_LABELS: Record<CanvasPermissionRole, string> = {
-    owner: '拥有�?,
-    editor: '可编�?,
-    viewer: '只读',
-};
-
-const DEMO_LINEAR_SHOT = {
-    projectId: DEMO_PROJECT_META.id,
-    directorGroupName: DEMO_PROJECT_META.directorGroup,
-    shotId: 'shot_ep01_sc02_003',
-    episodeNo: 1,
-    sceneNo: 2,
-    shotNo: 3,
-    shotName: '�?�?�?�?分镜03',
-    shotDescription: '男主推门进入废弃仓库，看到远处闪烁的蓝色光源，镜头从背后缓慢推近�?,
-    prompt: '废弃仓库内，男主推门进入，远处蓝色光源闪烁，低角度跟拍，悬疑短剧质感，冷色调，细节清晰，电影感灯光�?,
-    model: 'Seedance 1.5 Pro',
-    aspectRatio: '16:9',
-    resolution: '720p',
-    duration: '5s',
-    creditEstimate: 14,
-    creditStatus: 'estimated' as const,
-    linearPageUrl: '#linear-shot-demo',
-};
-
-// 节点媒体类别：正�?反向连接共用同一套合法性校验规则�?
-type MediaCategory = 'image' | 'video' | 'audio' | 'text';
-
-const NODE_MEDIA_CATEGORY: Record<NodeType, MediaCategory> = {
-    [NodeType.TEXT_TO_IMAGE]: 'image',
-    [NodeType.IMAGE_TO_IMAGE]: 'image',
-    [NodeType.ORIGINAL_IMAGE]: 'image',
-    [NodeType.TEXT_TO_VIDEO]: 'video',
-    [NodeType.IMAGE_TO_VIDEO]: 'video',
-    [NodeType.START_END_TO_VIDEO]: 'video',
-    [NodeType.TEXT_TO_AUDIO]: 'audio',
-    [NodeType.CREATIVE_DESC]: 'text',
-};
-
-// 目标节点（下游）允许接收的来源节点（上游）类别：
-// - 图片节点：可接图片、文�?
-// - 视频节点：可接图片、文�?
-// - 音频节点：可接文�?
-// - 文字节点：可接图片、视频、文�?
-const ALLOWED_SOURCE_CATEGORIES: Record<MediaCategory, MediaCategory[]> = {
-    image: ['image', 'text'],
-    video: ['image', 'text'],
-    audio: ['text'],
-    text: ['image', 'video', 'text'],
-};
-
-const getNodeSizeForAspectRatio = (aspectRatio = '1:1', baseSize = IMAGE_NODE_BASE_SIZE) => {
-    const [wRaw, hRaw] = aspectRatio.split(':').map(Number);
-    const wRatio = Number.isFinite(wRaw) && wRaw > 0 ? wRaw : 1;
-    const hRatio = Number.isFinite(hRaw) && hRaw > 0 ? hRaw : 1;
-    const ratio = wRatio / hRatio;
-
-    if (ratio >= 1) {
-        return { width: Math.round(baseSize * ratio), height: baseSize };
-    }
-
-    return { width: baseSize, height: Math.round(baseSize / ratio) };
-};
-
-const generateMockFrame = (title: string, frameIndex: number, width: number, height: number) => {
-    const hue = (frameIndex * 67 + 120) % 360;
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
-      <rect width="100%" height="100%" fill="hsl(${hue}, 40%, 15%)"/>
-      <rect x="10%" y="10%" width="80%" height="80%" rx="16" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.15)"/>
-      <text x="50%" y="42%" text-anchor="middle" fill="rgba(255,255,255,0.8)" font-size="${Math.max(16, width / 20)}" font-family="Arial" font-weight="700">截帧 ${frameIndex + 1}</text>
-      <text x="50%" y="58%" text-anchor="middle" fill="rgba(255,255,255,0.5)" font-size="${Math.max(12, width / 30)}" font-family="Arial">${title.slice(0, 20)}</text>
-    </svg>`;
-    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg.trim())}`;
-};
-
-const getClosestAspectRatio = (width: number, height: number, options = IMAGE_ASPECT_RATIOS) => {
-    const sourceRatio = width / height;
-    return options.reduce((best, candidate) => {
-        const [w, h] = candidate.split(':').map(Number);
-        const [bestW, bestH] = best.split(':').map(Number);
-        return Math.abs(w / h - sourceRatio) < Math.abs(bestW / bestH - sourceRatio) ? candidate : best;
-    }, options[0]);
-};
 
 // Helper for resizing imported media constraints
 const calculateImportDimensions = (naturalWidth: number, naturalHeight: number) => {
@@ -350,31 +45,6 @@ const App: React.FC = () => {
 };
 
 const CanvasWithSidebar: React.FC = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
-  const [projects, setProjects] = useState<ProjectDashboardItem[]>(() => {
-      if (typeof window === 'undefined') return DEFAULT_PROJECTS;
-      try {
-          const saved = localStorage.getItem(KC_PROJECT_SUMMARIES_KEY);
-          if (!saved) return DEFAULT_PROJECTS.map(normalizeProjectSummary);
-          const parsed = JSON.parse(saved) as ProjectDashboardItem[];
-          const merged = new Map(DEFAULT_PROJECTS.map(project => [project.id, project]));
-          parsed.forEach(project => merged.set(project.id, { ...(merged.get(project.id) || project), ...project }));
-          return Array.from(merged.values()).map(normalizeProjectSummary);
-      } catch {
-          return DEFAULT_PROJECTS.map(normalizeProjectSummary);
-      }
-  });
-  const [currentProject, setCurrentProject] = useState<ProjectDashboardItem | null>(null);
-  const [currentCanvas, setCurrentCanvas] = useState<ProjectCanvasItem | null>(null);
-  const [projectCanvases, setProjectCanvases] = useState<ProjectCanvasItem[]>([]);
-  const [canvasPermissions, setCanvasPermissions] = useState<CanvasPermission[]>([]);
-  const [isNewCanvasOpen, setIsNewCanvasOpen] = useState(false);
-  const [newCanvasName, setNewCanvasName] = useState('');
-  const [isCanvasPermissionOpen, setIsCanvasPermissionOpen] = useState(false);
-  const [projectGroupFilter, setProjectGroupFilter] = useState('全部项目�?);
-  const [projectTypeFilter, setProjectTypeFilter] = useState('全部项目类型');
-  const [projectSearchQuery, setProjectSearchQuery] = useState('');
   const [nodes, setNodes] = useState<NodeData[]>([]);
   const [connections, setConnections] = useState<Connection[]>([]);
   const [transform, setTransform] = useState<CanvasTransform>({ x: 0, y: 0, k: 1 });
@@ -386,15 +56,16 @@ const CanvasWithSidebar: React.FC = () => {
   const [showNewWorkflowDialog, setShowNewWorkflowDialog] = useState(false);
   
   // Project Name State
-  const [projectName, setProjectName] = useState(`${DEMO_PROJECT_META.name} 无限画布`);
+  const [projectName, setProjectName] = useState('未命名项目');
   const [isEditingProjectName, setIsEditingProjectName] = useState(false);
   
+  // Settings Modal State
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isStorageOpen, setIsStorageOpen] = useState(false);
   const [isExportImportOpen, setIsExportImportOpen] = useState(false);
   const [isWelcomeOpen, setIsWelcomeOpen] = useState(() => !hasShownWelcome());
   const [assetLibraryPopup, setAssetLibraryPopup] = useState<{ nodeId: string; nodeType: string } | null>(null);
   const [storageDirName, setStorageDirName] = useState<string | null>(null);
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'failed'>('idle');
 
   // History State (Persist deleted nodes that have content)
   const [deletedNodes, setDeletedNodes] = useState<NodeData[]>([]);
@@ -403,14 +74,7 @@ const CanvasWithSidebar: React.FC = () => {
       dragModeRef.current = dragMode;
   }, [dragMode]);
 
-  useEffect(() => {
-      authService.verify().then(setIsAuthenticated).finally(() => setIsCheckingAuth(false));
-      const handleExpired = () => setIsAuthenticated(false);
-      window.addEventListener('kc-auth-expired', handleExpired);
-      return () => window.removeEventListener('kc-auth-expired', handleExpired);
-  }, []);
-
-  // 清除旧版本原型遗留的 Sora 2 配置，避免影�?KC 默认模型�?
+  // 清除 Sora 2 的旧配置（修复 endpoint 问题）
   useEffect(() => {
       if (typeof window !== 'undefined') {
           try {
@@ -418,7 +82,7 @@ const CanvasWithSidebar: React.FC = () => {
               const stored = localStorage.getItem(sora2Key);
               if (stored) {
                   const parsed = JSON.parse(stored);
-                  // 如果 endpoint 是旧�?chat completions，清除配�?
+                  // 如果 endpoint 是旧的 chat completions，清除配置
                   if (parsed.endpoint === '/v1/chat/completions') {
                       localStorage.removeItem(sora2Key);
                       console.log('[App] Cleared old Sora 2 config with old endpoint');
@@ -430,8 +94,8 @@ const CanvasWithSidebar: React.FC = () => {
       }
   }, []);
 
-  // Default to dark theme.
-  const [canvasBg, setCanvasBg] = useState('#0B0C0E');
+  // Default to light theme (white)
+  const [canvasBg, setCanvasBg] = useState('#F5F7FA');
   const isDark = canvasBg === '#0B0C0E';
   
   // Sync body class for CSS variables
@@ -443,31 +107,13 @@ const CanvasWithSidebar: React.FC = () => {
     }
   }, [isDark]);
 
-  useEffect(() => {
-    if (currentProject) {
-      setCreditProjectId(currentProject.id);
-    }
-  }, [currentProject?.id]);
-
   const [selectionBox, setSelectionBox] = useState<{ x: number, y: number, w: number, h: number } | null>(null);
   const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null);
   const [suggestedNodes, setSuggestedNodes] = useState<NodeData[]>([]);
   const [previewMedia, setPreviewMedia] = useState<{ url: string, type: 'image' | 'video' } | null>(null);
-  const [previewText, setPreviewText] = useState<{ title: string, text: string } | null>(null);
-  const [cropTarget, setCropTarget] = useState<{ nodeId: string; imageSrc: string; title: string; aspectRatio: string } | null>(null);
-  const [saveResultTarget, setSaveResultTarget] = useState<{ nodeId: string; url: string; type: 'image' | 'video'; title: string } | null>(null);
-  const [saveResultMode, setSaveResultMode] = useState<'material' | 'new_asset' | 'update_asset'>('material');
-  const [saveResultName, setSaveResultName] = useState('');
-  const [saveAssetType, setSaveAssetType] = useState<AssetLibraryType>('role');
-  const [saveTargetAssetId, setSaveTargetAssetId] = useState(DEMO_ASSET_LIBRARY[0]?.id || '');
-  const [saveResultNote, setSaveResultNote] = useState('');
-  const [isCreditDashboardOpen, setIsCreditDashboardOpen] = useState(false);
-  const [creditProjectId, setCreditProjectId] = useState('');
-  const [isUserCreditOpen, setIsUserCreditOpen] = useState(false);
-  const [isMiniMapOpen, setIsMiniMapOpen] = useState(false);
   
   // Quick Add Menu State
-  const [quickAddMenu, setQuickAddMenu] = useState<{ sourceId: string, x: number, y: number, worldX: number, worldY: number, direction?: 'forward' | 'backward' } | null>(null);
+  const [quickAddMenu, setQuickAddMenu] = useState<{ sourceId: string, x: number, y: number, worldX: number, worldY: number } | null>(null);
 
   const [contextMenu, setContextMenu] = useState<{ 
       type: 'CANVAS' | 'NODE', 
@@ -492,11 +138,7 @@ const CanvasWithSidebar: React.FC = () => {
   const workflowInputRef = useRef<HTMLInputElement>(null);
   const assetInputRef = useRef<HTMLInputElement>(null);
   const replaceImageRef = useRef<HTMLInputElement>(null);
-  const attachInputRef = useRef<HTMLInputElement>(null);
   const nodeToReplaceRef = useRef<string | null>(null);
-  const nodeToAttachInputRef = useRef<string | null>(null);
-  const assetImportPositionRef = useRef<Point | null>(null);
-  const assetImportConnectionRef = useRef<{ sourceId: string; direction?: 'forward' | 'backward' } | null>(null);
 
   const spacePressed = useRef(false);
 
@@ -520,38 +162,9 @@ const CanvasWithSidebar: React.FC = () => {
     return map;
   }, [nodes, connections]);
 
-  const inputMediaMap = useMemo(() => {
-    const map: Record<string, InputMedia[]> = {};
-    nodes.forEach(node => {
-        map[node.id] = connections
-            .filter(c => c.targetId === node.id)
-            .map(c => nodes.find(n => n.id === c.sourceId))
-            .filter((n): n is NodeData => Boolean(n && (n.imageSrc || n.videoSrc || n.prompt || n.optimizedPrompt)))
-            .map(n => {
-                if (n.videoSrc) return { type: 'video', url: n.videoSrc, title: n.title } satisfies InputMedia;
-                if (n.imageSrc) return { type: 'image', url: n.imageSrc, title: n.title } satisfies InputMedia;
-                const text = n.optimizedPrompt || n.prompt || '';
-                return { type: 'text', url: `text://${n.id}`, text, title: n.title } satisfies InputMedia;
-            });
-    });
-    return map;
-  }, [nodes, connections]);
-
   const getInputImages = useCallback((nodeId: string) => {
     return inputsMap[nodeId] || EMPTY_ARRAY;
   }, [inputsMap]);
-
-  const getInputMedia = useCallback((nodeId: string) => {
-    return inputMediaMap[nodeId] || [];
-  }, [inputMediaMap]);
-
-  const isReadOnlyCanvas = currentCanvas?.permissionRole === 'viewer';
-
-  const guardReadOnly = useCallback((action = '修改画布') => {
-    if (!isReadOnlyCanvas) return false;
-    alert(`当前画布为只读权限，不能${action}`);
-    return true;
-  }, [isReadOnlyCanvas]);
   
   const performCopy = () => {
       if (selectedNodeIds.size === 0) return;
@@ -566,7 +179,6 @@ const CanvasWithSidebar: React.FC = () => {
 
   const performPaste = (targetPos: Point) => {
       if (!internalClipboard || internalClipboard.nodes.length === 0) return;
-      if (guardReadOnly('粘贴节点')) return;
 
       const { nodes: clipboardNodes, connections: clipboardConnections } = internalClipboard;
       
@@ -590,9 +202,6 @@ const CanvasWithSidebar: React.FC = () => {
               x: targetPos.x + offsetX,
               y: targetPos.y + offsetY,
               title: node.title.endsWith('(Copy)') ? node.title : `${node.title} (Copy)`,
-              projectId: currentProject?.id || node.projectId,
-              canvasId: currentCanvas?.id || node.canvasId,
-              directorGroupName: currentProject?.directorGroup || node.directorGroupName,
               isLoading: false,
           });
       });
@@ -600,8 +209,7 @@ const CanvasWithSidebar: React.FC = () => {
       const newConnections: Connection[] = clipboardConnections.map(c => ({
           id: generateId(),
           sourceId: idMap.get(c.sourceId)!,
-          targetId: idMap.get(c.targetId)!,
-          canvasId: currentCanvas?.id || c.canvasId,
+          targetId: idMap.get(c.targetId)!
       }));
 
       setNodes(prev => [...prev, ...newNodes]);
@@ -611,7 +219,6 @@ const CanvasWithSidebar: React.FC = () => {
 
   const handleAlign = useCallback((direction: 'UP' | 'DOWN' | 'LEFT' | 'RIGHT') => {
       if (selectedNodeIds.size < 2) return;
-      if (guardReadOnly('对齐节点')) return;
 
       setNodes(prevNodes => {
           const selected = prevNodes.filter(n => selectedNodeIds.has(n.id));
@@ -696,10 +303,9 @@ const CanvasWithSidebar: React.FC = () => {
 
           return [...unselected, ...updatedNodes];
       });
-  }, [guardReadOnly, selectedNodeIds]);
+  }, [selectedNodeIds]);
 
   const addNode = (type: NodeType, x?: number, y?: number, dataOverride?: Partial<NodeData>) => {
-    if (guardReadOnly('新增节点')) return '';
     if (x === undefined || y === undefined) {
       if (containerRef.current) {
         const rect = containerRef.current.getBoundingClientRect();
@@ -722,20 +328,13 @@ const CanvasWithSidebar: React.FC = () => {
     } else if (type === NodeType.TEXT_TO_IMAGE || type === NodeType.IMAGE_TO_IMAGE) {
         if (!dataOverride?.width) w = 400;
         if (!dataOverride?.height) h = 400;
-    } else if (type === NodeType.TEXT_TO_AUDIO) {
-        if (!dataOverride?.width) w = 320;
-        if (!dataOverride?.height) h = 260;
-    } else if (type === NodeType.CREATIVE_DESC) {
-        if (!dataOverride?.width) w = 520;
-        if (!dataOverride?.height) h = 520;
     }
     
     const getDefaultTitle = (t: NodeType) => {
         switch (t) {
             case NodeType.TEXT_TO_IMAGE: return '生图';
-            case NodeType.TEXT_TO_VIDEO: return '生视�?;
-            case NodeType.TEXT_TO_AUDIO: return '音频节点';
-            case NodeType.CREATIVE_DESC: return 'Text';
+            case NodeType.TEXT_TO_VIDEO: return '生视频';
+            case NodeType.CREATIVE_DESC: return '创意描述';
             default: return `原始图片_${Date.now()}`;
         }
     };
@@ -743,23 +342,17 @@ const CanvasWithSidebar: React.FC = () => {
     const getDefaultModel = (t: NodeType) => {
         switch (t) {
             case NodeType.TEXT_TO_IMAGE:
-                return 'Seedream 5.0';
+                return 'BananaPro';
             case NodeType.TEXT_TO_VIDEO:
-                return 'Agnes Video V2.0';
-            case NodeType.TEXT_TO_AUDIO:
-                return 'Minimax-speech-2.8-hd';
-            case NodeType.CREATIVE_DESC:
-                return 'Xiaomi MiMo 2.5 Pro';
+                return 'Sora 2';
             default:
                 return '';
         }
     };
 
     const isVideoType = type === NodeType.TEXT_TO_VIDEO;
-    const isAudioType = type === NodeType.TEXT_TO_AUDIO;
     
     const newNode: NodeData = {
-      ...dataOverride,
       id: generateId(),
       type,
       x,
@@ -767,33 +360,23 @@ const CanvasWithSidebar: React.FC = () => {
       width: w,
       height: h, 
       title: dataOverride?.title || getDefaultTitle(type),
-      aspectRatio: dataOverride?.aspectRatio || (isVideoType ? '16:9' : isAudioType ? undefined : '1:1'),
+      aspectRatio: dataOverride?.aspectRatio || (isVideoType ? '16:9' : '1:1'),
       model: dataOverride?.model || getDefaultModel(type),
-      resolution: dataOverride?.resolution || (isVideoType ? '720p' : isAudioType ? undefined : '1k'),
+      resolution: dataOverride?.resolution || (isVideoType ? '720p' : '1k'),
       duration: dataOverride?.duration || (isVideoType ? '5s' : undefined),
-      voiceId: dataOverride?.voiceId || (isAudioType ? 'male-qn-qingse' : undefined),
-      voiceSpeed: dataOverride?.voiceSpeed || (isAudioType ? 1 : undefined),
-      voicePitch: dataOverride?.voicePitch || (isAudioType ? 0 : undefined),
-      voiceVolume: dataOverride?.voiceVolume || (isAudioType ? 1 : undefined),
       count: 1,
       prompt: dataOverride?.prompt || '',
       imageSrc: dataOverride?.imageSrc,
       videoSrc: dataOverride?.videoSrc,
-      audioSrc: dataOverride?.audioSrc,
-      projectId: dataOverride?.projectId || currentProject?.id,
-      canvasId: dataOverride?.canvasId || currentCanvas?.id,
-      directorGroupName: dataOverride?.directorGroupName || currentProject?.directorGroup,
-      outputArtifacts: dataOverride?.outputArtifacts || (dataOverride?.imageSrc || dataOverride?.videoSrc || dataOverride?.audioSrc ? [dataOverride.imageSrc || dataOverride.videoSrc || dataOverride.audioSrc!] : [])
+      outputArtifacts: dataOverride?.outputArtifacts || (dataOverride?.imageSrc || dataOverride?.videoSrc ? [dataOverride.imageSrc || dataOverride.videoSrc!] : [])
     };
     
     setNodes(prev => [...prev, newNode]);
     setSelectedNodeIds(new Set([newNode.id]));
-    return newNode.id;
   };
 
   const handleQuickAddNode = (type: NodeType) => {
       if (!quickAddMenu) return;
-      if (guardReadOnly('新增节点')) return;
 
       const newId = generateId();
       let w = DEFAULT_NODE_WIDTH;
@@ -801,7 +384,6 @@ const CanvasWithSidebar: React.FC = () => {
 
       const isVideoType = type === NodeType.TEXT_TO_VIDEO;
       const isImageGenType = type === NodeType.TEXT_TO_IMAGE;
-      const isAudioType = type === NodeType.TEXT_TO_AUDIO;
 
       if (type === NodeType.ORIGINAL_IMAGE) {
           h = 240;
@@ -809,18 +391,13 @@ const CanvasWithSidebar: React.FC = () => {
           w = 400 * (16/9); h = 400;
       } else if (isImageGenType) {
           w = 400; h = 400;
-      } else if (isAudioType) {
-          w = 320; h = 260;
-      } else if (type === NodeType.CREATIVE_DESC) {
-          w = 520; h = 520;
       }
 
       const getDefaultTitle = (t: NodeType) => {
           switch (t) {
               case NodeType.TEXT_TO_IMAGE: return '生图';
-              case NodeType.TEXT_TO_VIDEO: return '生视�?;
-              case NodeType.TEXT_TO_AUDIO: return '音频节点';
-              case NodeType.CREATIVE_DESC: return 'Text';
+              case NodeType.TEXT_TO_VIDEO: return '生视频';
+              case NodeType.CREATIVE_DESC: return '创意描述';
               default: return `原始图片_${Date.now()}`;
           }
       };
@@ -828,229 +405,34 @@ const CanvasWithSidebar: React.FC = () => {
       const getDefaultModel = (t: NodeType) => {
           switch (t) {
               case NodeType.TEXT_TO_IMAGE:
-                  return 'Seedream 5.0';
+                  return 'BananaPro';
               case NodeType.TEXT_TO_VIDEO:
-                  return 'Agnes Video V2.0';
-              case NodeType.TEXT_TO_AUDIO:
-                  return 'Minimax-speech-2.8-hd';
-              case NodeType.CREATIVE_DESC:
-                  return 'Xiaomi MiMo 2.5 Pro';
+                  return 'Sora 2';
               default:
                   return '';
           }
       };
 
-      // 反向新建时，新节点位于锚点上�?左侧)，让其右边缘对齐落点；正向保持原有左边缘对齐落点�?
-      const isBackward = quickAddMenu.direction === 'backward';
       const newNode: NodeData = {
           id: newId,
           type,
-          x: isBackward ? quickAddMenu.worldX - w : quickAddMenu.worldX,
+          x: quickAddMenu.worldX,
           y: quickAddMenu.worldY - h / 2,
           width: w,
           height: h,
           title: getDefaultTitle(type),
-          aspectRatio: isVideoType ? '16:9' : isAudioType ? undefined : '1:1',
+          aspectRatio: isVideoType ? '16:9' : '1:1',
           model: getDefaultModel(type),
-          resolution: isVideoType ? '720p' : isAudioType ? undefined : '1k',
+          resolution: isVideoType ? '720p' : '1k',
           duration: isVideoType ? '5s' : undefined,
-          voiceId: isAudioType ? 'male-qn-qingse' : undefined,
-          voiceSpeed: isAudioType ? 1 : undefined,
-          voicePitch: isAudioType ? 0 : undefined,
-          voiceVolume: isAudioType ? 1 : undefined,
           count: 1,
           prompt: '',
-          projectId: currentProject?.id,
-          canvasId: currentCanvas?.id,
-          directorGroupName: currentProject?.directorGroup,
           outputArtifacts: []
       };
 
-      // 反向：新节点作为上游(source)，锚点为下游(target)；正向：保持原有方向�?
-      const newConnection = isBackward
-          ? { id: generateId(), sourceId: newId, targetId: quickAddMenu.sourceId, canvasId: currentCanvas?.id }
-          : { id: generateId(), sourceId: quickAddMenu.sourceId, targetId: newId, canvasId: currentCanvas?.id };
-
       setNodes(prev => [...prev, newNode]);
-      setConnections(prev => [...prev, newConnection]);
+      setConnections(prev => [...prev, { id: generateId(), sourceId: quickAddMenu.sourceId, targetId: newId }]);
       setQuickAddMenu(null);
-  };
-
-  const focusNodeInViewport = (node: NodeData) => {
-      const rect = containerRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      setTransform({
-          x: rect.width / 2 - (node.x + node.width / 2) * transform.k,
-          y: rect.height / 2 - (node.y + node.height / 2) * transform.k,
-          k: transform.k,
-      });
-  };
-
-  const handleImportDemoShot = () => {
-      if (guardReadOnly('导入分镜')) return;
-      const existing = nodes.find(node => node.shotId === DEMO_LINEAR_SHOT.shotId);
-      if (existing) {
-          setSelectedNodeIds(new Set([existing.id]));
-          focusNodeInViewport(existing);
-          return;
-      }
-
-      const width = 400 * (16 / 9);
-      const height = 400;
-      const rect = containerRef.current?.getBoundingClientRect();
-      const center = rect ? screenToWorld(rect.width / 2, rect.height / 2) : { x: 0, y: 0 };
-      const newNode: NodeData = {
-          id: generateId(),
-          type: NodeType.TEXT_TO_VIDEO,
-          x: center.x - width / 2,
-          y: center.y - height / 2,
-          width,
-          height,
-          title: DEMO_LINEAR_SHOT.shotName,
-          prompt: DEMO_LINEAR_SHOT.prompt,
-          aspectRatio: DEMO_LINEAR_SHOT.aspectRatio,
-          model: DEMO_LINEAR_SHOT.model,
-          resolution: DEMO_LINEAR_SHOT.resolution,
-          duration: DEMO_LINEAR_SHOT.duration,
-          count: 1,
-          outputArtifacts: [],
-          source: 'linear_pipeline',
-          sourceRefId: DEMO_LINEAR_SHOT.shotId,
-          projectId: currentProject?.id || DEMO_LINEAR_SHOT.projectId,
-          canvasId: currentCanvas?.id,
-          directorGroupName: currentProject?.directorGroup || DEMO_LINEAR_SHOT.directorGroupName,
-          shotId: DEMO_LINEAR_SHOT.shotId,
-          episodeNo: DEMO_LINEAR_SHOT.episodeNo,
-          sceneNo: DEMO_LINEAR_SHOT.sceneNo,
-          shotNo: DEMO_LINEAR_SHOT.shotNo,
-          shotName: DEMO_LINEAR_SHOT.shotName,
-          shotDescription: DEMO_LINEAR_SHOT.shotDescription,
-          linearPageUrl: DEMO_LINEAR_SHOT.linearPageUrl,
-          creditEstimate: DEMO_LINEAR_SHOT.creditEstimate,
-          creditStatus: DEMO_LINEAR_SHOT.creditStatus,
-      };
-
-      setNodes(prev => [...prev, newNode]);
-      setSelectedNodeIds(new Set([newNode.id]));
-  };
-
-  const handleAddToAssetLibrary = (nodeId: string) => {
-    const node = nodes.find(n => n.id === nodeId);
-    if (!node) return;
-    const nodeType = node.videoSrc ? 'video' : 'image';
-    setAssetLibraryPopup({ nodeId, nodeType });
-  };
-
-  const handleAssetLibraryPopupClose = () => setAssetLibraryPopup(null);
-
-  const handleAddToAssetLibraryConfirm = (type: AddToAssetType, assetId?: string, assetName?: string) => {
-    const node = assetLibraryPopup ? nodes.find(n => n.id === assetLibraryPopup.nodeId) : null;
-    if (node) {
-      updateNodeData(node.id, { source: 'asset_library', sourceRefId: assetId || '' });
-    }
-    setAssetLibraryPopup(null);
-  };
-
-  const handleAddAssetToCanvas = (asset: AssetLibraryItem, position?: Point) => {
-      if (guardReadOnly('添加资产')) return;
-      const { width, height } = getNodeSizeForAspectRatio('4:3', 300);
-      const rect = containerRef.current?.getBoundingClientRect();
-      const center = position || (rect ? screenToWorld(rect.width / 2, rect.height / 2) : { x: 0, y: 0 });
-      addNode(NodeType.TEXT_TO_IMAGE, center.x - width / 2, center.y - height / 2, {
-          width,
-          height,
-          title: asset.name,
-          imageSrc: asset.previewUrl,
-          aspectRatio: '4:3',
-          model: 'Seedream 5.0',
-          resolution: '1k',
-          source: 'asset_library',
-          sourceRefId: asset.id,
-          projectId: currentProject?.id || DEMO_PROJECT_META.id,
-          directorGroupName: currentProject?.directorGroup || DEMO_PROJECT_META.directorGroup,
-          outputArtifacts: [asset.previewUrl],
-      });
-  };
-
-  const getCanvasInsertCenter = (position?: Point) => {
-      const rect = containerRef.current?.getBoundingClientRect();
-      return position || (rect ? screenToWorld(rect.width / 2, rect.height / 2) : { x: 0, y: 0 });
-  };
-
-  const addImageMaterialNode = (item: MaterialLibraryItem, center: Point, naturalWidth?: number, naturalHeight?: number) => {
-      const aspectRatio = naturalWidth && naturalHeight
-          ? getClosestAspectRatio(naturalWidth, naturalHeight, IMAGE_ASPECT_RATIOS)
-          : '1:1';
-      const { width, height } = getNodeSizeForAspectRatio(aspectRatio);
-      addNode(NodeType.TEXT_TO_IMAGE, center.x - width / 2, center.y - height / 2, {
-          width,
-          height,
-          title: item.title || '图片素材',
-          imageSrc: item.url,
-          aspectRatio,
-          model: 'Seedream 5.0',
-          resolution: '1k',
-          source: 'material_library',
-          sourceRefId: item.id,
-          projectId: currentProject?.id || DEMO_PROJECT_META.id,
-          directorGroupName: currentProject?.directorGroup || DEMO_PROJECT_META.directorGroup,
-          outputArtifacts: [item.url],
-      });
-  };
-
-  const addVideoMaterialNode = (item: MaterialLibraryItem, center: Point, naturalWidth?: number, naturalHeight?: number) => {
-      const aspectRatio = naturalWidth && naturalHeight
-          ? getClosestAspectRatio(naturalWidth, naturalHeight, VIDEO_ASPECT_RATIOS)
-          : '16:9';
-      const { width, height } = getNodeSizeForAspectRatio(aspectRatio, VIDEO_NODE_BASE_HEIGHT);
-      addNode(NodeType.TEXT_TO_VIDEO, center.x - width / 2, center.y - height / 2, {
-          width,
-          height,
-          title: item.title || '视频素材',
-          videoSrc: item.url,
-          aspectRatio,
-          model: 'Seedance 1.5 Pro',
-          resolution: '720p',
-          duration: '5s',
-          source: 'material_library',
-          sourceRefId: item.id,
-          projectId: currentProject?.id || DEMO_PROJECT_META.id,
-          directorGroupName: currentProject?.directorGroup || DEMO_PROJECT_META.directorGroup,
-          outputArtifacts: [item.url],
-      });
-  };
-
-  const handleAddMaterialToCanvas = (item: MaterialLibraryItem, position?: Point) => {
-      const center = getCanvasInsertCenter(position);
-
-      if (item.type === 'text') {
-          addNode(NodeType.CREATIVE_DESC, center.x - 260, center.y - 260, {
-              width: 520,
-              height: 520,
-              title: item.title || '文本素材',
-              prompt: item.text || '',
-              model: 'Xiaomi MiMo 2.5 Pro',
-              source: 'material_library',
-              sourceRefId: item.id,
-              projectId: currentProject?.id || DEMO_PROJECT_META.id,
-              directorGroupName: currentProject?.directorGroup || DEMO_PROJECT_META.directorGroup,
-          });
-          return;
-      }
-
-      if (item.type === 'video') {
-          const video = document.createElement('video');
-          video.preload = 'metadata';
-          video.onloadedmetadata = () => addVideoMaterialNode(item, center, video.videoWidth, video.videoHeight);
-          video.onerror = () => addVideoMaterialNode(item, center);
-          video.src = item.url;
-          return;
-      }
-
-      const img = new Image();
-      img.onload = () => addImageMaterialNode(item, center, img.width, img.height);
-      img.onerror = () => addImageMaterialNode(item, center);
-      img.src = item.url;
   };
 
   const handlePaste = useCallback(async (e: ClipboardEvent) => {
@@ -1074,11 +456,10 @@ const CanvasWithSidebar: React.FC = () => {
                     reader.onload = (event) => {
                         const img = new Image();
                         img.onload = () => {
-                            const aspectRatio = getClosestAspectRatio(img.width, img.height, IMAGE_ASPECT_RATIOS);
-                            const { width, height } = getNodeSizeForAspectRatio(aspectRatio);
+                            const { width, height, ratio } = calculateImportDimensions(img.width, img.height);
                             const src = event.target?.result as string;
-                            addNode(NodeType.TEXT_TO_IMAGE, worldPos.x, worldPos.y, {
-                                width, height, imageSrc: src, title: `图片_${new Date().toLocaleTimeString()}`, aspectRatio, model: 'Seedream 5.0', resolution: '1k', outputArtifacts: [src]
+                            addNode(NodeType.ORIGINAL_IMAGE, worldPos.x, worldPos.y, {
+                                width, height, imageSrc: src, aspectRatio: `${ratio}:1`, outputArtifacts: [src]
                             });
                         };
                         img.src = event.target?.result as string;
@@ -1093,10 +474,9 @@ const CanvasWithSidebar: React.FC = () => {
                     const video = document.createElement('video');
                     video.preload = 'metadata';
                     video.onloadedmetadata = () => {
-                         const aspectRatio = getClosestAspectRatio(video.videoWidth, video.videoHeight, VIDEO_ASPECT_RATIOS);
-                         const { width, height } = getNodeSizeForAspectRatio(aspectRatio, VIDEO_NODE_BASE_HEIGHT);
-                         addNode(NodeType.TEXT_TO_VIDEO, worldPos.x, worldPos.y, {
-                             width, height, videoSrc: url, title: file.name, aspectRatio, model: 'Seedance 1.5 Pro', resolution: '720p', duration: '5s', outputArtifacts: [url]
+                         const { width, height, ratio } = calculateImportDimensions(video.videoWidth, video.videoHeight);
+                         addNode(NodeType.ORIGINAL_IMAGE, worldPos.x, worldPos.y, {
+                             width, height, videoSrc: url, title: file.name, aspectRatio: `${ratio}:1`, outputArtifacts: [url]
                          });
                     };
                     video.src = url;
@@ -1119,7 +499,6 @@ const CanvasWithSidebar: React.FC = () => {
         if (!isInput) {
             if (e.key === 'Delete' || e.key === 'Backspace') {
                  if (selectedNodeIds.size > 0) {
-                     if (guardReadOnly('删除节点')) return;
                      const nodesToDelete = nodes.filter(n => selectedNodeIds.has(n.id));
                      const withContent = nodesToDelete.filter(n => n.imageSrc || n.videoSrc);
                      if (withContent.length > 0) {
@@ -1130,7 +509,6 @@ const CanvasWithSidebar: React.FC = () => {
                      setSelectedNodeIds(new Set());
                  }
                  if (selectedConnectionId) {
-                     if (guardReadOnly('删除连线')) return;
                      setConnections(prev => prev.filter(c => c.id !== selectedConnectionId));
                      setSelectedConnectionId(null);
                  }
@@ -1149,10 +527,10 @@ const CanvasWithSidebar: React.FC = () => {
         
         if (e.key === 'Escape') {
             if (previewMedia) setPreviewMedia(null);
-            if (previewText) setPreviewText(null);
             if (contextMenu) setContextMenu(null);
             if (quickAddMenu) setQuickAddMenu(null);
             if (showNewWorkflowDialog) setShowNewWorkflowDialog(false);
+            if (isSettingsOpen) setIsSettingsOpen(false);
             if (isStorageOpen) setIsStorageOpen(false);
             if (isExportImportOpen) setIsExportImportOpen(false);
         }
@@ -1165,7 +543,7 @@ const CanvasWithSidebar: React.FC = () => {
         window.removeEventListener('keydown', handleKeyDown);
         window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [selectedNodeIds, selectedConnectionId, previewMedia, previewText, contextMenu, nodes, connections, quickAddMenu, showNewWorkflowDialog, isStorageOpen, isExportImportOpen, handleAlign, guardReadOnly]);
+  }, [selectedNodeIds, selectedConnectionId, previewMedia, contextMenu, nodes, connections, quickAddMenu, showNewWorkflowDialog, isSettingsOpen, isStorageOpen, isExportImportOpen, handleAlign]);
 
   useEffect(() => {
     // Load storage directory name for the top-right indicator
@@ -1198,152 +576,35 @@ const CanvasWithSidebar: React.FC = () => {
   };
 
   const handleImportWorkflow = (data: { nodes: NodeData[], connections: Connection[], transform?: CanvasTransform, projectName?: string }) => {
-      if (guardReadOnly('导入备份')) return;
-      // 保存当前有内容的节点到历�?
+      // 保存当前有内容的节点到历史
       const withContent = nodes.filter(n => n.imageSrc || n.videoSrc);
       if (withContent.length > 0) setDeletedNodes(prev => [...prev, ...withContent]);
       
-      setNodes(data.nodes.map(node => ({
-          ...node,
-          projectId: node.projectId || currentProject?.id,
-          canvasId: node.canvasId || currentCanvas?.id,
-          directorGroupName: node.directorGroupName || currentProject?.directorGroup,
-      })));
-      setConnections(data.connections.map(connection => ({
-          ...connection,
-          canvasId: connection.canvasId || currentCanvas?.id,
-      })));
+      setNodes(data.nodes);
+      setConnections(data.connections);
       if (data.transform) setTransform(data.transform);
       if (data.projectName) setProjectName(data.projectName);
       setSelectedNodeIds(new Set());
   };
 
   const updateNodeData = useCallback((id: string, updates: Partial<NodeData>) => {
-    if (guardReadOnly('修改节点')) return;
     setNodes(prev => prev.map(n => n.id === id ? { ...n, ...updates } : n));
-  }, [guardReadOnly]);
-
-  const toggleMaterialFavorite = useCallback((nodeId: string, url: string, type: 'image' | 'video') => {
-      void type;
-      const updateList = (list: NodeData[]) => list.map(node => {
-          if (node.id !== nodeId) return node;
-          const current = node.favoriteArtifacts || [];
-          const next = current.includes(url)
-              ? current.filter(item => item !== url)
-              : [...current, url];
-          return { ...node, favoriteArtifacts: next };
-      });
-      setNodes(prev => updateList(prev));
-      setDeletedNodes(prev => updateList(prev));
   }, []);
 
-  const isMaterialFavorited = useCallback((nodeId: string, url: string) => {
-      const node = nodes.find(item => item.id === nodeId) || deletedNodes.find(item => item.id === nodeId);
-      return Boolean(node?.favoriteArtifacts?.includes(url));
-  }, [deletedNodes, nodes]);
-
-  const getEstimatedCredits = (node: NodeData) => {
-      const count = node.count || 1;
-      if (node.type === NodeType.TEXT_TO_VIDEO || node.type === NodeType.START_END_TO_VIDEO) return 14 * count;
-      if (node.type === NodeType.TEXT_TO_IMAGE) return 2 * count;
-      if (node.type === NodeType.TEXT_TO_AUDIO) return 1;
-      if (node.type === NodeType.CREATIVE_DESC) return 1;
-      return 0;
-  };
-
-  const getCreditTaskType = (node: NodeData) => {
-      if (node.type === NodeType.CREATIVE_DESC) return '文本分析';
-      if (node.type === NodeType.TEXT_TO_IMAGE) return '图片生成';
-      if (node.type === NodeType.TEXT_TO_AUDIO) return '语音生成';
-      return '视频生成';
-  };
-
-  const getCreditRows = (): CreditRow[] => {
-      const activeProjectId = currentProject?.id || DEMO_PROJECT_META.id;
-      const activeProjectName = currentProject?.name || projectName;
-      const activeGroup = currentProject?.directorGroup || DEMO_PROJECT_META.directorGroup;
-      const taskRows: CreditRow[] = nodes
-          .filter(node => node.creditEstimate || node.creditStatus)
-          .map((node, index) => ({
-              id: node.id,
-              projectId: node.projectId || activeProjectId,
-              project: activeProjectName,
-              group: currentProject?.directorGroup || node.directorGroupName || activeGroup,
-              user: index % 2 === 0 ? CURRENT_USER_NAME : '制片助理B',
-              type: getCreditTaskType(node),
-              model: node.model || '-',
-              credit: node.creditEstimate || getEstimatedCredits(node),
-              status: node.creditStatus || 'estimated',
-              nodeTitle: node.title,
-          }));
-
-      const projectRows = projects.flatMap((project, index): CreditRow[] => {
-          if (project.id === activeProjectId && taskRows.length > 0) return [];
-          return [
-              {
-                  id: `${project.id}_credit_image`,
-                  projectId: project.id,
-                  project: project.name,
-                  group: project.directorGroup,
-                  user: CURRENT_USER_NAME,
-                  type: '图片生成',
-                  model: 'Seedream 5.0',
-                  credit: 2 + index,
-                  status: index % 2 === 0 ? 'confirmed' : 'reserved',
-                  nodeTitle: '角色/场景参考图',
-              },
-              {
-                  id: `${project.id}_credit_video`,
-                  projectId: project.id,
-                  project: project.name,
-                  group: project.directorGroup,
-                  user: index % 2 === 0 ? CURRENT_USER_NAME : '制片助理B',
-                  type: '视频生成',
-                  model: 'Seedance 1.5 Pro',
-                  credit: 14 + index * 2,
-                  status: 'confirmed',
-                  nodeTitle: '分镜视频',
-              },
-          ];
-      });
-
-      return [...taskRows, ...projectRows];
-  };
-
-  const getUserCreditStats = () => {
-      const rows = getCreditRows().filter(row => row.user === CURRENT_USER_NAME);
-      const used = rows
-          .filter(row => row.status === 'confirmed' || row.status === 'reserved')
-          .reduce((sum, row) => sum + row.credit, 0);
-      return {
-          rows,
-          used,
-          available: Math.max(0, USER_CREDIT_LIMIT - used),
-      };
-  };
-
   const handleGenerate = async (nodeId: string) => {
-    if (guardReadOnly('生成内容')) return;
     const node = nodes.find(n => n.id === nodeId);
     if (!node) return;
-    const creditEstimate = node.creditEstimate || getEstimatedCredits(node);
-    updateNodeData(nodeId, { isLoading: true, creditEstimate, creditStatus: 'reserved' });
+    updateNodeData(nodeId, { isLoading: true });
     
     const inputs = getInputImages(node.id);
-    const inputMedia = getInputMedia(node.id);
-    const connectedText = inputMedia
-        .filter(item => item.type === 'text')
-        .map(item => item.text || '')
-        .filter(Boolean)
-        .join('\n\n');
     
     // Debug: Log input images for troubleshooting
     console.log(`[Generation] Node: ${node.title} (${node.type}), Input Images:`, inputs.length > 0 ? inputs.map(i => i.substring(0, 50) + '...') : 'None');
 
     try {
       if (node.type === NodeType.CREATIVE_DESC) {
-        const res = await generateCreativeDescription(node.prompt || '', node.model === 'TEXT_TO_VIDEO' ? 'VIDEO' : 'IMAGE', node.model);
-        updateNodeData(nodeId, { optimizedPrompt: res, isLoading: false, creditEstimate, creditStatus: 'confirmed' });
+        const res = await generateCreativeDescription(node.prompt || '', node.model === 'TEXT_TO_VIDEO' ? 'VIDEO' : 'IMAGE');
+        updateNodeData(nodeId, { optimizedPrompt: res, isLoading: false });
       } else {
           let results: string[] = [];
           
@@ -1359,24 +620,11 @@ const CanvasWithSidebar: React.FC = () => {
                 node.prompt || '', inputs, node.aspectRatio, node.model, node.resolution, node.duration, node.count || 1, node.promptOptimize
             );
           }
-          // Audio generation
-          else if (node.type === NodeType.TEXT_TO_AUDIO) {
-            const audioText = [connectedText, node.prompt || ''].filter(Boolean).join('\n\n').trim();
-            if (!audioText) throw new Error("请输入要合成的文�?);
-            results = await generateAudio(
-                audioText,
-                node.model || 'Minimax-speech-2.8-hd',
-                node.voiceId || 'male-qn-qingse',
-                node.voiceSpeed || 1,
-                node.voicePitch || 0,
-                node.voiceVolume || 1
-            );
-          }
-          // Start-End Frame to Video generation (首尾帧模�?
+          // Start-End Frame to Video generation (首尾帧模式)
           else if (node.type === NodeType.START_END_TO_VIDEO) {
             // 添加 _FL 后缀来标识首尾帧模式
-            const modelWithFL = (node.model || 'Seedance 1.5 Pro') + '_FL';
-            // 如果设置�?swapFrames，交换首尾帧顺序
+            const modelWithFL = (node.model || 'Sora 2') + '_FL';
+            // 如果设置了 swapFrames，交换首尾帧顺序
             const orderedInputs = node.swapFrames && inputs.length >= 2 ? [inputs[1], inputs[0]] : inputs;
             results = await generateVideo(
                 node.prompt || '', orderedInputs, node.aspectRatio, modelWithFL, node.resolution, node.duration, node.count || 1, node.promptOptimize
@@ -1387,79 +635,27 @@ const CanvasWithSidebar: React.FC = () => {
               const currentArtifacts = node.outputArtifacts || [];
               if (node.imageSrc && !currentArtifacts.includes(node.imageSrc)) currentArtifacts.push(node.imageSrc);
               if (node.videoSrc && !currentArtifacts.includes(node.videoSrc)) currentArtifacts.push(node.videoSrc);
-              if (node.audioSrc && !currentArtifacts.includes(node.audioSrc)) currentArtifacts.push(node.audioSrc);
               const newArtifacts = [...results, ...currentArtifacts];
               
-              const updates: Partial<NodeData> = { isLoading: false, outputArtifacts: newArtifacts, creditEstimate, creditStatus: 'confirmed' };
+              const updates: Partial<NodeData> = { isLoading: false, outputArtifacts: newArtifacts };
               
               // Set output based on node type
               if (node.type === NodeType.TEXT_TO_IMAGE) {
                   updates.imageSrc = results[0];
               } else if (node.type === NodeType.TEXT_TO_VIDEO || node.type === NodeType.START_END_TO_VIDEO) {
                   updates.videoSrc = results[0];
-              } else if (node.type === NodeType.TEXT_TO_AUDIO) {
-                  updates.audioSrc = results[0];
               }
               
               updateNodeData(nodeId, updates);
           } else {
-              throw new Error("未返回结�?);
+              throw new Error("未返回结果");
           }
       }
     } catch (e) {
       console.error(e);
       alert(`生成失败: ${(e as Error).message}`);
-      updateNodeData(nodeId, { isLoading: false, creditEstimate, creditStatus: 'refunded' });
+      updateNodeData(nodeId, { isLoading: false });
     }
-  };
-
-  const handleAnalyzeMedia = async (nodeId: string) => {
-      if (guardReadOnly('分析媒体')) return;
-      const node = nodes.find(n => n.id === nodeId);
-      if (!node) return;
-      const inputMedia = getInputMedia(node.id).filter(item => item.type === 'image' || item.type === 'video');
-      if (!inputMedia.length) {
-          alert("请先把图片或视频节点连接到文本节点前�?);
-          return;
-      }
-
-      const creditEstimate = node.creditEstimate || getEstimatedCredits(node);
-      updateNodeData(nodeId, { isLoading: true, creditEstimate, creditStatus: 'reserved' });
-      try {
-          const text = await analyzeConnectedMedia(node.prompt || '', inputMedia, node.model);
-          updateNodeData(nodeId, {
-              optimizedPrompt: text,
-              prompt: node.prompt || text,
-              isLoading: false,
-              creditEstimate,
-              creditStatus: 'confirmed'
-          });
-      } catch (e) {
-          console.error(e);
-          alert(`分析失败: ${(e as Error).message}`);
-          updateNodeData(nodeId, { isLoading: false, creditEstimate, creditStatus: 'refunded' });
-      }
-  };
-
-  const handleAnalyzeScript = async (nodeId: string) => {
-      if (guardReadOnly('分析剧本')) return;
-      const node = nodes.find(n => n.id === nodeId);
-      if (!node) return;
-      if (!node.prompt?.trim()) {
-          alert("请先在文本节点里输入或粘贴剧本内�?);
-          return;
-      }
-
-      const creditEstimate = node.creditEstimate || getEstimatedCredits(node);
-      updateNodeData(nodeId, { isLoading: true, creditEstimate, creditStatus: 'reserved' });
-      try {
-          const text = await analyzeScriptAssets(node.prompt, node.model);
-          updateNodeData(nodeId, { optimizedPrompt: text, isLoading: false, creditEstimate, creditStatus: 'confirmed' });
-      } catch (e) {
-          console.error(e);
-          alert(`剧本分析失败: ${(e as Error).message}`);
-          updateNodeData(nodeId, { isLoading: false, creditEstimate, creditStatus: 'refunded' });
-      }
   };
 
   const handleMaximize = (nodeId: string) => {
@@ -1469,401 +665,8 @@ const CanvasWithSidebar: React.FC = () => {
       else if (node.imageSrc) setPreviewMedia({ url: node.imageSrc, type: 'image' });
       else alert("没有可预览的内容");
   };
-
-  const openSaveResultModal = (nodeId: string) => {
-      const node = nodes.find(n => n.id === nodeId) || deletedNodes.find(n => n.id === nodeId);
-      if (!node) return;
-      const url = node.videoSrc || node.imageSrc;
-      if (!url) {
-          alert('当前节点没有可保存的结果');
-          return;
-      }
-      const type = node.videoSrc ? 'video' : 'image';
-      setSaveResultTarget({ nodeId, url, type, title: node.title });
-      setSaveResultName(node.title || (type === 'video' ? '视频素材' : '图片素材'));
-      setSaveResultMode('material');
-      setSaveAssetType('role');
-      setSaveTargetAssetId(DEMO_ASSET_LIBRARY[0]?.id || '');
-      setSaveResultNote('');
-  };
-
-  const handleConfirmSaveResult = () => {
-      if (!saveResultTarget) return;
-      const selectedAsset = DEMO_ASSET_LIBRARY.find(asset => asset.id === saveTargetAssetId);
-      const title = saveResultName.trim() || saveResultTarget.title;
-      const updates: Partial<NodeData> = {
-          title,
-          outputArtifacts: [
-              saveResultTarget.url,
-              ...((nodes.find(node => node.id === saveResultTarget.nodeId) || deletedNodes.find(node => node.id === saveResultTarget.nodeId))?.outputArtifacts || []).filter(item => item !== saveResultTarget.url),
-          ],
-      };
-
-      if (saveResultMode === 'new_asset') {
-          updates.source = 'asset_library';
-          updates.sourceRefId = `new_${saveAssetType}_${Date.now()}`;
-      }
-      if (saveResultMode === 'update_asset' && selectedAsset) {
-          updates.source = 'asset_library';
-          updates.sourceRefId = selectedAsset.id;
-      }
-
-      const nextNodes = nodes.map(node => node.id === saveResultTarget.nodeId ? { ...node, ...updates } : node);
-      if (nextNodes.some(node => node.id === saveResultTarget.nodeId)) {
-          setNodes(nextNodes);
-          handleSaveProject(currentProject, nextNodes);
-      } else {
-          handleSaveProject();
-      }
-      const actionText = saveResultMode === 'material'
-          ? '已保存到项目素材'
-          : saveResultMode === 'new_asset'
-              ? '已保存为新资�?
-              : `已更新资产版本：${selectedAsset?.name || '未选择资产'}`;
-      alert(`${actionText}\n\n原型说明：当前为前端演示保存状态，正式系统会调用素材库/资产库接口并保留历史版本。`);
-      setSaveResultTarget(null);
-  };
   
   const handleHistoryPreview = (url: string, type: 'image' | 'video') => setPreviewMedia({ url, type });
-
-  const handlePreviewReference = (item: InputMedia) => {
-      if (item.type === 'text') {
-          setPreviewText({ title: item.title || '参考文�?, text: item.text || '' });
-          return;
-      }
-      setPreviewMedia({ url: item.url, type: item.type });
-  };
-
-  const handleCropStart = (nodeId: string) => {
-      const node = nodes.find(n => n.id === nodeId);
-      if (!node?.imageSrc) {
-          alert("当前节点没有可裁剪的图片");
-          return;
-      }
-      setCropTarget({ nodeId, imageSrc: node.imageSrc, title: node.title, aspectRatio: node.aspectRatio || '1:1' });
-  };
-
-  const handleCropConfirm = (croppedSrc: string, naturalWidth: number, naturalHeight: number, aspectRatio: string) => {
-      if (guardReadOnly('保存裁剪结果')) return;
-      void naturalWidth;
-      void naturalHeight;
-      if (!cropTarget) return;
-      const source = nodes.find(n => n.id === cropTarget.nodeId);
-      const { width, height } = getNodeSizeForAspectRatio(aspectRatio);
-      const newId = generateId();
-      const newNode: NodeData = {
-          id: newId,
-          type: NodeType.TEXT_TO_IMAGE,
-          x: source ? source.x + source.width + 80 : 80,
-          y: source ? source.y : 80,
-          width,
-          height,
-          title: `裁剪_${cropTarget.title}`.slice(0, 24),
-          imageSrc: croppedSrc,
-          aspectRatio,
-          model: source?.model || 'Seedream 5.0',
-          resolution: source?.resolution || '1k',
-          projectId: source?.projectId || currentProject?.id,
-          canvasId: source?.canvasId || currentCanvas?.id,
-          directorGroupName: source?.directorGroupName || currentProject?.directorGroup,
-          count: 1,
-          prompt: source?.prompt || '',
-          outputArtifacts: [croppedSrc]
-      };
-
-      setNodes(prev => [...prev, newNode]);
-      if (source) {
-          setConnections(prev => [...prev, { id: generateId(), sourceId: source.id, targetId: newId, canvasId: currentCanvas?.id }]);
-      }
-      setSelectedNodeIds(new Set([newId]));
-      setCropTarget(null);
-  };
-
-  const handleMultiAngleGenerate = async (nodeId: string, options: MultiAngleOptions) => {
-      if (guardReadOnly('生成多角度结�?)) return;
-      const source = nodes.find(n => n.id === nodeId);
-      if (!source?.imageSrc) {
-          alert("当前节点没有可用于多角度控制的图�?);
-          return;
-      }
-      if (!options.angles.length) {
-          alert("请至少选择一个角�?);
-          return;
-      }
-
-      updateNodeData(nodeId, { isLoading: true });
-      try {
-          const results = await generateMultiAngleImages(source.imageSrc, {
-              ...options,
-              countPerAngle: 1,
-          });
-          if (!results.length) throw new Error("未返回多角度结果");
-
-          const baseAspectRatio = options.aspectRatio && options.aspectRatio !== 'source'
-              ? options.aspectRatio
-              : (source.aspectRatio || '1:1');
-          const { width, height } = getNodeSizeForAspectRatio(baseAspectRatio);
-          const gapX = width + 80;
-          const gapY = height + 70;
-          const newNodes = results.map((result, index) => {
-              const column = index % 3;
-              const row = Math.floor(index / 3);
-              const id = generateId();
-              const title = `${result.label || result.angle}_${source.title}`.slice(0, 24);
-              return {
-                  id,
-                  type: NodeType.TEXT_TO_IMAGE,
-                  x: source.x + source.width + 90 + column * gapX,
-                  y: source.y + row * gapY,
-                  width,
-                  height,
-                  title,
-                  imageSrc: result.url,
-                  aspectRatio: baseAspectRatio,
-                  model: source.model || 'Seedream 5.0',
-                  resolution: source.resolution || '1k',
-                  count: 1,
-                  projectId: source.projectId || currentProject?.id,
-                  canvasId: source.canvasId || currentCanvas?.id,
-                  directorGroupName: source.directorGroupName || currentProject?.directorGroup,
-                  prompt: result.prompt || options.prompt || source.prompt || '',
-                  outputArtifacts: [result.url]
-              } satisfies NodeData;
-          });
-
-          setNodes(prev => [...prev, ...newNodes]);
-          setConnections(prev => [
-              ...prev,
-              ...newNodes.map(node => ({ id: generateId(), sourceId: source.id, targetId: node.id, canvasId: currentCanvas?.id }))
-          ]);
-          setSelectedNodeIds(new Set(newNodes.map(node => node.id)));
-          updateNodeData(nodeId, { isLoading: false });
-      } catch (e) {
-          console.error(e);
-          alert(`多角度生成失�? ${(e as Error).message}`);
-          updateNodeData(nodeId, { isLoading: false });
-      }
-  };
-
-  const handleExtractFrames = (nodeId: string) => {
-      if (guardReadOnly('视频截帧')) return;
-      const source = nodes.find(n => n.id === nodeId);
-      if (!source?.videoSrc) { alert('当前节点没有可截帧的视频'); return; }
-      const frameCount = 4;
-      const { width, height } = getNodeSizeForAspectRatio(source.aspectRatio || '16:9');
-      const newNodes: NodeData[] = [];
-      for (let i = 0; i < frameCount; i++) {
-          newNodes.push({
-              id: generateId(),
-              type: NodeType.ORIGINAL_IMAGE,
-              x: source.x + source.width + 90 + (i % 2) * (width + 40),
-              y: source.y + Math.floor(i / 2) * (height + 40),
-              width, height,
-              title: `截帧 ${i + 1} - ${source.title}`.slice(0, 30),
-              imageSrc: generateMockFrame(source.title, i, width, height),
-              aspectRatio: source.aspectRatio || '16:9',
-              projectId: source.projectId || currentProject?.id,
-              canvasId: source.canvasId || currentCanvas?.id,
-              source: 'canvas',
-          });
-      }
-      setNodes(prev => [...prev, ...newNodes]);
-      setConnections(prev => [...prev, ...newNodes.map(n => ({ id: generateId(), sourceId: nodeId, targetId: n.id, canvasId: currentCanvas?.id }))]);
-      alert(`已从视频提取 ${frameCount} 帧为图片节点`);
-  };
-
-  const handleRemoveSubtitles = (nodeId: string) => {
-      if (guardReadOnly('智能去字�?)) return;
-      const source = nodes.find(n => n.id === nodeId);
-      if (!source?.videoSrc) { alert('当前节点没有可处理的视频'); return; }
-      updateNodeData(nodeId, { isLoading: true });
-      setTimeout(() => {
-          const { width, height } = getNodeSizeForAspectRatio(source.aspectRatio || '16:9', VIDEO_NODE_BASE_HEIGHT);
-          const newId = generateId();
-          const newNode: NodeData = {
-              id: newId,
-              type: NodeType.TEXT_TO_VIDEO,
-              x: source.x + source.width + 90,
-              y: source.y,
-              width, height,
-              title: `去字�?- ${source.title}`.slice(0, 30),
-              videoSrc: source.videoSrc,
-              aspectRatio: source.aspectRatio || '16:9',
-              model: source.model,
-              projectId: source.projectId || currentProject?.id,
-              canvasId: source.canvasId || currentCanvas?.id,
-              source: 'canvas',
-          };
-          setNodes(prev => [...prev, newNode]);
-          setConnections(prev => [...prev, { id: generateId(), sourceId: nodeId, targetId: newId, canvasId: currentCanvas?.id }]);
-          updateNodeData(nodeId, { isLoading: false });
-          alert('智能去字幕完成（原型演示�?);
-      }, 1500);
-  };
-
-  const handleEnhanceVideo = (nodeId: string) => {
-      if (guardReadOnly('视频增分')) return;
-      const source = nodes.find(n => n.id === nodeId);
-      if (!source?.videoSrc) { alert('当前节点没有可增分的视频'); return; }
-      updateNodeData(nodeId, { isLoading: true });
-      setTimeout(() => {
-          const { width, height } = getNodeSizeForAspectRatio(source.aspectRatio || '16:9', VIDEO_NODE_BASE_HEIGHT);
-          const newId = generateId();
-          const newNode: NodeData = {
-              id: newId,
-              type: NodeType.TEXT_TO_VIDEO,
-              x: source.x + source.width + 90,
-              y: source.y + height + 40,
-              width, height,
-              title: `增分 - ${source.title}`.slice(0, 30),
-              videoSrc: source.videoSrc,
-              aspectRatio: source.aspectRatio || '16:9',
-              resolution: '1080p',
-              model: source.model,
-              projectId: source.projectId || currentProject?.id,
-              canvasId: source.canvasId || currentCanvas?.id,
-              source: 'canvas',
-          };
-          setNodes(prev => [...prev, newNode]);
-          setConnections(prev => [...prev, { id: generateId(), sourceId: nodeId, targetId: newId, canvasId: currentCanvas?.id }]);
-          updateNodeData(nodeId, { isLoading: false });
-          alert('视频增分完成（原型演示：帧插�?2x + 超分辨率 1080p�?);
-      }, 2000);
-  };
-
-  const handleMultiGrid = (nodeId: string, preset: string) => {
-      if (guardReadOnly('多宫格分镜图')) return;
-      const source = nodes.find(n => n.id === nodeId);
-      if (!source?.imageSrc) { alert('当前节点没有图片'); return; }
-      updateNodeData(nodeId, { isLoading: true });
-      setTimeout(() => {
-          const { width, height } = getNodeSizeForAspectRatio(source.aspectRatio || '1:1');
-          const newId = generateId();
-          const newNode: NodeData = {
-              id: newId, type: NodeType.TEXT_TO_IMAGE,
-              x: source.x + source.width + 90, y: source.y,
-              width, height,
-              title: `${preset} - ${source.title}`.slice(0, 30),
-              imageSrc: generateMockFrame(preset, 0, width, height),
-              aspectRatio: source.aspectRatio || '1:1',
-              model: source.model, projectId: source.projectId || currentProject?.id,
-              canvasId: source.canvasId || currentCanvas?.id, source: 'canvas',
-          };
-          setNodes(prev => [...prev, newNode]);
-          setConnections(prev => [...prev, { id: generateId(), sourceId: nodeId, targetId: newId, canvasId: currentCanvas?.id }]);
-          updateNodeData(nodeId, { isLoading: false });
-          alert(`${preset} 生成完成（原型演示）`);
-      }, 1500);
-  };
-
-  const handleRepaint = (nodeId: string) => {
-      if (guardReadOnly('图片局部重�?)) return;
-      const source = nodes.find(n => n.id === nodeId);
-      if (!source?.imageSrc) { alert('当前节点没有图片'); return; }
-      updateNodeData(nodeId, { isLoading: true });
-      setTimeout(() => {
-          const { width, height } = getNodeSizeForAspectRatio(source.aspectRatio || '1:1');
-          const newId = generateId();
-          const newNode: NodeData = {
-              id: newId, type: NodeType.TEXT_TO_IMAGE,
-              x: source.x + source.width + 90, y: source.y,
-              width, height,
-              title: `重绘 - ${source.title}`.slice(0, 30),
-              imageSrc: source.imageSrc,
-              aspectRatio: source.aspectRatio || '1:1',
-              model: source.model, projectId: source.projectId || currentProject?.id,
-              canvasId: source.canvasId || currentCanvas?.id, source: 'canvas',
-          };
-          setNodes(prev => [...prev, newNode]);
-          setConnections(prev => [...prev, { id: generateId(), sourceId: nodeId, targetId: newId, canvasId: currentCanvas?.id }]);
-          updateNodeData(nodeId, { isLoading: false });
-          alert('局部重绘完成（原型演示：正式版将打开选区编辑器）');
-      }, 1200);
-  };
-
-  const handleLighting = (nodeId: string) => {
-      if (guardReadOnly('打光')) return;
-      const source = nodes.find(n => n.id === nodeId);
-      if (!source?.imageSrc) { alert('当前节点没有图片'); return; }
-      updateNodeData(nodeId, { isLoading: true });
-      setTimeout(() => {
-          const { width, height } = getNodeSizeForAspectRatio(source.aspectRatio || '1:1');
-          const newId = generateId();
-          const newNode: NodeData = {
-              id: newId, type: NodeType.TEXT_TO_IMAGE,
-              x: source.x + source.width + 90, y: source.y,
-              width, height,
-              title: `打光 - ${source.title}`.slice(0, 30),
-              imageSrc: source.imageSrc,
-              aspectRatio: source.aspectRatio || '1:1',
-              model: source.model, projectId: source.projectId || currentProject?.id,
-              canvasId: source.canvasId || currentCanvas?.id, source: 'canvas',
-          };
-          setNodes(prev => [...prev, newNode]);
-          setConnections(prev => [...prev, { id: generateId(), sourceId: nodeId, targetId: newId, canvasId: currentCanvas?.id }]);
-          updateNodeData(nodeId, { isLoading: false });
-          alert('打光调整完成（原型演示：正式版将打开打光编辑器面板）');
-      }, 1200);
-  };
-
-  const handlePanorama = (nodeId: string) => {
-      if (guardReadOnly('720°全景')) return;
-      const source = nodes.find(n => n.id === nodeId);
-      if (!source?.imageSrc) { alert('当前节点没有图片'); return; }
-      updateNodeData(nodeId, { isLoading: true });
-      setTimeout(() => {
-          const { width, height } = getNodeSizeForAspectRatio('2:1');
-          const newId = generateId();
-          const newNode: NodeData = {
-              id: newId, type: NodeType.TEXT_TO_IMAGE,
-              x: source.x + source.width + 90, y: source.y,
-              width, height,
-              title: `720°全景 - ${source.title}`.slice(0, 30),
-              imageSrc: generateMockFrame('720° 全景环绕', 0, width, height),
-              aspectRatio: '2:1',
-              model: source.model, projectId: source.projectId || currentProject?.id,
-              canvasId: source.canvasId || currentCanvas?.id, source: 'canvas',
-          };
-          setNodes(prev => [...prev, newNode]);
-          setConnections(prev => [...prev, { id: generateId(), sourceId: nodeId, targetId: newId, canvasId: currentCanvas?.id }]);
-          updateNodeData(nodeId, { isLoading: false });
-          alert('720° 全景环绕生成完成（原型演示）');
-      }, 2000);
-  };
-
-  const handleOutpaint = (nodeId: string) => {
-      if (guardReadOnly('AI扩图')) return;
-      const source = nodes.find(n => n.id === nodeId);
-      if (!source?.imageSrc) { alert('当前节点没有图片'); return; }
-      updateNodeData(nodeId, { isLoading: true });
-      setTimeout(() => {
-          const { width, height } = getNodeSizeForAspectRatio(source.aspectRatio || '1:1');
-          const newId = generateId();
-          const newNode: NodeData = {
-              id: newId, type: NodeType.TEXT_TO_IMAGE,
-              x: source.x + source.width + 90, y: source.y,
-              width: Math.round(width * 1.3), height: Math.round(height * 1.3),
-              title: `扩图 - ${source.title}`.slice(0, 30),
-              imageSrc: source.imageSrc,
-              aspectRatio: source.aspectRatio || '1:1',
-              model: source.model, projectId: source.projectId || currentProject?.id,
-              canvasId: source.canvasId || currentCanvas?.id, source: 'canvas',
-          };
-          setNodes(prev => [...prev, newNode]);
-          setConnections(prev => [...prev, { id: generateId(), sourceId: nodeId, targetId: newId, canvasId: currentCanvas?.id }]);
-          updateNodeData(nodeId, { isLoading: false });
-          alert('AI 扩图完成（原型演示）');
-      }, 1500);
-  };
-
-  const handleApplyPrompt = (prompt: string) => {
-      const selectedId = Array.from(selectedNodeIds)[0];
-      if (selectedId) {
-          updateNodeData(selectedId, { prompt });
-      } else {
-          alert('请先选中一个节点，再应用提示词');
-      }
-  };
 
   const copyImageToClipboard = async (nodeId: string) => {
       const node = nodes.find(n => n.id === nodeId);
@@ -1872,13 +675,12 @@ const CanvasWithSidebar: React.FC = () => {
               const res = await fetch(node.imageSrc);
               const blob = await res.blob();
               await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob as Blob })]);
-              alert("图片已复制到剪贴�?);
+              alert("图片已复制到剪贴板");
           } catch (e) { console.error(e); alert("复制图片失败"); }
       }
   };
 
   const triggerReplaceImage = (nodeId: string) => {
-      if (guardReadOnly('替换素材')) return;
       nodeToReplaceRef.current = nodeId;
       replaceImageRef.current?.click();
   };
@@ -1887,54 +689,20 @@ const CanvasWithSidebar: React.FC = () => {
       const file = e.target.files?.[0];
       const nodeId = nodeToReplaceRef.current;
       if (file && nodeId) {
-          if (file.type.startsWith('video/')) {
-              const url = URL.createObjectURL(file);
-              const video = document.createElement('video');
-              video.preload = 'metadata';
-              video.onloadedmetadata = () => {
-                  const node = nodes.find(n => n.id === nodeId);
-                  if (node) {
-                      const aspectRatio = getClosestAspectRatio(video.videoWidth, video.videoHeight, VIDEO_ASPECT_RATIOS);
-                      const nodeSize = getNodeSizeForAspectRatio(aspectRatio, VIDEO_NODE_BASE_HEIGHT);
-                      const currentArtifacts = node.outputArtifacts || [];
-                      const newArtifacts = [url, ...currentArtifacts];
-                      updateNodeData(nodeId, {
-                          type: NodeType.TEXT_TO_VIDEO,
-                          videoSrc: url,
-                          imageSrc: undefined,
-                          title: node.shotId ? node.title : file.name,
-                          width: nodeSize.width,
-                          height: nodeSize.height,
-                          aspectRatio,
-                          model: node.model || 'Seedance 1.5 Pro',
-                          resolution: node.resolution || '720p',
-                          duration: node.duration || '5s',
-                          outputArtifacts: newArtifacts
-                      });
-                  }
-              };
-              video.src = url;
-          } else if (file.type.startsWith('image/')) {
            const reader = new FileReader();
            reader.onload = (event) => {
                const img = new Image();
                img.onload = () => {
                    const node = nodes.find(n => n.id === nodeId);
                    if (node) {
-                        const aspectRatio = getClosestAspectRatio(img.width, img.height, IMAGE_ASPECT_RATIOS);
-                        const { width, height } = getNodeSizeForAspectRatio(aspectRatio);
+                        const { width, height, ratio } = calculateImportDimensions(img.width, img.height);
                         const src = event.target?.result as string;
                         const currentArtifacts = node.outputArtifacts || [];
                         const newArtifacts = [src, ...currentArtifacts];
                         updateNodeData(nodeId, { 
-                            type: NodeType.TEXT_TO_IMAGE,
-                            imageSrc: src,
-                            videoSrc: undefined,
-                            title: node.shotId ? node.title : (file.name || node.title),
+                            imageSrc: src, 
                             width, height,
-                            aspectRatio,
-                            model: node.model || 'Seedream 5.0',
-                            resolution: node.resolution || '1k',
+                            aspectRatio: `${ratio}:1`, 
                             outputArtifacts: newArtifacts
                         });
                    }
@@ -1942,479 +710,41 @@ const CanvasWithSidebar: React.FC = () => {
                img.src = event.target?.result as string;
            };
            reader.readAsDataURL(file);
-          } else if (file.type.startsWith('audio/')) {
-              const url = URL.createObjectURL(file);
-              const node = nodes.find(n => n.id === nodeId);
-              if (node) {
-                  const currentArtifacts = node.outputArtifacts || [];
-                  const newArtifacts = [url, ...currentArtifacts];
-                  updateNodeData(nodeId, {
-                      type: NodeType.TEXT_TO_AUDIO,
-                      audioSrc: url,
-                      imageSrc: undefined,
-                      videoSrc: undefined,
-                      title: node.shotId ? node.title : file.name,
-                      width: node.width || 320,
-                      height: node.height || 260,
-                      model: node.model || 'Minimax-speech-2.8-hd',
-                      voiceId: node.voiceId || 'male-qn-qingse',
-                      voiceSpeed: node.voiceSpeed || 1,
-                      voicePitch: node.voicePitch || 0,
-                      voiceVolume: node.voiceVolume || 1,
-                      outputArtifacts: newArtifacts
-                  });
-              }
-          }
       }
       if (replaceImageRef.current) replaceImageRef.current.value = '';
       nodeToReplaceRef.current = null;
   };
 
-  const triggerAttachInput = (nodeId: string) => {
-      if (guardReadOnly('上传入参')) return;
-      nodeToAttachInputRef.current = nodeId;
-      attachInputRef.current?.click();
+  const handleSaveWorkflow = () => {
+    const workflowData = { nodes, connections, transform, projectName, version: "1.0" };
+    const blob = new Blob([JSON.stringify(workflowData, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    const safeName = projectName.replace(/[<>:"/\\|?*]/g, '_').trim() || '未命名项目';
+    link.download = `${safeName}.aistudio-flow`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
-  const addInputSourceNode = (targetId: string, source: NodeData) => {
-      const target = nodes.find(n => n.id === targetId);
-      const upstreamCount = connections.filter(c => c.targetId === targetId).length;
-      const x = target ? target.x - source.width - 90 : source.x;
-      const y = target ? target.y + upstreamCount * 80 : source.y;
-      const sourceNode = {
-          ...source,
-          x,
-          y,
-          projectId: source.projectId || currentProject?.id,
-          canvasId: source.canvasId || currentCanvas?.id,
-          directorGroupName: source.directorGroupName || currentProject?.directorGroup,
-      };
-      setNodes(prev => [...prev, sourceNode]);
-      setConnections(prev => [...prev, { id: generateId(), sourceId: sourceNode.id, targetId, canvasId: currentCanvas?.id }]);
-      setSelectedNodeIds(new Set([targetId]));
-  };
-
-  const handleAttachInputAsset = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      const targetId = nodeToAttachInputRef.current;
-      if (!file || !targetId) {
-          if (attachInputRef.current) attachInputRef.current.value = '';
-          nodeToAttachInputRef.current = null;
-          return;
-      }
-
-      const baseTitle = file.name || `本地素材_${new Date().toLocaleTimeString()}`;
-      const target = nodes.find(n => n.id === targetId);
-      if (!target) {
-          if (attachInputRef.current) attachInputRef.current.value = '';
-          nodeToAttachInputRef.current = null;
-          return;
-      }
-
-      if (file.type.startsWith('image/')) {
-          const reader = new FileReader();
-          reader.onload = (event) => {
-              const img = new Image();
-              img.onload = () => {
-                  const aspectRatio = getClosestAspectRatio(img.width, img.height, IMAGE_ASPECT_RATIOS);
-                  const { width, height } = getNodeSizeForAspectRatio(aspectRatio);
-                  const src = event.target?.result as string;
-                  updateNodeData(targetId, {
-                      type: NodeType.TEXT_TO_IMAGE,
-                      width,
-                      height,
-                      title: target.shotId ? target.title : baseTitle,
-                      imageSrc: src,
-                      videoSrc: undefined,
-                      aspectRatio,
-                      model: target.type === NodeType.TEXT_TO_IMAGE ? (target.model || 'Seedream 5.0') : 'Seedream 5.0',
-                      resolution: target.resolution || '1k',
-                      count: target.count || 1,
-                      outputArtifacts: [
-                          src,
-                          ...(target.type === NodeType.TEXT_TO_IMAGE ? (target.outputArtifacts || []).filter(item => item !== src) : []),
-                      ],
-                  });
-              };
-              img.src = event.target?.result as string;
-          };
-          reader.readAsDataURL(file);
-      } else if (file.type.startsWith('video/')) {
-          const url = URL.createObjectURL(file);
-          const video = document.createElement('video');
-          video.preload = 'metadata';
-          video.onloadedmetadata = () => {
-              const aspectRatio = getClosestAspectRatio(video.videoWidth, video.videoHeight, VIDEO_ASPECT_RATIOS);
-              const { width, height } = getNodeSizeForAspectRatio(aspectRatio, VIDEO_NODE_BASE_HEIGHT);
-              updateNodeData(targetId, {
-                  type: NodeType.TEXT_TO_VIDEO,
-                  width,
-                  height,
-                  title: target.shotId ? target.title : baseTitle,
-                  videoSrc: url,
-                  imageSrc: undefined,
-                  aspectRatio,
-                  model: target.type === NodeType.TEXT_TO_VIDEO || target.type === NodeType.START_END_TO_VIDEO ? (target.model || 'Seedance 1.5 Pro') : 'Seedance 1.5 Pro',
-                  resolution: target.resolution || '720p',
-                  duration: target.duration || '5s',
-                  count: target.count || 1,
-                  outputArtifacts: [
-                      url,
-                      ...((target.type === NodeType.TEXT_TO_VIDEO || target.type === NodeType.START_END_TO_VIDEO) ? (target.outputArtifacts || []).filter(item => item !== url) : []),
-                  ],
-              });
-          };
-          video.src = url;
-      } else if (file.type.startsWith('audio/')) {
-          const url = URL.createObjectURL(file);
-          updateNodeData(targetId, {
-              type: NodeType.TEXT_TO_AUDIO,
-              width: target.width || 320,
-              height: target.height || 260,
-              title: target.shotId ? target.title : baseTitle,
-              audioSrc: url,
-              imageSrc: undefined,
-              videoSrc: undefined,
-              model: target.type === NodeType.TEXT_TO_AUDIO ? (target.model || 'Minimax-speech-2.8-hd') : 'Minimax-speech-2.8-hd',
-              voiceId: target.voiceId || 'male-qn-qingse',
-              voiceSpeed: target.voiceSpeed || 1,
-              voicePitch: target.voicePitch || 0,
-              voiceVolume: target.voiceVolume || 1,
-              count: target.count || 1,
-              outputArtifacts: [
-                  url,
-                  ...(target.type === NodeType.TEXT_TO_AUDIO ? (target.outputArtifacts || []).filter(item => item !== url) : []),
-              ],
-          });
-      } else {
-          const reader = new FileReader();
-          reader.onload = (event) => {
-              const text = String(event.target?.result || '');
-              updateNodeData(targetId, {
-                  type: target.type === NodeType.CREATIVE_DESC ? NodeType.CREATIVE_DESC : target.type,
-                  title: target.shotId ? target.title : baseTitle,
-                  prompt: text,
-                  optimizedPrompt: target.type === NodeType.CREATIVE_DESC ? text : target.optimizedPrompt,
-              });
-          };
-          reader.readAsText(file, 'utf-8');
-      }
-
-      if (attachInputRef.current) attachInputRef.current.value = '';
-      nodeToAttachInputRef.current = null;
-  };
-
-  const persistProjectSummaries = (nextProjects: ProjectDashboardItem[]) => {
-      setProjects(nextProjects);
-      try {
-          localStorage.setItem(KC_PROJECT_SUMMARIES_KEY, JSON.stringify(nextProjects));
-      } catch (error) {
-          console.error(error);
-      }
-  };
-
-  const persistProjectCanvases = (projectId: string, canvases: ProjectCanvasItem[]) => {
-      setProjectCanvases(canvases);
-      try {
-          localStorage.setItem(`${KC_CANVAS_LIST_PREFIX}${projectId}`, JSON.stringify(canvases));
-      } catch (error) {
-          console.error(error);
-      }
-  };
-
-  const loadProjectCanvases = (project: ProjectDashboardItem) => {
-      try {
-          const saved = localStorage.getItem(`${KC_CANVAS_LIST_PREFIX}${project.id}`);
-          if (saved) {
-              const parsed = JSON.parse(saved) as ProjectCanvasItem[];
-              if (Array.isArray(parsed) && parsed.length) {
-                  return parsed.map(canvas => ({
-                      ...createProjectCanvas(project, canvas),
-                      ...canvas,
-                      projectId: project.id,
-                  }));
-              }
-          }
-      } catch (error) {
-          console.error(error);
-      }
-
-      const seeded = getSeedCanvasesForProject(project);
-      try {
-          localStorage.setItem(`${KC_CANVAS_LIST_PREFIX}${project.id}`, JSON.stringify(seeded));
-      } catch (error) {
-          console.error(error);
-      }
-      return seeded;
-  };
-
-  const loadCanvasPermissions = (canvas: ProjectCanvasItem) => {
-      try {
-          const saved = localStorage.getItem(`${KC_CANVAS_PERMISSIONS_PREFIX}${canvas.id}`);
-          if (saved) {
-              const parsed = JSON.parse(saved) as CanvasPermission[];
-              if (Array.isArray(parsed)) return parsed;
-          }
-      } catch (error) {
-          console.error(error);
-      }
-      const seeded = getDefaultCanvasPermissions(canvas);
-      try {
-          localStorage.setItem(`${KC_CANVAS_PERMISSIONS_PREFIX}${canvas.id}`, JSON.stringify(seeded));
-      } catch (error) {
-          console.error(error);
-      }
-      return seeded;
-  };
-
-  const resetCanvasRuntimeState = () => {
-      setNodes([]);
-      setConnections([]);
-      setDeletedNodes([]);
-      setTransform({ x: 0, y: 0, k: 1 });
-      setSelectedNodeIds(new Set());
-      setSelectionBox(null);
-      setSelectedConnectionId(null);
-      setContextMenu(null);
-      setQuickAddMenu(null);
-      setSaveStatus('idle');
-  };
-
-  const loadCanvasSnapshot = (project: ProjectDashboardItem, canvas: ProjectCanvasItem) => {
-      let loaded = false;
-      try {
-          const saved = localStorage.getItem(`${KC_CANVAS_STORAGE_PREFIX}${canvas.id}`)
-              || (canvas.id === `${project.id}__main` ? localStorage.getItem(`${KC_PROJECT_STORAGE_PREFIX}${project.id}`) : null);
-          if (saved) {
-              const data = JSON.parse(saved);
-              const loadedNodes = Array.isArray(data.nodes) ? data.nodes.map((node: NodeData) => ({
-                  ...node,
-                  projectId: node.projectId || project.id,
-                  canvasId: node.canvasId || canvas.id,
-                  directorGroupName: node.directorGroupName || project.directorGroup,
-              })) : [];
-              const loadedConnections = Array.isArray(data.connections) ? data.connections.map((connection: Connection) => ({
-                  ...connection,
-                  canvasId: connection.canvasId || canvas.id,
-              })) : [];
-              setNodes(loadedNodes);
-              setConnections(loadedConnections);
-              setDeletedNodes(Array.isArray(data.deletedNodes) ? data.deletedNodes : []);
-              setTransform(data.transform || { x: 0, y: 0, k: 1 });
-              setProjectName(data.projectName || canvas.name || project.canvasName);
-              loaded = true;
-          }
-      } catch (error) {
-          console.error(error);
-      }
-      if (!loaded) {
-          resetCanvasRuntimeState();
-          setProjectName(canvas.name || project.canvasName);
-      }
-      setSelectedNodeIds(new Set());
-      setSelectedConnectionId(null);
-      setSelectionBox(null);
-      setContextMenu(null);
-      setQuickAddMenu(null);
-      setSaveStatus('idle');
-  };
-
-  const handleSaveProject = (project = currentProject, snapshotNodes = nodes, canvas = currentCanvas) => {
-      if (!project) return false;
-      const targetCanvas = canvas || projectCanvases[0] || createProjectCanvas(project);
-      if (targetCanvas.permissionRole === 'viewer') {
-          setSaveStatus('failed');
-          alert('当前画布为只读权限，不能保存修改');
-          window.setTimeout(() => setSaveStatus('idle'), 1400);
-          return false;
-      }
-      setSaveStatus('saving');
-      try {
-          const savedAt = new Date().toLocaleString('zh-CN', {
-              month: '2-digit',
-              day: '2-digit',
-              hour: '2-digit',
-              minute: '2-digit',
-          });
-          const savedNodes = snapshotNodes.map(node => ({
-              ...node,
-              projectId: node.projectId || project.id,
-              canvasId: targetCanvas.id,
-              directorGroupName: node.directorGroupName || project.directorGroup,
-          }));
-          const savedConnections = connections.map(connection => ({
-              ...connection,
-              canvasId: targetCanvas.id,
-          }));
-          const projectSnapshot = {
-              nodes: savedNodes,
-              connections: savedConnections,
-              transform,
-              projectName,
-              deletedNodes,
-              savedAt,
-              canvasId: targetCanvas.id,
-              canvasName: projectName,
-              version: '2.0',
-          };
-          localStorage.setItem(`${KC_CANVAS_STORAGE_PREFIX}${targetCanvas.id}`, JSON.stringify(projectSnapshot));
-          if (targetCanvas.id === `${project.id}__main`) {
-              localStorage.setItem(`${KC_PROJECT_STORAGE_PREFIX}${project.id}`, JSON.stringify(projectSnapshot));
-          }
-          const savedCanvas: ProjectCanvasItem = {
-              ...targetCanvas,
-              name: projectName,
-              nodeCount: savedNodes.length,
-              assetCount: savedNodes.filter(node => node.imageSrc || node.videoSrc || node.audioSrc).length,
-              lastSavedAt: savedAt,
-          };
-          const sourceCanvases = projectCanvases.length ? projectCanvases : [savedCanvas];
-          const nextCanvases = sourceCanvases.some(item => item.id === savedCanvas.id)
-              ? sourceCanvases.map(item => item.id === savedCanvas.id ? savedCanvas : item)
-              : [savedCanvas, ...sourceCanvases];
-          persistProjectCanvases(project.id, nextCanvases);
-          const savedProject = { ...project, canvasName: projectName, lastSavedAt: savedAt };
-          const nextProjects = projects.some(item => item.id === project.id)
-              ? projects.map(item => item.id === project.id ? savedProject : item)
-              : [savedProject, ...projects];
-          persistProjectSummaries(nextProjects);
-          setCurrentProject(prev => prev ? { ...prev, canvasName: projectName, lastSavedAt: savedAt } : prev);
-          setCurrentCanvas(prev => prev && prev.id === savedCanvas.id ? savedCanvas : prev);
-          setSaveStatus('saved');
-          window.setTimeout(() => setSaveStatus('idle'), 1400);
-          return true;
-      } catch (error) {
-          console.error(error);
-          setSaveStatus('failed');
-          return false;
-      }
-  };
-
-  const clearCanvasState = (nextProjectName = `${DEMO_PROJECT_META.name} 无限画布`) => {
-      const withContent = nodes.filter(n => n.imageSrc || n.videoSrc);
-      if (withContent.length > 0) setDeletedNodes(prev => [...prev, ...withContent]);
-      setNodes([]);
-      setConnections([]);
-      setTransform({ x: 0, y: 0, k: 1 });
-      setProjectName(nextProjectName);
-      setSelectedNodeIds(new Set());
-      setSelectionBox(null);
-      setSelectedConnectionId(null);
-  };
-
-  const openCanvas = (project: ProjectDashboardItem, canvas: ProjectCanvasItem, canvasList = projectCanvases) => {
-      setCurrentProject(project);
-      setCurrentCanvas(canvas);
-      setProjectCanvases(canvasList.length ? canvasList : [canvas]);
-      setCanvasPermissions(loadCanvasPermissions(canvas));
-      loadCanvasSnapshot(project, canvas);
-  };
-
-  const openProject = (project: ProjectDashboardItem) => {
-      const canvases = loadProjectCanvases(project);
-      setCurrentProject(project);
-      setProjectCanvases(canvases);
-      setCurrentCanvas(null);
-      setCanvasPermissions([]);
-      resetCanvasRuntimeState();
-      if (canvases.length <= 1) {
-          openCanvas(project, canvases[0], canvases);
-          return;
-      }
-      setSelectedNodeIds(new Set());
-      setSelectedConnectionId(null);
-      setSelectionBox(null);
-      setContextMenu(null);
-      setQuickAddMenu(null);
-      setSaveStatus('idle');
-  };
-
-  const createProject = () => {
-      const now = Date.now();
-      const newProject: ProjectDashboardItem = {
-          id: `KC-DRAMA-${now}`,
-          name: `新项�?${projects.length + 1}`,
-          canvasName: `新项�?${projects.length + 1} 无限画布`,
-          directorGroup: '未分�?,
-          projectType: '短剧',
-          status: 'draft',
-          episodeCount: 0,
-          shotCount: 0,
-          assetCount: 0,
-          lastSavedAt: '未保�?,
-      };
-      const nextProjects = [newProject, ...projects];
-      persistProjectSummaries(nextProjects);
-      const newCanvas = createProjectCanvas(newProject, {
-          id: `${newProject.id}__main`,
-          name: newProject.canvasName,
-          createdAt: '刚刚',
-      });
-      persistProjectCanvases(newProject.id, [newCanvas]);
-      openCanvas(newProject, newCanvas, [newCanvas]);
-  };
-
-  const returnToProjectManagement = () => {
-      if (currentCanvas) handleSaveProject();
-      setCurrentProject(null);
-      setCurrentCanvas(null);
-      setProjectCanvases([]);
-      setCanvasPermissions([]);
-      resetCanvasRuntimeState();
-  };
-
-  const returnToProjectCanvasList = () => {
-      if (currentCanvas) handleSaveProject();
-      if (currentProject && projectCanvases.length > 1) {
-          setCurrentCanvas(null);
-          setCanvasPermissions([]);
-          resetCanvasRuntimeState();
-          return;
-      }
-      returnToProjectManagement();
-  };
-
-  const createCanvasInCurrentProject = () => {
-      if (!currentProject) return;
-      const name = newCanvasName.trim() || `${currentProject.name} 子画�?${projectCanvases.length + 1}`;
-      const canvas = createProjectCanvas(currentProject, {
-          id: `${currentProject.id}__canvas_${Date.now()}`,
-          name,
-          owner: CURRENT_USER_NAME,
-          permissionRole: 'owner',
-          status: 'draft',
-          createdAt: '刚刚',
-          lastSavedAt: '未保�?,
-          nodeCount: 0,
-          assetCount: 0,
-      });
-      const nextCanvases = [canvas, ...projectCanvases];
-      persistProjectCanvases(currentProject.id, nextCanvases);
-      setIsNewCanvasOpen(false);
-      setNewCanvasName('');
-      openCanvas(currentProject, canvas, nextCanvases);
-  };
-
-  const updateCanvasRole = (canvasId: string, role: CanvasPermissionRole) => {
-      if (!currentProject) return;
-      const nextCanvases = projectCanvases.map(canvas => canvas.id === canvasId ? { ...canvas, permissionRole: role } : canvas);
-      persistProjectCanvases(currentProject.id, nextCanvases);
-      setCurrentCanvas(prev => prev?.id === canvasId ? { ...prev, permissionRole: role } : prev);
-  };
-
-  const handleNewWorkflow = () => {
-      if (guardReadOnly('清空画布')) return;
-      setShowNewWorkflowDialog(true);
-  };
+  const handleNewWorkflow = () => setShowNewWorkflowDialog(true);
   
   const handleConfirmNew = (shouldSave: boolean) => {
-    if (shouldSave) handleSaveProject();
-    clearCanvasState(currentProject?.canvasName || `${DEMO_PROJECT_META.name} 无限画布`);
+    if (shouldSave) handleSaveWorkflow();
+    const withContent = nodes.filter(n => n.imageSrc || n.videoSrc);
+    if (withContent.length > 0) setDeletedNodes(prev => [...prev, ...withContent]);
+    setNodes([]);
+    setConnections([]);
+    setTransform({ x: 0, y: 0, k: 1 });
+    setProjectName('未命名项目');
     setShowNewWorkflowDialog(false);
+    setSelectedNodeIds(new Set());
+    setSelectionBox(null);
   };
 
   const handleLoadWorkflow = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (guardReadOnly('导入备份')) return;
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
@@ -2422,16 +752,8 @@ const CanvasWithSidebar: React.FC = () => {
         try {
             const data = JSON.parse(event.target?.result as string);
             if (data.nodes && data.connections) {
-                setNodes(data.nodes.map((node: NodeData) => ({
-                    ...node,
-                    projectId: node.projectId || currentProject?.id,
-                    canvasId: node.canvasId || currentCanvas?.id,
-                    directorGroupName: node.directorGroupName || currentProject?.directorGroup,
-                })));
-                setConnections(data.connections.map((connection: Connection) => ({
-                    ...connection,
-                    canvasId: connection.canvasId || currentCanvas?.id,
-                })));
+                setNodes(data.nodes);
+                setConnections(data.connections);
                 if (data.transform) setTransform(data.transform);
                 if (data.projectName) setProjectName(data.projectName);
             }
@@ -2444,10 +766,10 @@ const CanvasWithSidebar: React.FC = () => {
   const handleDownload = async (nodeId: string) => {
       const node = nodes.find(n => n.id === nodeId);
       if (!node) return;
-      const url = node.videoSrc || node.imageSrc || node.audioSrc;
+      const url = node.videoSrc || node.imageSrc;
       if (!url) { alert("No content to download."); return; }
       
-      const ext = node.videoSrc ? 'mp4' : node.audioSrc ? (url.startsWith('data:audio/wav') ? 'wav' : 'mp3') : 'png';
+      const ext = node.videoSrc ? 'mp4' : 'png';
       const filename = `${node.title.replace(/\s+/g, '_')}_${Date.now()}.${ext}`;
 
       try {
@@ -2477,191 +799,39 @@ const CanvasWithSidebar: React.FC = () => {
       }
   };
 
-  const saveAssetFile = async (url: string, type: 'image' | 'video', title = 'asset') => {
-      const ext = type === 'video' ? 'mp4' : 'png';
-      const filename = `${title.replace(/\s+/g, '_')}_${Date.now()}.${ext}`;
-      try {
-          const response = await fetch(url);
-          const blob = await response.blob();
-          const saved = await storageService.saveFile(blob, filename);
-          if (saved) return;
-
-          const blobUrl = URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = blobUrl;
-          link.download = filename;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          URL.revokeObjectURL(blobUrl);
-      } catch {
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = filename;
-          link.target = '_blank';
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-      }
-  };
-
-  const copyAssetToClipboard = async (url: string, type: 'image' | 'video') => {
-      try {
-          if (type === 'image' && navigator.clipboard && 'ClipboardItem' in window) {
-              const response = await fetch(url);
-              const blob = await response.blob();
-              await navigator.clipboard.write([new ClipboardItem({ [blob.type || 'image/png']: blob })]);
-              return;
-          }
-          await navigator.clipboard.writeText(url);
-      } catch (error) {
-          console.error(error);
-          alert('复制素材失败，请尝试先保存到本地�?);
-      }
-  };
-
-  const deleteAssetFromLibrary = (nodeId: string, url: string, type: 'image' | 'video') => {
-      const updateList = (list: NodeData[]) => list.map(node => {
-          if (node.id !== nodeId) return node;
-          const artifacts = (node.outputArtifacts || []).filter(item => item !== url);
-          const updates: Partial<NodeData> = { outputArtifacts: artifacts };
-          if (type === 'image' && node.imageSrc === url) {
-              updates.imageSrc = artifacts[0];
-          }
-          if (type === 'video' && node.videoSrc === url) {
-              updates.videoSrc = artifacts[0];
-          }
-          updates.favoriteArtifacts = (node.favoriteArtifacts || []).filter(item => item !== url);
-          return { ...node, ...updates };
-      });
-
-      setNodes(prev => updateList(prev));
-      setDeletedNodes(prev => updateList(prev).filter(node => node.imageSrc || node.videoSrc || node.outputArtifacts?.length));
-  };
-
-  const connectImportedNodeIfNeeded = (nodeId: string) => {
-      const connection = assetImportConnectionRef.current;
-      if (!connection) return;
-
-      const isBackward = connection.direction === 'backward';
-      setConnections(prev => [
-          ...prev,
-          {
-              id: generateId(),
-              sourceId: isBackward ? nodeId : connection.sourceId,
-              targetId: isBackward ? connection.sourceId : nodeId,
-          },
-      ]);
-      assetImportConnectionRef.current = null;
-  };
-
-  const addUploadedFileNode = (file: File, center: Point) => {
-      if (file.type.startsWith('image/')) {
-          const reader = new FileReader();
-          reader.onload = (event) => {
-              const src = event.target?.result as string;
-              const img = new Image();
-              img.onload = () => {
-                  const aspectRatio = getClosestAspectRatio(img.width, img.height, IMAGE_ASPECT_RATIOS);
-                  const { width, height } = getNodeSizeForAspectRatio(aspectRatio);
-                  const nodeId = addNode(NodeType.TEXT_TO_IMAGE, center.x - width / 2, center.y - height / 2, {
-                      width,
-                      height,
-                      imageSrc: src,
-                      title: file.name,
-                      aspectRatio,
-                      model: 'Seedream 5.0',
-                      resolution: '1k',
-                      source: 'local_upload',
-                      outputArtifacts: [src],
-                  });
-                  connectImportedNodeIfNeeded(nodeId);
-              };
-              img.src = src;
-          };
-          reader.readAsDataURL(file);
-          return;
-      }
-
-      if (file.type.startsWith('video/')) {
-          const url = URL.createObjectURL(file);
-          const video = document.createElement('video');
-          video.preload = 'metadata';
-          video.onloadedmetadata = () => {
-              const aspectRatio = getClosestAspectRatio(video.videoWidth, video.videoHeight, VIDEO_ASPECT_RATIOS);
-              const { width, height } = getNodeSizeForAspectRatio(aspectRatio, VIDEO_NODE_BASE_HEIGHT);
-              const nodeId = addNode(NodeType.TEXT_TO_VIDEO, center.x - width / 2, center.y - height / 2, {
-                  width,
-                  height,
-                  videoSrc: url,
-                  title: file.name,
-                  aspectRatio,
-                  model: 'Seedance 1.5 Pro',
-                  resolution: '720p',
-                  duration: '5s',
-                  source: 'local_upload',
-                  outputArtifacts: [url],
-              });
-              connectImportedNodeIfNeeded(nodeId);
-          };
-          video.src = url;
-          return;
-      }
-
-      if (file.type.startsWith('audio/')) {
-          const url = URL.createObjectURL(file);
-          const nodeId = addNode(NodeType.TEXT_TO_AUDIO, center.x - 160, center.y - 130, {
-              width: 320,
-              height: 260,
-              audioSrc: url,
-              title: file.name,
-              model: 'Minimax-speech-2.8-hd',
-              voiceId: 'male-qn-qingse',
-              voiceSpeed: 1,
-              source: 'local_upload',
-              outputArtifacts: [url],
-          });
-          connectImportedNodeIfNeeded(nodeId);
-          return;
-      }
-
-      if (file.type.startsWith('text/') || /\.(txt|md|markdown)$/i.test(file.name)) {
-          const reader = new FileReader();
-          reader.onload = (event) => {
-              const text = String(event.target?.result || '');
-              const nodeId = addNode(NodeType.CREATIVE_DESC, center.x - 260, center.y - 260, {
-                  width: 520,
-                  height: 520,
-                  title: file.name,
-                  prompt: text,
-                  model: 'Xiaomi MiMo 2.5 Pro',
-                  source: 'local_upload',
-              });
-              connectImportedNodeIfNeeded(nodeId);
-          };
-          reader.readAsText(file);
-      }
-  };
-
   const handleImportAsset = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (guardReadOnly('上传素材')) {
-        if (assetInputRef.current) assetInputRef.current.value = '';
-        assetImportPositionRef.current = null;
-        assetImportConnectionRef.current = null;
-        return;
-    }
     const file = e.target.files?.[0];
-    if (!file) {
-        assetImportPositionRef.current = null;
-        assetImportConnectionRef.current = null;
-        return;
-    }
+    if (!file) return;
     
     const rect = containerRef.current?.getBoundingClientRect();
-    const center = assetImportPositionRef.current || (rect ? screenToWorld(rect.width / 2, rect.height / 2) : { x: 0, y: 0 });
-    assetImportPositionRef.current = null;
+    const center = rect ? screenToWorld(rect.width / 2, rect.height / 2) : { x: 0, y: 0 };
     
-    addUploadedFileNode(file, center);
+    if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const img = new Image();
+            img.onload = () => {
+                 const { width, height, ratio } = calculateImportDimensions(img.width, img.height);
+                 const src = event.target?.result as string;
+                 addNode(NodeType.ORIGINAL_IMAGE, center.x - width/2, center.y - height/2, {
+                     width, height, imageSrc: src, aspectRatio: `${ratio}:1`, outputArtifacts: [src]
+                 });
+            };
+            img.src = event.target?.result as string;
+        };
+        reader.readAsDataURL(file);
+    } else if (file.type.startsWith('video/')) {
+        const url = URL.createObjectURL(file);
+        const video = document.createElement('video');
+        video.preload = 'metadata';
+        video.onloadedmetadata = () => {
+            const { width, height, ratio } = calculateImportDimensions(video.videoWidth, video.videoHeight);
+            addNode(NodeType.ORIGINAL_IMAGE, center.x - width/2, center.y - height/2, {
+                width, height, videoSrc: url, title: file.name, aspectRatio: `${ratio}:1`, outputArtifacts: [url]
+            });
+        };
+        video.src = url;
+    }
     e.target.value = '';
   };
 
@@ -2669,231 +839,50 @@ const CanvasWithSidebar: React.FC = () => {
 
   const handleDrop = (e: React.DragEvent) => {
       e.preventDefault(); e.stopPropagation();
-      if (guardReadOnly('拖入素材')) return;
-      const assetId = e.dataTransfer.getData('application/kc-asset');
-      if (assetId) {
-          const asset = DEMO_ASSET_LIBRARY.find(item => item.id === assetId);
-          if (asset) handleAddAssetToCanvas(asset, screenToWorld(e.clientX, e.clientY));
-          return;
-      }
-      const materialPayload = e.dataTransfer.getData('application/kc-material');
-      if (materialPayload) {
-          try {
-              const material = JSON.parse(materialPayload) as MaterialLibraryItem;
-              if (material?.url && material?.type) {
-                  handleAddMaterialToCanvas(material, screenToWorld(e.clientX, e.clientY));
-              }
-          } catch (error) {
-              console.error('[Material Library] Invalid drag payload', error);
-          }
-          return;
-      }
       const files: File[] = Array.from(e.dataTransfer.files); 
       if (files.length === 0) return;
       const worldPos = screenToWorld(e.clientX, e.clientY);
-      assetImportConnectionRef.current = null;
       files.forEach((file, index) => {
           const offsetX = index * 20; const offsetY = index * 20;
-          addUploadedFileNode(file, { x: worldPos.x + offsetX, y: worldPos.y + offsetY });
-      });
-  };
-
-  // 画布容器只有在“已登录 + 已打开项目”后才渲染，手势监听需在此之后再挂载�?
-  const isCanvasMounted = isAuthenticated && !!currentProject;
-
-  // 触控板手势：双指滑动平移画布，双指捏�?张开放大/收拢缩小)缩放�?
-  // 采用原生�?passive 监听以真正阻止浏览器默认的页面滚�?缩放/前进后退（React �?onWheel 默认 passive，preventDefault 无效）�?
-  // �?requestAnimationFrame 把高频手势事件合并到每帧只计算一次，避免大组件逐事件重渲染导致卡顿�?
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-
-    let rafId: number | null = null;
-    let panX = 0;
-    let panY = 0;
-    let zoomFactor = 1;
-    let anchorX = 0;
-    let anchorY = 0;
-
-    const flush = () => {
-      rafId = null;
-      const dPanX = panX, dPanY = panY, dZoom = zoomFactor, ax = anchorX, ay = anchorY;
-      panX = 0; panY = 0; zoomFactor = 1;
-      setTransform(prev => {
-        let { x, y, k } = prev;
-        if (dZoom !== 1) {
-          const newK = Math.min(Math.max(0.4, k * dZoom), 2);
-          const worldX = (ax - x) / k;
-          const worldY = (ay - y) / k;
-          x = ax - worldX * newK;
-          y = ay - worldY * newK;
-          k = newK;
-        }
-        if (dPanX !== 0 || dPanY !== 0) {
-          x += dPanX;
-          y += dPanY;
-        }
-        return { x, y, k };
-      });
-    };
-
-    const onWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      const rect = el.getBoundingClientRect();
-      if (e.ctrlKey || e.metaKey) {
-        // 捏合缩放：deltaY<0 张开放大，deltaY>0 收拢缩小；以光标位置为锚�?
-        zoomFactor *= Math.exp(-e.deltaY * 0.01);
-        anchorX = e.clientX - rect.left;
-        anchorY = e.clientY - rect.top;
-      } else {
-        // 双指滑动平移
-        panX -= e.deltaX;
-        panY -= e.deltaY;
-      }
-      if (rafId == null) rafId = requestAnimationFrame(flush);
-    };
-
-    el.addEventListener('wheel', onWheel, { passive: false });
-    return () => {
-      el.removeEventListener('wheel', onWheel);
-      if (rafId != null) cancelAnimationFrame(rafId);
-    };
-  }, [isCanvasMounted, currentCanvas]);
-
-  const zoomCanvas = (direction: 1 | -1) => {
-      const rect = containerRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      const nextK = Math.min(Math.max(0.4, transform.k + direction * 0.1), 2);
-      const anchorX = rect.width / 2;
-      const anchorY = rect.height / 2;
-      const worldX = (anchorX - transform.x) / transform.k;
-      const worldY = (anchorY - transform.y) / transform.k;
-      setTransform({
-          x: anchorX - worldX * nextK,
-          y: anchorY - worldY * nextK,
-          k: nextK,
-      });
-  };
-
-  const arrangeCanvasNodes = () => {
-      const targetIds = selectedNodeIds.size > 0 ? selectedNodeIds : new Set(nodes.map(node => node.id));
-      if (targetIds.size === 0) return;
-
-      setNodes(prev => {
-          const targetNodes = prev.filter(node => targetIds.has(node.id));
-          if (targetNodes.length === 0) return prev;
-
-          const sorted = [...targetNodes].sort((a, b) => (a.y - b.y) || (a.x - b.x));
-          const minX = Math.min(...sorted.map(node => node.x));
-          const minY = Math.min(...sorted.map(node => node.y));
-          const maxWidth = Math.max(...sorted.map(node => node.width));
-          const maxHeight = Math.max(...sorted.map(node => node.height));
-          const columns = Math.min(4, Math.ceil(Math.sqrt(sorted.length)));
-          const gapX = 88;
-          const gapY = 72;
-          const positionMap = new Map<string, Point>();
-
-          sorted.forEach((node, index) => {
-              const col = index % columns;
-              const row = Math.floor(index / columns);
-              positionMap.set(node.id, {
-                  x: minX + col * (maxWidth + gapX),
-                  y: minY + row * (maxHeight + gapY),
-              });
-          });
-
-          return prev.map(node => {
-              const next = positionMap.get(node.id);
-              return next ? { ...node, x: next.x, y: next.y } : node;
-          });
-      });
-  };
-
-  const getMiniMapMetrics = () => {
-      const miniWidth = 220;
-      const miniHeight = 126;
-      const rect = containerRef.current?.getBoundingClientRect();
-      const view = rect
-          ? {
-              x: -transform.x / transform.k,
-              y: -transform.y / transform.k,
-              width: rect.width / transform.k,
-              height: rect.height / transform.k,
-          }
-          : { x: -500, y: -320, width: 1000, height: 640 };
-
-      const nodeBounds = nodes.length
-          ? {
-              minX: Math.min(...nodes.map(node => node.x)),
-              minY: Math.min(...nodes.map(node => node.y)),
-              maxX: Math.max(...nodes.map(node => node.x + node.width)),
-              maxY: Math.max(...nodes.map(node => node.y + node.height)),
-          }
-          : {
-              minX: view.x - 400,
-              minY: view.y - 280,
-              maxX: view.x + view.width + 400,
-              maxY: view.y + view.height + 280,
-          };
-
-      const padding = 160;
-      const minX = Math.min(nodeBounds.minX, view.x) - padding;
-      const minY = Math.min(nodeBounds.minY, view.y) - padding;
-      const maxX = Math.max(nodeBounds.maxX, view.x + view.width) + padding;
-      const maxY = Math.max(nodeBounds.maxY, view.y + view.height) + padding;
-      const width = Math.max(1, maxX - minX);
-      const height = Math.max(1, maxY - minY);
-      const scale = Math.min((miniWidth - 20) / width, (miniHeight - 18) / height);
-      const offsetX = (miniWidth - width * scale) / 2;
-      const offsetY = (miniHeight - height * scale) / 2;
-
-      const toMini = (x: number, y: number) => ({
-          x: offsetX + (x - minX) * scale,
-          y: offsetY + (y - minY) * scale,
-      });
-
-      return {
-          miniWidth,
-          miniHeight,
-          minX,
-          minY,
-          scale,
-          offsetX,
-          offsetY,
-          view,
-          nodeRects: nodes.map(node => {
-              const point = toMini(node.x, node.y);
-              return {
-                  id: node.id,
-                  x: point.x,
-                  y: point.y,
-                  width: Math.max(4, node.width * scale),
-                  height: Math.max(4, node.height * scale),
-                  selected: selectedNodeIds.has(node.id),
+          if (file.type.startsWith('image/')) {
+              const reader = new FileReader();
+              reader.onload = (event) => {
+                  const src = event.target?.result as string;
+                  const img = new Image();
+                  img.onload = () => {
+                       const { width, height, ratio } = calculateImportDimensions(img.width, img.height);
+                       addNode(NodeType.ORIGINAL_IMAGE, worldPos.x - width/2 + offsetX, worldPos.y - height/2 + offsetY, {
+                           width, height, imageSrc: src, aspectRatio: `${ratio}:1`, outputArtifacts: [src]
+                       });
+                  };
+                  img.src = src;
               };
-          }),
-          viewportRect: {
-              ...toMini(view.x, view.y),
-              width: Math.max(8, view.width * scale),
-              height: Math.max(8, view.height * scale),
-          },
-      };
+              reader.readAsDataURL(file);
+          } else if (file.type.startsWith('video/')) {
+              const url = URL.createObjectURL(file);
+              const video = document.createElement('video');
+              video.preload = 'metadata';
+              video.onloadedmetadata = () => {
+                  const { width, height, ratio } = calculateImportDimensions(video.videoWidth, video.videoHeight);
+                  addNode(NodeType.ORIGINAL_IMAGE, worldPos.x - width/2 + offsetX, worldPos.y - height/2 + offsetY, {
+                       width, height, videoSrc: url, title: file.name, aspectRatio: `${ratio}:1`, outputArtifacts: [url]
+                   });
+              };
+              video.src = url;
+          }
+      });
   };
 
-  const jumpToMiniMapPoint = (event: React.MouseEvent<HTMLDivElement>) => {
-      const rect = containerRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      const mapRect = event.currentTarget.getBoundingClientRect();
-      const metrics = getMiniMapMetrics();
-      const localX = event.clientX - mapRect.left;
-      const localY = event.clientY - mapRect.top;
-      const worldX = metrics.minX + (localX - metrics.offsetX) / metrics.scale;
-      const worldY = metrics.minY + (localY - metrics.offsetY) / metrics.scale;
-      setTransform({
-          x: rect.width / 2 - worldX * transform.k,
-          y: rect.height / 2 - worldY * transform.k,
-          k: transform.k,
-      });
+  const handleWheel = (e: React.WheelEvent) => {
+    if (e.ctrlKey || e.metaKey) e.preventDefault();
+    const zoomIntensity = 0.1;
+    const direction = e.deltaY > 0 ? -1 : 1;
+    let newK = transform.k + direction * zoomIntensity;
+    newK = Math.min(Math.max(0.4, newK), 2); 
+    const rect = containerRef.current!.getBoundingClientRect();
+    const worldX = (e.clientX - rect.left - transform.x) / transform.k;
+    const worldY = (e.clientY - rect.top - transform.y) / transform.k;
+    setTransform({ x: (e.clientX - rect.left) - worldX * newK, y: (e.clientY - rect.top) - worldY * newK, k: newK });
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -2919,10 +908,6 @@ const CanvasWithSidebar: React.FC = () => {
     if (contextMenu) setContextMenu(null);
     if (quickAddMenu) setQuickAddMenu(null);
     if (selectedConnectionId) setSelectedConnectionId(null);
-    if (isReadOnlyCanvas) {
-        setSelectedNodeIds(new Set([id]));
-        return;
-    }
     if (e.button === 0) {
         setDragMode('DRAG_NODE');
         dragStartRef.current = { x: e.clientX, y: e.clientY };
@@ -2949,7 +934,6 @@ const CanvasWithSidebar: React.FC = () => {
 
   const handleResizeStart = (e: React.MouseEvent, nodeId: string) => {
       e.stopPropagation(); e.preventDefault();
-      if (guardReadOnly('调整节点大小')) return;
       const node = nodes.find(n => n.id === nodeId);
       if (!node) return;
       setDragMode('RESIZE_NODE');
@@ -2959,7 +943,6 @@ const CanvasWithSidebar: React.FC = () => {
 
   const handleConnectStart = (e: React.MouseEvent, nodeId: string, type: 'source' | 'target') => {
     e.stopPropagation(); e.preventDefault();
-    if (guardReadOnly('创建连线')) return;
     connectionStartRef.current = { nodeId, type };
     setDragMode('CONNECT');
     setTempConnection(screenToWorld(e.clientX, e.clientY));
@@ -2989,11 +972,8 @@ const CanvasWithSidebar: React.FC = () => {
         setSelectedNodeIds(newSelection);
     } else if (dragMode === 'CONNECT') {
         setTempConnection(worldPos);
-        const start = connectionStartRef.current;
-        if (start) {
-            const candidates = nodes.filter(n => n.id !== start.nodeId)
-                // 正向起点(source)：候选为合法的下游节点；反向起点(target)：候选为合法的上游节�?
-                .filter(n => start.type === 'source' ? canConnectNodes(start.nodeId, n.id) : canConnectNodes(n.id, start.nodeId))
+        if (connectionStartRef.current?.type === 'source') {
+            const candidates = nodes.filter(n => n.id !== connectionStartRef.current?.nodeId).filter(n => n.type !== NodeType.ORIGINAL_IMAGE)
                 .map(n => ({ node: n, dist: Math.sqrt(Math.pow(worldPos.x - (n.x + n.width/2), 2) + Math.pow(worldPos.y - (n.y + n.height/2), 2)) }))
                 .filter(item => item.dist < 500).sort((a, b) => a.dist - b.dist).slice(0, 3).map(item => item.node);
             setSuggestedNodes(candidates);
@@ -3007,7 +987,7 @@ const CanvasWithSidebar: React.FC = () => {
             if (node.aspectRatio) { const [w, h] = node.aspectRatio.split(':').map(Number); if (!isNaN(w) && !isNaN(h) && h !== 0) ratio = w / h; } 
             else if (node.type === NodeType.ORIGINAL_IMAGE) { ratio = (dragStartRef.current.w || 1) / (dragStartRef.current.h || 1); }
             let minWidth = 150;
-            if (node.type !== NodeType.CREATIVE_DESC && node.type !== NodeType.TEXT_TO_AUDIO) {
+            if (node.type !== NodeType.CREATIVE_DESC) {
                 const limit1 = ratio >= 1 ? 400 * ratio : 400;
                 minWidth = Math.max(limit1, 400); 
             } else minWidth = 280;
@@ -3018,63 +998,30 @@ const CanvasWithSidebar: React.FC = () => {
   };
 
   const handleMouseUp = (e: React.MouseEvent) => {
-    // 连线拖到空白处释放：弹出快捷新建菜单。正�?从输出端口拖�?新建下游节点，反�?从输入端口拖�?新建上游节点�?
-    if (dragMode === 'CONNECT' && connectionStartRef.current) {
-         const world = screenToWorld(e.clientX, e.clientY);
-         const direction = connectionStartRef.current.type === 'source' ? 'forward' : 'backward';
-         setQuickAddMenu({ sourceId: connectionStartRef.current.nodeId, x: e.clientX, y: e.clientY, worldX: world.x, worldY: world.y, direction });
+    if (dragMode === 'CONNECT' && connectionStartRef.current?.type === 'source') {
+         setQuickAddMenu({ sourceId: connectionStartRef.current.nodeId, x: e.clientX, y: e.clientY, worldX: screenToWorld(e.clientX, e.clientY).x, worldY: screenToWorld(e.clientX, e.clientY).y });
     }
     if (dragMode !== 'NONE') { setDragMode('NONE'); setTempConnection(null); connectionStartRef.current = null; setSuggestedNodes([]); setSelectionBox(null); }
   };
 
-  // 校验一�?source→target 连线是否合法（与拖拽方向无关）�?
-  const canConnectNodes = (sourceId: string, targetId: string): boolean => {
-      if (!sourceId || !targetId || sourceId === targetId) return false;
-      const source = nodes.find(n => n.id === sourceId);
-      const target = nodes.find(n => n.id === targetId);
-      if (!source || !target) return false;
-      // 原始图片节点为纯输入素材，没有输入端口，不可作为下游目标�?
-      if (target.type === NodeType.ORIGINAL_IMAGE) return false;
-      const sourceCategory = NODE_MEDIA_CATEGORY[source.type];
-      const targetCategory = NODE_MEDIA_CATEGORY[target.type];
-      return ALLOWED_SOURCE_CATEGORIES[targetCategory]?.includes(sourceCategory) ?? false;
-  };
-
   const createConnection = (sourceId: string, targetId: string) => {
-      if (guardReadOnly('创建连线')) {
-          setDragMode('NONE'); setTempConnection(null); connectionStartRef.current = null; setSuggestedNodes([]);
-          return;
-      }
-      if (canConnectNodes(sourceId, targetId) && !connections.some(c => c.sourceId === sourceId && c.targetId === targetId)) {
-          setConnections(prev => [...prev, { id: generateId(), sourceId, targetId, canvasId: currentCanvas?.id }]);
-      }
+      if (!connections.some(c => c.sourceId === sourceId && c.targetId === targetId)) setConnections(prev => [...prev, { id: generateId(), sourceId, targetId }]);
       setDragMode('NONE'); setTempConnection(null); connectionStartRef.current = null; setSuggestedNodes([]);
   };
 
   const handlePortMouseUp = (e: React.MouseEvent, nodeId: string, type: 'source' | 'target') => {
-      const start = connectionStartRef.current;
-      if (dragMode !== 'CONNECT' || !start) return;
-      // 在发起连接的同一节点上释放：视为未拖出连线，交由画布默认逻辑处理(如正向的快捷添加菜单)�?
-      if (start.nodeId === nodeId) return;
       e.stopPropagation(); e.preventDefault();
-      // 正向：从输出端口(source)拖出，落到目标节点的输入端口(target)
-      if (start.type === 'source' && type === 'target') createConnection(start.nodeId, nodeId);
-      // 反向：从输入端口(target)拖出，落到上游节点的输出端口(source)
-      else if (start.type === 'target' && type === 'source') createConnection(nodeId, start.nodeId);
+      if (dragMode === 'CONNECT' && connectionStartRef.current && connectionStartRef.current.type === 'source' && type === 'target' && connectionStartRef.current.nodeId !== nodeId) createConnection(connectionStartRef.current.nodeId, nodeId);
   };
 
   const deleteNode = (id: string) => {
-      if (guardReadOnly('删除节点')) return;
       const node = nodes.find(n => n.id === id);
       if (node && (node.imageSrc || node.videoSrc)) setDeletedNodes(prev => [...prev, node]);
       setNodes(prev => prev.filter(n => n.id !== id));
       setConnections(prev => prev.filter(c => c.sourceId !== id && c.targetId !== id));
   };
 
-  const removeConnection = (id: string) => {
-      if (guardReadOnly('删除连线')) return;
-      setConnections(prev => prev.filter(c => c.id !== id)); setSelectedConnectionId(null);
-  };
+  const removeConnection = (id: string) => { setConnections(prev => prev.filter(c => c.id !== id)); setSelectedConnectionId(null); };
 
   const renderNewWorkflowDialog = () => {
       if (!showNewWorkflowDialog) return null;
@@ -3082,926 +1029,16 @@ const CanvasWithSidebar: React.FC = () => {
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowNewWorkflowDialog(false)}>
             <div className={`w-[400px] p-6 rounded-2xl shadow-2xl border flex flex-col gap-4 transform transition-all scale-100 ${isDark ? 'bg-[#1A1D21] border-zinc-700 text-gray-200' : 'bg-white border-gray-200 text-gray-800'}`} onClick={(e) => e.stopPropagation()}>
                 <div>
-                    <h3 className="text-lg font-bold flex items-center gap-2"><Icons.FilePlus size={20} className="text-blue-500"/>清空当前画布</h3>
-                    <p className={`text-xs mt-2 leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>是否在清空画布之前保存当前项目？<br/>清空后节点和连线会从当前画布移除�?/p>
+                    <h3 className="text-lg font-bold flex items-center gap-2"><Icons.FilePlus size={20} className="text-blue-500"/>新建工作流</h3>
+                    <p className={`text-xs mt-2 leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>是否在创建新工作流之前保存当前工作流？<br/>任何未保存的更改将永久丢失。</p>
                 </div>
                 <div className={`flex justify-end gap-2 mt-2 pt-4 border-t ${isDark ? 'border-zinc-800' : 'border-gray-100'}`}>
                     <button onClick={() => setShowNewWorkflowDialog(false)} className={`px-4 py-2 rounded-lg text-xs font-medium transition-colors ${isDark ? 'hover:bg-zinc-800 text-gray-400' : 'hover:bg-gray-100 text-gray-600'}`}>取消</button>
-                    <button onClick={() => handleConfirmNew(false)} className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors ${isDark ? 'bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20' : 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-200'}`}>不保�?/button>
-                    <button onClick={() => handleConfirmNew(true)} className={`px-4 py-2 rounded-lg text-xs font-bold text-white transition-colors shadow-lg shadow-blue-500/20 flex items-center gap-1.5 ${isDark ? 'bg-blue-600 hover:bg-blue-500' : 'bg-blue-500 hover:bg-blue-400'}`}><Icons.Save size={14}/>保存并清�?/button>
+                    <button onClick={() => handleConfirmNew(false)} className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors ${isDark ? 'bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20' : 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-200'}`}>不保存</button>
+                    <button onClick={() => handleConfirmNew(true)} className={`px-4 py-2 rounded-lg text-xs font-bold text-white transition-colors shadow-lg shadow-blue-500/20 flex items-center gap-1.5 ${isDark ? 'bg-blue-600 hover:bg-blue-500' : 'bg-blue-500 hover:bg-blue-400'}`}><Icons.Save size={14}/>保存并新建</button>
                 </div>
             </div>
         </div>
-      );
-  };
-
-  const renderProjectDashboard = () => {
-      const statusClass = (status: ProjectDashboardItem['status']) => {
-          if (status === 'active') return isDark ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20' : 'bg-emerald-50 text-emerald-700 border-emerald-100';
-          if (status === 'draft') return isDark ? 'bg-amber-500/10 text-amber-300 border-amber-500/20' : 'bg-amber-50 text-amber-700 border-amber-100';
-          return isDark ? 'bg-zinc-800 text-zinc-400 border-zinc-700' : 'bg-gray-100 text-gray-500 border-gray-200';
-      };
-      const statusText: Record<ProjectDashboardItem['status'], string> = {
-          active: '制作�?,
-          draft: '草稿',
-          archived: '归档',
-      };
-
-      return (
-          <div className={`min-h-screen w-full ${isDark ? 'bg-[#0b0c0e] text-zinc-100' : 'bg-[#f5f7fa] text-gray-900'}`}>
-              <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-8 py-7">
-                  <header className="flex items-center justify-between gap-6">
-                      <div className="flex items-center gap-3">
-                          <div className={`h-11 w-11 rounded-2xl flex items-center justify-center ${isDark ? 'bg-blue-500/15 text-blue-300' : 'bg-blue-100 text-blue-600'}`}>
-                              <Icons.Sparkles size={22} />
-                          </div>
-                          <div>
-                              <h1 className="text-xl font-bold">KC 无限画布项目管理</h1>
-                              <p className={`mt-1 text-sm ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>先选择项目，再进入对应画布继续创作和保存�?/p>
-                          </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                          <button
-                              onClick={createProject}
-                              className={`h-10 rounded-xl px-4 text-sm font-semibold flex items-center gap-2 ${isDark ? 'bg-blue-600 text-white hover:bg-blue-500' : 'bg-blue-600 text-white hover:bg-blue-500'}`}
-                          >
-                              <Icons.FilePlus size={16} />
-                              新建项目
-                          </button>
-                          <button
-                              onClick={() => toggleTheme(!isDark)}
-                              className={`h-10 rounded-xl border px-3 text-sm font-semibold flex items-center gap-2 ${isDark ? 'border-zinc-800 text-zinc-400 hover:bg-zinc-900 hover:text-white' : 'border-gray-200 text-gray-600 hover:bg-white hover:text-gray-900'}`}
-                          >
-                              {isDark ? <Icons.Moon size={16} /> : <Icons.Sun size={16} />}
-                              {isDark ? '暗色' : '亮色'}
-                          </button>
-                      </div>
-                  </header>
-
-                  <section className="mt-8 grid grid-cols-4 gap-4">
-                      {[
-                          ['项目�?, projects.length],
-                          ['制作�?, projects.filter(project => project.status === 'active').length],
-                          ['分镜总数', projects.reduce((sum, project) => sum + project.shotCount, 0)],
-                          ['资产总数', projects.reduce((sum, project) => sum + project.assetCount, 0)],
-                      ].map(([label, value]) => (
-                          <div key={String(label)} className={`rounded-2xl border p-4 ${isDark ? 'border-zinc-800 bg-zinc-950/45' : 'border-gray-200 bg-white'}`}>
-                              <div className={`text-xs ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>{label}</div>
-                              <div className="mt-2 text-2xl font-bold tabular-nums">{value}</div>
-                          </div>
-                      ))}
-                  </section>
-
-                  <main className="mt-6 grid grid-cols-3 gap-4">
-                      {projects.map(project => (
-                          <button
-                              key={project.id}
-                              onClick={() => openProject(project)}
-                              className={`group rounded-2xl border p-5 text-left transition-all ${isDark ? 'border-zinc-800 bg-[#16181c] hover:border-blue-500/45 hover:bg-[#1a1d23]' : 'border-gray-200 bg-white hover:border-blue-300 hover:shadow-md'}`}
-                          >
-                              <div className="flex items-start justify-between gap-3">
-                                  <div className="min-w-0">
-                                      <div className={`inline-flex rounded-lg border px-2 py-1 text-[11px] font-semibold ${statusClass(project.status)}`}>
-                                          {statusText[project.status]}
-                                      </div>
-                                      <h2 className="mt-3 truncate text-lg font-bold">{project.name}</h2>
-                                      <p className={`mt-1 truncate text-sm ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>{project.id} / {project.directorGroup}</p>
-                                  </div>
-                                  <Icons.ChevronRight size={20} className={`mt-1 transition-transform group-hover:translate-x-1 ${isDark ? 'text-zinc-600' : 'text-gray-400'}`} />
-                              </div>
-                              <div className={`mt-5 grid grid-cols-3 gap-2 rounded-xl p-3 ${isDark ? 'bg-zinc-950/60' : 'bg-gray-50'}`}>
-                                  <div>
-                                      <div className={`text-[10px] ${isDark ? 'text-zinc-600' : 'text-gray-400'}`}>集数</div>
-                                      <div className="mt-1 text-sm font-semibold">{project.episodeCount}</div>
-                                  </div>
-                                  <div>
-                                      <div className={`text-[10px] ${isDark ? 'text-zinc-600' : 'text-gray-400'}`}>分镜</div>
-                                      <div className="mt-1 text-sm font-semibold">{project.shotCount}</div>
-                                  </div>
-                                  <div>
-                                      <div className={`text-[10px] ${isDark ? 'text-zinc-600' : 'text-gray-400'}`}>资产</div>
-                                      <div className="mt-1 text-sm font-semibold">{project.assetCount}</div>
-                                  </div>
-                              </div>
-                              <div className={`mt-4 flex items-center justify-between text-xs ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>
-                                  <span>{project.canvasName}</span>
-                                  <span>{project.lastSavedAt}</span>
-                              </div>
-                          </button>
-                      ))}
-                  </main>
-              </div>
-          </div>
-      );
-  };
-
-  const renderProjectDashboardV2 = () => {
-      const groupOptions = ['全部项目�?, ...Array.from(new Set(projects.map(project => project.directorGroup || '未分�?)))];
-      const typeOptions = ['全部项目类型', ...Array.from(new Set(projects.map(project => project.projectType || '短剧')))];
-      const normalizedSearch = projectSearchQuery.trim().toLowerCase();
-      const visibleProjects = projects.filter(project => {
-          const groupMatched = projectGroupFilter === '全部项目�? || project.directorGroup === projectGroupFilter;
-          const typeMatched = projectTypeFilter === '全部项目类型' || (project.projectType || '短剧') === projectTypeFilter;
-          const searchMatched = !normalizedSearch
-              || project.name.toLowerCase().includes(normalizedSearch)
-              || project.canvasName.toLowerCase().includes(normalizedSearch)
-              || project.directorGroup.toLowerCase().includes(normalizedSearch);
-          return groupMatched && typeMatched && searchMatched;
-      });
-      const selectClass = `h-10 rounded-xl border px-3 text-sm outline-none transition-colors ${
-          isDark ? 'border-zinc-800 bg-zinc-950/70 text-zinc-200 hover:border-zinc-700' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
-      }`;
-      const searchClass = `h-10 w-full rounded-xl border pl-9 pr-3 text-sm outline-none transition-colors ${
-          isDark ? 'border-zinc-800 bg-zinc-950/70 text-zinc-100 placeholder:text-zinc-600 focus:border-blue-500' : 'border-gray-200 bg-white text-gray-900 placeholder:text-gray-400 focus:border-blue-500'
-      }`;
-
-      return (
-          <div className={`min-h-screen w-full ${isDark ? 'bg-[#0b0c0e] text-zinc-100' : 'bg-[#f5f7fa] text-gray-900'}`}>
-              <div className="mx-auto flex min-h-screen w-full max-w-[1680px] flex-col px-8 py-7">
-                  <header className="flex items-center justify-between gap-6">
-                      <div className="flex items-center gap-3">
-                          <div className={`h-11 w-11 rounded-2xl flex items-center justify-center ${isDark ? 'bg-blue-500/15 text-blue-300' : 'bg-blue-100 text-blue-600'}`}>
-                              <Icons.Sparkles size={22} />
-                          </div>
-                          <div>
-                              <h1 className="text-xl font-bold">KC 无限画布项目管理</h1>
-                              <p className={`mt-1 text-sm ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>先选择项目，再进入对应画布继续创作和保存�?/p>
-                          </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                          <button
-                              onClick={createProject}
-                              className="h-10 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white flex items-center gap-2 hover:bg-blue-500"
-                          >
-                              <Icons.FilePlus size={16} />
-                              新建项目
-                          </button>
-                          <button
-                              onClick={() => toggleTheme(!isDark)}
-                              className={`h-10 rounded-xl border px-3 text-sm font-semibold flex items-center gap-2 ${isDark ? 'border-zinc-800 text-zinc-400 hover:bg-zinc-900 hover:text-white' : 'border-gray-200 text-gray-600 hover:bg-white hover:text-gray-900'}`}
-                          >
-                              {isDark ? <Icons.Moon size={16} /> : <Icons.Sun size={16} />}
-                              {isDark ? '暗色' : '亮色'}
-                          </button>
-                      </div>
-                  </header>
-
-                  <section className={`mt-8 grid grid-cols-1 gap-4 md:grid-cols-2 ${isDark ? 'text-zinc-100' : 'text-gray-900'}`}>
-                      <button
-                          onClick={createProject}
-                          className={`group rounded-2xl border p-5 text-left transition-all ${isDark ? 'border-blue-500/20 bg-blue-500/10 hover:border-blue-400/45 hover:bg-blue-500/15' : 'border-blue-100 bg-blue-50 hover:border-blue-300'}`}
-                      >
-                          <div className="flex items-center gap-3">
-                              <div className={`h-11 w-11 rounded-2xl flex items-center justify-center ${isDark ? 'bg-blue-500/20 text-blue-200' : 'bg-blue-100 text-blue-700'}`}>
-                                  <Icons.Sparkles size={22} />
-                              </div>
-                              <div>
-                                  <div className="text-base font-bold">画布空间</div>
-                                  <div className={`mt-1 text-sm ${isDark ? 'text-blue-100/70' : 'text-blue-700/70'}`}>直接创建内部无限画布项目，适合发散创作和节点式迭代�?/div>
-                              </div>
-                          </div>
-                      </button>
-                      <button
-                          onClick={() => alert('原型说明：正式接入时，该入口放在线性系统“上传剧本”旁边，点击后进入原有剧本上传和拆分流程�?)}
-                          className={`group rounded-2xl border p-5 text-left transition-all ${isDark ? 'border-zinc-800 bg-zinc-950/35 hover:border-zinc-700 hover:bg-zinc-950/55' : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'}`}
-                      >
-                          <div className="flex items-center gap-3">
-                              <div className={`h-11 w-11 rounded-2xl flex items-center justify-center ${isDark ? 'bg-zinc-900 text-zinc-300' : 'bg-gray-100 text-gray-700'}`}>
-                                  <Icons.Upload size={22} />
-                              </div>
-                              <div>
-                                  <div className="text-base font-bold">上传剧本</div>
-                                  <div className={`mt-1 text-sm ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>沿用线性工作流：上传剧本、拆集拆场、生成分镜，再按需跳入画布�?/div>
-                              </div>
-                          </div>
-                      </button>
-                  </section>
-
-                  <section className={`mt-5 flex flex-col gap-3 rounded-2xl border p-4 md:flex-row md:items-center ${isDark ? 'border-zinc-800 bg-zinc-950/35' : 'border-gray-200 bg-white/80'}`}>
-                      <div className="grid flex-1 grid-cols-1 gap-3 md:grid-cols-[180px_180px_minmax(240px,1fr)]">
-                          <select
-                              value={projectGroupFilter}
-                              onChange={(e) => setProjectGroupFilter(e.target.value)}
-                              className={selectClass}
-                              aria-label="项目组筛�?
-                          >
-                              {groupOptions.map(option => <option key={option} value={option}>{option}</option>)}
-                          </select>
-                          <select
-                              value={projectTypeFilter}
-                              onChange={(e) => setProjectTypeFilter(e.target.value)}
-                              className={selectClass}
-                              aria-label="项目类型筛�?
-                          >
-                              {typeOptions.map(option => <option key={option} value={option}>{option}</option>)}
-                          </select>
-                          <div className="relative">
-                              <Icons.Search size={16} className={`pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`} />
-                              <input
-                                  value={projectSearchQuery}
-                                  onChange={(e) => setProjectSearchQuery(e.target.value)}
-                                  className={searchClass}
-                                  placeholder="搜索项目名称、画布名称或导演�?
-                              />
-                          </div>
-                      </div>
-                      <div className={`text-sm ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>
-                          �?{visibleProjects.length} 个项�?
-                      </div>
-                  </section>
-
-                  <main className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-                      {visibleProjects.map(project => (
-                          <button
-                              key={project.id}
-                              onClick={() => openProject(project)}
-                              className={`group min-h-[138px] rounded-2xl border p-4 text-left transition-all ${isDark ? 'border-zinc-800 bg-[#16181c] hover:border-blue-500/45 hover:bg-[#1a1d23]' : 'border-gray-200 bg-white hover:border-blue-300 hover:shadow-md'}`}
-                          >
-                              <div className="flex h-full flex-col justify-between gap-5">
-                                  <div className="min-w-0">
-                                      <h2 className="truncate text-base font-bold leading-6">{project.name}</h2>
-                                      <p className={`mt-2 truncate text-sm ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>{project.directorGroup}</p>
-                                  </div>
-                                  <div className={`flex items-center justify-between gap-2 text-xs ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>
-                                      <span>最后快�?/span>
-                                      <span className="truncate font-medium">{project.lastSavedAt}</span>
-                                  </div>
-                              </div>
-                          </button>
-                      ))}
-                      {visibleProjects.length === 0 && (
-                          <div className={`col-span-full rounded-2xl border p-8 text-center text-sm ${isDark ? 'border-zinc-800 bg-zinc-950/40 text-zinc-500' : 'border-gray-200 bg-white text-gray-500'}`}>
-                              没有找到匹配的项�?
-                          </div>
-                      )}
-                  </main>
-              </div>
-          </div>
-      );
-  };
-
-  const renderNewCanvasModal = () => {
-      if (!isNewCanvasOpen || !currentProject) return null;
-      const inputClass = `w-full rounded-xl border px-3 py-2 text-sm outline-none ${
-          isDark ? 'border-zinc-800 bg-zinc-950/60 text-zinc-100 placeholder:text-zinc-600 focus:border-blue-500' : 'border-gray-200 bg-white text-gray-900 placeholder:text-gray-400 focus:border-blue-500'
-      }`;
-
-      return (
-          <div className="fixed inset-0 z-[260] flex items-center justify-center bg-black/70 backdrop-blur-md" onClick={() => setIsNewCanvasOpen(false)}>
-              <div className={`w-[460px] max-w-[92vw] rounded-3xl border p-6 shadow-2xl ${isDark ? 'border-zinc-800 bg-[#15171b] text-zinc-100' : 'border-gray-200 bg-white text-gray-900'}`} onClick={(event) => event.stopPropagation()}>
-                  <div className="flex items-start justify-between gap-4">
-                      <div>
-                          <h3 className="text-lg font-bold">新建子画�?/h3>
-                          <p className={`mt-1 text-xs leading-5 ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>同一个短剧项目可以按角色、分镜、导演成员或阶段拆成多个画布，降低误操作和前端压力�?/p>
-                      </div>
-                      <button className={`h-9 w-9 rounded-full flex items-center justify-center ${isDark ? 'hover:bg-zinc-800 text-zinc-400 hover:text-white' : 'hover:bg-gray-100 text-gray-500 hover:text-gray-900'}`} onClick={() => setIsNewCanvasOpen(false)}>
-                          <Icons.X size={20} />
-                      </button>
-                  </div>
-                  <div className="mt-5">
-                      <label className={`text-xs font-semibold ${isDark ? 'text-zinc-400' : 'text-gray-600'}`}>画布名称</label>
-                      <input
-                          value={newCanvasName}
-                          onChange={(event) => setNewCanvasName(event.target.value)}
-                          className={`${inputClass} mt-1.5`}
-                          placeholder={`${currentProject.name} 子画�?${projectCanvases.length + 1}`}
-                          autoFocus
-                      />
-                  </div>
-                  <div className={`mt-4 rounded-2xl border p-4 text-xs leading-5 ${isDark ? 'border-zinc-800 bg-zinc-950/50 text-zinc-400' : 'border-gray-200 bg-gray-50 text-gray-600'}`}>
-                      新建后会进入一张空画布；保存时写入 `canvases` 级数据，节点和连线都会带上当�?`canvas_id`�?
-                  </div>
-                  <div className="mt-6 flex justify-end gap-2">
-                      <button className={`h-10 rounded-xl px-4 text-sm font-semibold ${isDark ? 'text-zinc-400 hover:bg-zinc-900 hover:text-white' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`} onClick={() => setIsNewCanvasOpen(false)}>取消</button>
-                      <button className="h-10 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-500" onClick={createCanvasInCurrentProject}>创建并进�?/button>
-                  </div>
-              </div>
-          </div>
-      );
-  };
-
-  const renderCanvasPermissionModal = () => {
-      if (!isCanvasPermissionOpen || !currentProject) return null;
-      const selectClass = `h-9 rounded-xl border px-3 text-sm outline-none ${
-          isDark ? 'border-zinc-800 bg-zinc-950/70 text-zinc-200' : 'border-gray-200 bg-white text-gray-700'
-      }`;
-
-      return (
-          <div className="fixed inset-0 z-[260] flex items-center justify-center bg-black/70 backdrop-blur-md" onClick={() => setIsCanvasPermissionOpen(false)}>
-              <div className={`w-[760px] max-w-[94vw] rounded-3xl border shadow-2xl ${isDark ? 'border-zinc-800 bg-[#15171b] text-zinc-100' : 'border-gray-200 bg-white text-gray-900'}`} onClick={(event) => event.stopPropagation()}>
-                  <div className={`flex items-center justify-between border-b px-6 py-4 ${isDark ? 'border-zinc-800' : 'border-gray-100'}`}>
-                      <div>
-                          <h3 className="text-lg font-bold">画布权限管理</h3>
-                          <p className={`mt-1 text-xs ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>MVP 原型先演示画布级权限字段，正式系统对�?`canvas_permissions` 表�?/p>
-                      </div>
-                      <button className={`h-9 w-9 rounded-full flex items-center justify-center ${isDark ? 'hover:bg-zinc-800 text-zinc-400 hover:text-white' : 'hover:bg-gray-100 text-gray-500 hover:text-gray-900'}`} onClick={() => setIsCanvasPermissionOpen(false)}>
-                          <Icons.X size={20} />
-                      </button>
-                  </div>
-                  <div className="p-6">
-                      <div className="space-y-3">
-                          {projectCanvases.map(canvas => (
-                              <div key={canvas.id} className={`flex items-center justify-between gap-4 rounded-2xl border p-4 ${isDark ? 'border-zinc-800 bg-zinc-950/45' : 'border-gray-200 bg-gray-50'}`}>
-                                  <div className="min-w-0">
-                                      <div className="truncate text-sm font-bold">{canvas.name}</div>
-                                      <div className={`mt-1 text-xs ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>负责人：{canvas.owner} · 最近快照：{canvas.lastSavedAt}</div>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                      <span className={`text-xs ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>当前用户</span>
-                                      <select
-                                          value={canvas.permissionRole}
-                                          onChange={(event) => updateCanvasRole(canvas.id, event.target.value as CanvasPermissionRole)}
-                                          className={selectClass}
-                                      >
-                                          <option value="owner">拥有�?/option>
-                                          <option value="editor">可编�?/option>
-                                          <option value="viewer">只读</option>
-                                      </select>
-                                  </div>
-                              </div>
-                          ))}
-                      </div>
-                      <div className={`mt-5 rounded-2xl border p-4 text-xs leading-5 ${isDark ? 'border-zinc-800 bg-zinc-950/45 text-zinc-400' : 'border-gray-200 bg-white text-gray-600'}`}>
-                          当前画布权限样例：{canvasPermissions.length ? canvasPermissions.map(item => `${item.userName} ${ROLE_LABELS[item.role]}`).join(' / ') : '选择画布后加载权�?}�?
-                      </div>
-                  </div>
-              </div>
-          </div>
-      );
-  };
-
-  const renderCanvasListPage = () => {
-      if (!currentProject) return null;
-      const statusText: Record<ProjectCanvasItem['status'], string> = {
-          active: '制作�?,
-          draft: '草稿',
-          archived: '归档',
-      };
-      const roleClass = (role: CanvasPermissionRole) => {
-          if (role === 'owner') return isDark ? 'bg-blue-500/15 text-blue-200 border-blue-500/20' : 'bg-blue-50 text-blue-700 border-blue-100';
-          if (role === 'editor') return isDark ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20' : 'bg-emerald-50 text-emerald-700 border-emerald-100';
-          return isDark ? 'bg-zinc-800 text-zinc-300 border-zinc-700' : 'bg-gray-100 text-gray-600 border-gray-200';
-      };
-      const canvasCountText = projectCanvases.length === 1 ? '1 个画布，已保持单人直进体�? : `${projectCanvases.length} 个子画布`;
-
-      return (
-          <div className={`min-h-screen w-full ${isDark ? 'bg-[#0b0c0e] text-zinc-100' : 'bg-[#f5f7fa] text-gray-900'}`}>
-              <div className="mx-auto flex min-h-screen w-full max-w-[1680px] flex-col px-8 py-7">
-                  <header className="flex items-center justify-between gap-6">
-                      <div className="flex min-w-0 items-center gap-3">
-                          <button
-                              type="button"
-                              onClick={returnToProjectManagement}
-                              title="返回项目列表"
-                              className={`h-10 w-10 rounded-2xl flex items-center justify-center font-bold ${isDark ? 'text-blue-300 hover:bg-blue-500/15' : 'text-blue-600 hover:bg-blue-50'}`}
-                          >
-                              <Icons.ChevronLeft size={20} strokeWidth={2.8} />
-                          </button>
-                          <div className={`h-11 w-11 rounded-2xl flex items-center justify-center ${isDark ? 'bg-blue-500/15 text-blue-300' : 'bg-blue-100 text-blue-600'}`}>
-                              <Icons.FolderOpen size={22} />
-                          </div>
-                          <div className="min-w-0">
-                              <h1 className="truncate text-xl font-bold">{currentProject.name} · 画布空间</h1>
-                              <p className={`mt-1 text-sm ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>{currentProject.id} · {currentProject.directorGroup} · {canvasCountText}</p>
-                          </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                          <button
-                              onClick={() => setIsNewCanvasOpen(true)}
-                              className="h-10 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white flex items-center gap-2 hover:bg-blue-500"
-                          >
-                              <Icons.FilePlus size={16} />
-                              新建画布
-                          </button>
-                          <button
-                              onClick={() => setIsCanvasPermissionOpen(true)}
-                              className={`h-10 rounded-xl border px-3 text-sm font-semibold flex items-center gap-2 ${isDark ? 'border-zinc-800 text-zinc-300 hover:bg-zinc-900 hover:text-white' : 'border-gray-200 text-gray-700 hover:bg-white hover:text-gray-900'}`}
-                          >
-                              <Icons.User size={16} />
-                              权限管理
-                          </button>
-                          <button
-                              onClick={() => toggleTheme(!isDark)}
-                              className={`h-10 rounded-xl border px-3 text-sm font-semibold flex items-center gap-2 ${isDark ? 'border-zinc-800 text-zinc-400 hover:bg-zinc-900 hover:text-white' : 'border-gray-200 text-gray-600 hover:bg-white hover:text-gray-900'}`}
-                          >
-                              {isDark ? <Icons.Moon size={16} /> : <Icons.Sun size={16} />}
-                              {isDark ? '暗色' : '亮色'}
-                          </button>
-                      </div>
-                  </header>
-
-                  <section className={`mt-8 rounded-2xl border p-5 ${isDark ? 'border-zinc-800 bg-zinc-950/35' : 'border-gray-200 bg-white/80'}`}>
-                      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-                          {[
-                              ['项目类型', currentProject.projectType],
-                              ['项目�?, currentProject.directorGroup],
-                              ['子画�?, projectCanvases.length],
-                              ['项目素材', currentProject.assetCount],
-                          ].map(([label, value]) => (
-                              <div key={String(label)} className={`rounded-2xl border p-4 ${isDark ? 'border-zinc-800 bg-zinc-950/45' : 'border-gray-200 bg-white'}`}>
-                                  <div className={`text-xs ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>{label}</div>
-                                  <div className="mt-2 truncate text-lg font-bold tabular-nums">{value}</div>
-                              </div>
-                          ))}
-                      </div>
-                  </section>
-
-                  <main className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-                      {projectCanvases.map(canvas => (
-                          <button
-                              key={canvas.id}
-                              onClick={() => openCanvas(currentProject, canvas, projectCanvases)}
-                              className={`group min-h-[190px] rounded-2xl border p-5 text-left transition-all ${isDark ? 'border-zinc-800 bg-[#16181c] hover:border-blue-500/45 hover:bg-[#1a1d23]' : 'border-gray-200 bg-white hover:border-blue-300 hover:shadow-md'}`}
-                          >
-                              <div className="flex items-start justify-between gap-3">
-                                  <div className="min-w-0">
-                                      <div className="flex items-center gap-2">
-                                          <span className={`rounded-lg border px-2 py-1 text-[11px] font-semibold ${roleClass(canvas.permissionRole)}`}>{ROLE_LABELS[canvas.permissionRole]}</span>
-                                          <span className={`rounded-lg px-2 py-1 text-[11px] font-semibold ${isDark ? 'bg-zinc-900 text-zinc-400' : 'bg-gray-100 text-gray-500'}`}>{statusText[canvas.status]}</span>
-                                      </div>
-                                      <h2 className="mt-4 truncate text-lg font-bold">{canvas.name}</h2>
-                                      <p className={`mt-1 truncate text-sm ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>负责人：{canvas.owner}</p>
-                                  </div>
-                                  <Icons.ChevronRight size={20} className={`mt-1 transition-transform group-hover:translate-x-1 ${isDark ? 'text-zinc-600' : 'text-gray-400'}`} />
-                              </div>
-                              <div className={`mt-5 grid grid-cols-2 gap-2 rounded-xl p-3 ${isDark ? 'bg-zinc-950/60' : 'bg-gray-50'}`}>
-                                  <div>
-                                      <div className={`text-[10px] ${isDark ? 'text-zinc-600' : 'text-gray-400'}`}>节点�?/div>
-                                      <div className="mt-1 text-sm font-semibold">{canvas.nodeCount}</div>
-                                  </div>
-                                  <div>
-                                      <div className={`text-[10px] ${isDark ? 'text-zinc-600' : 'text-gray-400'}`}>素材�?/div>
-                                      <div className="mt-1 text-sm font-semibold">{canvas.assetCount}</div>
-                                  </div>
-                              </div>
-                              <div className={`mt-4 flex items-center justify-between text-xs ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>
-                                  <span>{canvas.entrySource === 'linear_workflow' ? '线性分镜入�? : '画布空间入口'}</span>
-                                  <span>{canvas.lastSavedAt}</span>
-                              </div>
-                          </button>
-                      ))}
-                  </main>
-              </div>
-              {renderNewCanvasModal()}
-              {renderCanvasPermissionModal()}
-          </div>
-      );
-  };
-
-  const renderSaveResultModal = () => {
-      if (!saveResultTarget) return null;
-      const modeButtonClass = (mode: typeof saveResultMode) => `rounded-xl border px-3 py-2 text-left transition-all ${
-          saveResultMode === mode
-              ? (isDark ? 'border-blue-500 bg-blue-500/15 text-blue-200' : 'border-blue-500 bg-blue-50 text-blue-700')
-              : (isDark ? 'border-zinc-800 bg-zinc-950/45 text-zinc-400 hover:border-zinc-700 hover:text-zinc-100' : 'border-gray-200 bg-gray-50 text-gray-600 hover:border-gray-300 hover:text-gray-900')
-      }`;
-      const inputClass = `w-full rounded-xl border px-3 py-2 text-sm outline-none ${
-          isDark ? 'border-zinc-800 bg-zinc-950/60 text-zinc-100 placeholder:text-zinc-600 focus:border-blue-500' : 'border-gray-200 bg-white text-gray-900 placeholder:text-gray-400 focus:border-blue-500'
-      }`;
-
-      return (
-          <div className="fixed inset-0 z-[260] flex items-center justify-center bg-black/70 backdrop-blur-md" onClick={() => setSaveResultTarget(null)}>
-              <div className={`w-[720px] max-w-[92vw] rounded-3xl border shadow-2xl ${isDark ? 'border-zinc-800 bg-[#15171b] text-zinc-100' : 'border-gray-200 bg-white text-gray-900'}`} onClick={(event) => event.stopPropagation()}>
-                  <div className={`flex items-center justify-between border-b px-6 py-4 ${isDark ? 'border-zinc-800' : 'border-gray-100'}`}>
-                      <div>
-                          <h3 className="text-lg font-bold">保存结果</h3>
-                          <p className={`mt-1 text-xs ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>保存到项目素材，或作为资产版本沉淀给线性系统复用�?/p>
-                      </div>
-                      <button className={`h-9 w-9 rounded-full flex items-center justify-center ${isDark ? 'hover:bg-zinc-800 text-zinc-400 hover:text-white' : 'hover:bg-gray-100 text-gray-500 hover:text-gray-900'}`} onClick={() => setSaveResultTarget(null)}>
-                          <Icons.X size={20} />
-                      </button>
-                  </div>
-
-                  <div className="grid grid-cols-[220px_1fr] gap-5 p-6">
-                      <div className={`overflow-hidden rounded-2xl border ${isDark ? 'border-zinc-800 bg-zinc-950' : 'border-gray-200 bg-gray-50'}`}>
-                          <div className="aspect-video w-full">
-                              {saveResultTarget.type === 'video'
-                                  ? <video src={saveResultTarget.url} className="h-full w-full object-cover" muted controls preload="metadata" />
-                                  : <img src={saveResultTarget.url} className="h-full w-full object-cover" alt="保存预览" />}
-                          </div>
-                          <div className="p-3">
-                              <div className={`text-xs ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>当前项目</div>
-                              <div className="mt-1 truncate text-sm font-semibold">{currentProject?.name || projectName}</div>
-                          </div>
-                      </div>
-
-                      <div className="space-y-4">
-                          <div>
-                              <label className={`text-xs font-semibold ${isDark ? 'text-zinc-400' : 'text-gray-600'}`}>名称</label>
-                              <input className={`${inputClass} mt-1.5`} value={saveResultName} onChange={(event) => setSaveResultName(event.target.value)} placeholder="输入素材或资产名�? />
-                          </div>
-
-                          <div className="grid grid-cols-3 gap-2">
-                              <button className={modeButtonClass('material')} onClick={() => setSaveResultMode('material')}>
-                                  <div className="text-sm font-semibold">项目素材</div>
-                                  <div className="mt-1 text-[11px] opacity-70">只保存到当前项目素材�?/div>
-                              </button>
-                              <button className={modeButtonClass('new_asset')} onClick={() => setSaveResultMode('new_asset')}>
-                                  <div className="text-sm font-semibold">新资�?/div>
-                                  <div className="mt-1 text-[11px] opacity-70">创建角色/场景/道具资产</div>
-                              </button>
-                              <button className={modeButtonClass('update_asset')} onClick={() => setSaveResultMode('update_asset')}>
-                                  <div className="text-sm font-semibold">更新资产</div>
-                                  <div className="mt-1 text-[11px] opacity-70">追加为已有资产新版本</div>
-                              </button>
-                          </div>
-
-                          {saveResultMode === 'new_asset' && (
-                              <div>
-                                  <label className={`text-xs font-semibold ${isDark ? 'text-zinc-400' : 'text-gray-600'}`}>资产类型</label>
-                                  <div className="mt-1.5 flex gap-2">
-                                      {[
-                                          ['role', '角色'],
-                                          ['scene', '场景'],
-                                          ['prop', '道具'],
-                                      ].map(([value, label]) => (
-                                          <button
-                                              key={value}
-                                              className={`h-9 flex-1 rounded-xl border text-sm font-semibold ${saveAssetType === value ? (isDark ? 'border-blue-500 bg-blue-500/15 text-blue-200' : 'border-blue-500 bg-blue-50 text-blue-700') : (isDark ? 'border-zinc-800 text-zinc-400 hover:bg-zinc-900' : 'border-gray-200 text-gray-600 hover:bg-gray-50')}`}
-                                              onClick={() => setSaveAssetType(value as AssetLibraryType)}
-                                          >
-                                              {label}
-                                          </button>
-                                      ))}
-                                  </div>
-                              </div>
-                          )}
-
-                          {saveResultMode === 'update_asset' && (
-                              <div>
-                                  <label className={`text-xs font-semibold ${isDark ? 'text-zinc-400' : 'text-gray-600'}`}>选择要更新的资产</label>
-                                  <select className={`${inputClass} mt-1.5`} value={saveTargetAssetId} onChange={(event) => setSaveTargetAssetId(event.target.value)}>
-                                      {DEMO_ASSET_LIBRARY.map(asset => (
-                                          <option key={asset.id} value={asset.id}>{asset.name} / {asset.version}</option>
-                                      ))}
-                                  </select>
-                                  <p className={`mt-1 text-[11px] ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>正式系统会保留历史版本，不覆盖旧结果�?/p>
-                              </div>
-                          )}
-
-                          <div>
-                              <label className={`text-xs font-semibold ${isDark ? 'text-zinc-400' : 'text-gray-600'}`}>备注</label>
-                              <textarea className={`${inputClass} mt-1.5 min-h-[70px] resize-none`} value={saveResultNote} onChange={(event) => setSaveResultNote(event.target.value)} placeholder="可填写本次优化原因、适用分镜或版本说�? />
-                          </div>
-                      </div>
-                  </div>
-
-                  <div className={`flex items-center justify-between border-t px-6 py-4 ${isDark ? 'border-zinc-800' : 'border-gray-100'}`}>
-                      <div className={`text-xs ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>当前为原型演示，后续接项目素材库/资产库接口�?/div>
-                      <div className="flex gap-2">
-                          <button className={`h-10 rounded-xl px-4 text-sm font-semibold ${isDark ? 'text-zinc-400 hover:bg-zinc-900 hover:text-white' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`} onClick={() => setSaveResultTarget(null)}>取消</button>
-                          <button className="h-10 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-500" onClick={handleConfirmSaveResult}>确认保存</button>
-                      </div>
-                  </div>
-              </div>
-          </div>
-      );
-  };
-
-  const renderCreditDashboard = () => {
-      if (!isCreditDashboardOpen) return null;
-      const statusText: Record<string, string> = {
-          estimated: '预计',
-          reserved: '已预�?,
-          confirmed: '已扣�?,
-          refunded: '已返�?,
-          failed: '异常',
-          idle: '未开�?,
-      };
-      const taskRows = nodes
-          .filter(node => node.creditEstimate || node.creditStatus)
-          .map((node, index) => ({
-              id: node.id,
-              project: currentProject?.name || projectName,
-              group: currentProject?.directorGroup || node.directorGroupName || '-',
-              user: index % 2 === 0 ? '导演A' : '制片助理B',
-              type: getCreditTaskType(node),
-              model: node.model || '-',
-              credit: node.creditEstimate || getEstimatedCredits(node),
-              status: node.creditStatus || 'estimated',
-              nodeTitle: node.title,
-          }));
-      const fallbackRows = [
-          { id: 'mock_1', project: currentProject?.name || '演示项目', group: currentProject?.directorGroup || 'A组导演组', user: '导演A', type: '视频生成', model: 'Seedance 1.5 Pro', credit: 14, status: 'confirmed', nodeTitle: '�?�?�?�?分镜03' },
-          { id: 'mock_2', project: currentProject?.name || '演示项目', group: currentProject?.directorGroup || 'A组导演组', user: '制片助理B', type: '图片生成', model: 'Seedream 5.0', credit: 2, status: 'reserved', nodeTitle: '角色参考图' },
-          { id: 'mock_3', project: currentProject?.name || '演示项目', group: currentProject?.directorGroup || 'A组导演组', user: '导演A', type: '文本分析', model: 'Xiaomi MiMo 2.5 Pro', credit: 1, status: 'refunded', nodeTitle: '剧本角色�? },
-      ];
-      const rows = taskRows.length ? taskRows : fallbackRows;
-      const total = rows.reduce((sum, row) => sum + row.credit, 0);
-      const confirmed = rows.filter(row => row.status === 'confirmed').reduce((sum, row) => sum + row.credit, 0);
-      const reserved = rows.filter(row => row.status === 'reserved').reduce((sum, row) => sum + row.credit, 0);
-      const refunded = rows.filter(row => row.status === 'refunded').reduce((sum, row) => sum + row.credit, 0);
-
-      return (
-          <div className="fixed inset-0 z-[250] bg-black/70 backdrop-blur-md p-6" onClick={() => setIsCreditDashboardOpen(false)}>
-              <div className={`mx-auto flex h-full max-w-6xl flex-col rounded-3xl border shadow-2xl ${isDark ? 'border-zinc-800 bg-[#121417] text-zinc-100' : 'border-gray-200 bg-white text-gray-900'}`} onClick={(event) => event.stopPropagation()}>
-                  <div className={`flex items-center justify-between border-b px-6 py-4 ${isDark ? 'border-zinc-800' : 'border-gray-100'}`}>
-                      <div>
-                          <h3 className="text-xl font-bold">后台积分看板</h3>
-                          <p className={`mt-1 text-sm ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>按项目、导演组、人员、模型和任务类型查看画布消耗�?/p>
-                      </div>
-                      <button className={`h-10 w-10 rounded-full flex items-center justify-center ${isDark ? 'hover:bg-zinc-800 text-zinc-400 hover:text-white' : 'hover:bg-gray-100 text-gray-500 hover:text-gray-900'}`} onClick={() => setIsCreditDashboardOpen(false)}>
-                          <Icons.X size={22} />
-                      </button>
-                  </div>
-
-                  <div className="grid grid-cols-4 gap-4 p-6">
-                      {[
-                          ['今日消�?, total],
-                          ['已确认扣�?, confirmed],
-                          ['当前预扣', reserved],
-                          ['失败返还', refunded],
-                      ].map(([label, value]) => (
-                          <div key={String(label)} className={`rounded-2xl border p-4 ${isDark ? 'border-zinc-800 bg-zinc-950/45' : 'border-gray-200 bg-gray-50'}`}>
-                              <div className={`text-xs ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>{label}</div>
-                              <div className="mt-2 text-2xl font-bold tabular-nums">{value}</div>
-                              <div className={`mt-1 text-[11px] ${isDark ? 'text-zinc-600' : 'text-gray-400'}`}>积分</div>
-                          </div>
-                      ))}
-                  </div>
-
-                  <div className="flex-1 overflow-auto px-6 pb-6">
-                      <table className="w-full border-separate border-spacing-y-2 text-sm">
-                          <thead>
-                              <tr className={isDark ? 'text-zinc-500' : 'text-gray-500'}>
-                                  {['项目', '导演�?, '人员', '任务类型', '模型', '节点', '积分', '状�?].map(head => (
-                                      <th key={head} className="px-3 py-2 text-left text-xs font-semibold">{head}</th>
-                                  ))}
-                              </tr>
-                          </thead>
-                          <tbody>
-                              {rows.map(row => (
-                                  <tr key={row.id} className={isDark ? 'bg-zinc-950/55 text-zinc-200' : 'bg-gray-50 text-gray-800'}>
-                                      <td className="rounded-l-xl px-3 py-3">{row.project}</td>
-                                      <td className="px-3 py-3">{row.group}</td>
-                                      <td className="px-3 py-3">{row.user}</td>
-                                      <td className="px-3 py-3">{row.type}</td>
-                                      <td className="px-3 py-3">{row.model}</td>
-                                      <td className="px-3 py-3">{row.nodeTitle}</td>
-                                      <td className="px-3 py-3 font-semibold tabular-nums">{row.credit}</td>
-                                      <td className="rounded-r-xl px-3 py-3">
-                                          <span className={`rounded-lg px-2 py-1 text-xs font-semibold ${
-                                              row.status === 'confirmed'
-                                                  ? (isDark ? 'bg-emerald-500/10 text-emerald-300' : 'bg-emerald-50 text-emerald-700')
-                                                  : row.status === 'reserved'
-                                                      ? (isDark ? 'bg-blue-500/10 text-blue-300' : 'bg-blue-50 text-blue-700')
-                                                      : row.status === 'refunded'
-                                                          ? (isDark ? 'bg-zinc-800 text-zinc-300' : 'bg-gray-100 text-gray-600')
-                                                          : (isDark ? 'bg-amber-500/10 text-amber-300' : 'bg-amber-50 text-amber-700')
-                                          }`}>
-                                              {statusText[row.status] || row.status}
-                                          </span>
-                                      </td>
-                                  </tr>
-                              ))}
-                          </tbody>
-                      </table>
-                  </div>
-              </div>
-          </div>
-      );
-  };
-
-  const renderCreditDashboardV2 = () => {
-      if (!isCreditDashboardOpen) return null;
-      const statusText: Record<string, string> = {
-          estimated: '预计',
-          reserved: '已预�?,
-          confirmed: '已扣�?,
-          refunded: '已返�?,
-          failed: '异常',
-          idle: '未开�?,
-      };
-      const rows = getCreditRows();
-      const activeProjectId = creditProjectId || currentProject?.id || projects[0]?.id || 'all';
-      const visibleRows = activeProjectId === 'all' ? rows : rows.filter(row => row.projectId === activeProjectId);
-      const total = visibleRows.reduce((sum, row) => sum + row.credit, 0);
-      const confirmed = visibleRows.filter(row => row.status === 'confirmed').reduce((sum, row) => sum + row.credit, 0);
-      const reserved = visibleRows.filter(row => row.status === 'reserved').reduce((sum, row) => sum + row.credit, 0);
-      const refunded = visibleRows.filter(row => row.status === 'refunded').reduce((sum, row) => sum + row.credit, 0);
-      const projectSummaries = projects.map(project => {
-          const projectRows = rows.filter(row => row.projectId === project.id);
-          return {
-              ...project,
-              total: projectRows.reduce((sum, row) => sum + row.credit, 0),
-              confirmed: projectRows.filter(row => row.status === 'confirmed').reduce((sum, row) => sum + row.credit, 0),
-              reserved: projectRows.filter(row => row.status === 'reserved').reduce((sum, row) => sum + row.credit, 0),
-          };
-      });
-
-      return (
-          <div className="fixed inset-0 z-[250] bg-black/70 backdrop-blur-md p-6" onClick={() => setIsCreditDashboardOpen(false)}>
-              <div className={`mx-auto flex h-full max-w-6xl flex-col rounded-3xl border shadow-2xl ${isDark ? 'border-zinc-800 bg-[#121417] text-zinc-100' : 'border-gray-200 bg-white text-gray-900'}`} onClick={(event) => event.stopPropagation()}>
-                  <div className={`flex items-center gap-4 border-b px-6 py-4 ${isDark ? 'border-zinc-800' : 'border-gray-100'}`}>
-                      <div className="min-w-0 flex-1">
-                          <h3 className="text-xl font-bold">项目积分看板</h3>
-                          <p className={`mt-1 text-sm ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>查看所有项目的大体消耗，默认展开当前项目明细�?/p>
-                      </div>
-                      <select
-                          value={activeProjectId}
-                          onChange={(event) => setCreditProjectId(event.target.value)}
-                          className={`h-10 rounded-xl border px-3 text-sm outline-none ${isDark ? 'border-zinc-700 bg-zinc-950 text-zinc-200' : 'border-gray-200 bg-white text-gray-700'}`}
-                      >
-                          <option value="all">全部项目</option>
-                          {projects.map(project => (
-                              <option key={project.id} value={project.id}>{project.name}</option>
-                          ))}
-                      </select>
-                      <button className={`h-10 w-10 rounded-full flex items-center justify-center ${isDark ? 'hover:bg-zinc-800 text-zinc-400 hover:text-white' : 'hover:bg-gray-100 text-gray-500 hover:text-gray-900'}`} onClick={() => setIsCreditDashboardOpen(false)}>
-                          <Icons.X size={22} />
-                      </button>
-                  </div>
-
-                  <div className="grid grid-cols-4 gap-4 px-6 pt-6">
-                      {[
-                          ['当前查看消�?, total],
-                          ['已确认扣�?, confirmed],
-                          ['当前预扣', reserved],
-                          ['失败返还', refunded],
-                      ].map(([label, value]) => (
-                          <div key={String(label)} className={`rounded-2xl border p-4 ${isDark ? 'border-zinc-800 bg-zinc-950/45' : 'border-gray-200 bg-gray-50'}`}>
-                              <div className={`text-xs ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>{label}</div>
-                              <div className="mt-2 text-2xl font-bold tabular-nums">{value}</div>
-                              <div className={`mt-1 text-[11px] ${isDark ? 'text-zinc-600' : 'text-gray-400'}`}>积分</div>
-                          </div>
-                      ))}
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-3 px-6 py-4">
-                      {projectSummaries.map(project => (
-                          <button
-                              key={project.id}
-                              onClick={() => setCreditProjectId(project.id)}
-                              className={`rounded-2xl border p-3 text-left transition-all ${
-                                  activeProjectId === project.id
-                                      ? (isDark ? 'border-blue-500/60 bg-blue-500/10' : 'border-blue-300 bg-blue-50')
-                                      : (isDark ? 'border-zinc-800 bg-zinc-950/35 hover:border-zinc-700' : 'border-gray-200 bg-gray-50 hover:border-gray-300')
-                              }`}
-                          >
-                              <div className="truncate text-sm font-bold">{project.name}</div>
-                              <div className={`mt-1 truncate text-xs ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>{project.directorGroup}</div>
-                              <div className="mt-3 flex items-center justify-between text-xs">
-                                  <span className={isDark ? 'text-zinc-500' : 'text-gray-500'}>总消�?/span>
-                                  <span className="font-bold tabular-nums">{project.total}</span>
-                              </div>
-                          </button>
-                      ))}
-                  </div>
-
-                  <div className="flex-1 overflow-auto px-6 pb-6">
-                      <table className="w-full border-separate border-spacing-y-2 text-sm">
-                          <thead>
-                              <tr className={isDark ? 'text-zinc-500' : 'text-gray-500'}>
-                                  {['项目', '导演�?, '人员', '任务类型', '模型', '节点', '积分', '状�?].map(head => (
-                                      <th key={head} className="px-3 py-2 text-left text-xs font-semibold">{head}</th>
-                                  ))}
-                              </tr>
-                          </thead>
-                          <tbody>
-                              {visibleRows.map(row => (
-                                  <tr key={row.id} className={isDark ? 'bg-zinc-950/55 text-zinc-200' : 'bg-gray-50 text-gray-800'}>
-                                      <td className="rounded-l-xl px-3 py-3">{row.project}</td>
-                                      <td className="px-3 py-3">{row.group}</td>
-                                      <td className="px-3 py-3">{row.user}</td>
-                                      <td className="px-3 py-3">{row.type}</td>
-                                      <td className="px-3 py-3">{row.model}</td>
-                                      <td className="px-3 py-3">{row.nodeTitle}</td>
-                                      <td className="px-3 py-3 font-semibold tabular-nums">{row.credit}</td>
-                                      <td className="rounded-r-xl px-3 py-3">
-                                          <span className={`rounded-lg px-2 py-1 text-xs font-semibold ${
-                                              row.status === 'confirmed'
-                                                  ? (isDark ? 'bg-emerald-500/10 text-emerald-300' : 'bg-emerald-50 text-emerald-700')
-                                                  : row.status === 'reserved'
-                                                      ? (isDark ? 'bg-blue-500/10 text-blue-300' : 'bg-blue-50 text-blue-700')
-                                                      : row.status === 'refunded'
-                                                          ? (isDark ? 'bg-zinc-800 text-zinc-300' : 'bg-gray-100 text-gray-600')
-                                                          : (isDark ? 'bg-amber-500/10 text-amber-300' : 'bg-amber-50 text-amber-700')
-                                          }`}>
-                                              {statusText[row.status] || row.status}
-                                          </span>
-                                      </td>
-                                  </tr>
-                              ))}
-                          </tbody>
-                      </table>
-                  </div>
-              </div>
-          </div>
-      );
-  };
-
-  const renderUserCreditPopover = () => {
-      if (!isUserCreditOpen) return null;
-      const stats = getUserCreditStats();
-      const confirmed = stats.rows.filter(row => row.status === 'confirmed').reduce((sum, row) => sum + row.credit, 0);
-      const reserved = stats.rows.filter(row => row.status === 'reserved').reduce((sum, row) => sum + row.credit, 0);
-
-      return (
-          <div
-              className={`absolute right-4 top-16 z-[120] w-80 rounded-2xl border p-4 shadow-2xl backdrop-blur-xl ${isDark ? 'border-zinc-800 bg-[#18181b]/95 text-zinc-100' : 'border-gray-200 bg-white/95 text-gray-900'}`}
-              onMouseDown={(event) => event.stopPropagation()}
-          >
-              <div className="flex items-center justify-between">
-                  <div>
-                      <div className="text-sm font-bold">当前用户积分</div>
-                      <div className={`mt-1 text-xs ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>{CURRENT_USER_NAME} 的可用额度和使用明细</div>
-                  </div>
-                  <button className={`h-8 w-8 rounded-lg flex items-center justify-center ${isDark ? 'hover:bg-zinc-800 text-zinc-500' : 'hover:bg-gray-100 text-gray-500'}`} onClick={() => setIsUserCreditOpen(false)}>
-                      <Icons.X size={16} />
-                  </button>
-              </div>
-              <div className="mt-4 grid grid-cols-3 gap-2">
-                  {[
-                      ['可用', stats.available],
-                      ['已扣', confirmed],
-                      ['预扣', reserved],
-                  ].map(([label, value]) => (
-                      <div key={String(label)} className={`rounded-xl border p-3 ${isDark ? 'border-zinc-800 bg-zinc-950/45' : 'border-gray-200 bg-gray-50'}`}>
-                          <div className={`text-[11px] ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>{label}</div>
-                          <div className="mt-1 text-lg font-bold tabular-nums">{value}</div>
-                      </div>
-                  ))}
-              </div>
-              <div className="mt-3 max-h-56 overflow-y-auto custom-scrollbar space-y-2">
-                  {stats.rows.slice(0, 6).map(row => (
-                      <div key={row.id} className={`rounded-xl px-3 py-2 text-xs ${isDark ? 'bg-zinc-950/55' : 'bg-gray-50'}`}>
-                          <div className="flex items-center justify-between gap-3">
-                              <span className="truncate font-semibold">{row.nodeTitle}</span>
-                              <span className="tabular-nums">{row.credit}</span>
-                          </div>
-                          <div className={`mt-1 truncate ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>{row.project} / {row.type}</div>
-                      </div>
-                  ))}
-              </div>
-          </div>
-      );
-  };
-
-  const renderCanvasNavigator = () => {
-      const metrics = getMiniMapMetrics();
-      const panelClass = isDark ? 'border-zinc-800 bg-[#18181b]/95 text-zinc-100' : 'border-gray-200 bg-white/95 text-gray-900';
-      const buttonClass = isDark ? 'text-zinc-400 hover:bg-white/5 hover:text-white' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900';
-
-      return (
-          <div className="absolute bottom-4 left-4 z-50 flex flex-col gap-2">
-              {isMiniMapOpen && (
-                  <div className={`rounded-2xl border p-2 shadow-2xl backdrop-blur-xl ${panelClass}`}>
-                      <div
-                          className={`relative overflow-hidden rounded-xl border cursor-crosshair ${isDark ? 'border-zinc-700 bg-zinc-950/70' : 'border-gray-200 bg-gray-50'}`}
-                          style={{ width: metrics.miniWidth, height: metrics.miniHeight }}
-                          onMouseDown={(event) => {
-                              event.stopPropagation();
-                              jumpToMiniMapPoint(event);
-                          }}
-                          title="点击小地图快速移动画�?
-                      >
-                          <svg width={metrics.miniWidth} height={metrics.miniHeight} className="absolute inset-0">
-                              {metrics.nodeRects.map(rect => (
-                                  <rect
-                                      key={rect.id}
-                                      x={rect.x}
-                                      y={rect.y}
-                                      width={rect.width}
-                                      height={rect.height}
-                                      rx={2}
-                                      fill={rect.selected ? '#60a5fa' : (isDark ? '#71717a' : '#9ca3af')}
-                                      opacity={rect.selected ? 0.9 : 0.55}
-                                  />
-                              ))}
-                              <rect
-                                  x={metrics.viewportRect.x}
-                                  y={metrics.viewportRect.y}
-                                  width={metrics.viewportRect.width}
-                                  height={metrics.viewportRect.height}
-                                  fill="transparent"
-                                  stroke={isDark ? '#e5e7eb' : '#111827'}
-                                  strokeWidth={1.5}
-                                  strokeDasharray="4 3"
-                              />
-                          </svg>
-                      </div>
-                  </div>
-              )}
-              <div className={`flex items-center gap-1 rounded-2xl border px-2 py-1.5 shadow-xl backdrop-blur-xl ${panelClass}`}>
-                  <button className={`h-9 w-9 rounded-xl flex items-center justify-center ${buttonClass}`} title="小地�? onClick={() => setIsMiniMapOpen(prev => !prev)}>
-                      <Icons.Map size={17} />
-                  </button>
-                  <button className={`h-9 w-9 rounded-xl flex items-center justify-center ${buttonClass}`} title="整理画布" onClick={arrangeCanvasNodes}>
-                      <Icons.LayoutGrid size={17} />
-                  </button>
-                  <button className={`h-9 w-9 rounded-xl flex items-center justify-center ${buttonClass}`} title={isDark ? '切换亮色' : '切换暗色'} onClick={() => toggleTheme(!isDark)}>
-                      {isDark ? <Icons.Moon size={17} /> : <Icons.Sun size={17} />}
-                  </button>
-                  <div className={`mx-1 h-5 w-px ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`} />
-                  <button className={`h-9 w-9 rounded-xl flex items-center justify-center ${buttonClass}`} title="缩小" onClick={() => zoomCanvas(-1)}>
-                      <Icons.Minus size={16} />
-                  </button>
-                  <span className={`min-w-12 text-center text-sm font-semibold tabular-nums ${isDark ? 'text-zinc-200' : 'text-gray-700'}`}>{Math.round(transform.k * 100)}%</span>
-                  <button className={`h-9 w-9 rounded-xl flex items-center justify-center ${buttonClass}`} title="放大" onClick={() => zoomCanvas(1)}>
-                      <Icons.Plus size={18} />
-                  </button>
-              </div>
-          </div>
       );
   };
 
@@ -4012,6 +1049,7 @@ const CanvasWithSidebar: React.FC = () => {
             {contextMenu.type === 'NODE' && contextMenu.nodeId && (() => {
                 const menuItemClass = `text-left px-3 py-2 text-xs transition-all duration-150 flex items-center gap-2.5 rounded-md mx-1 ${isDark ? 'text-gray-300 hover:bg-zinc-800/80 hover:text-white' : 'text-gray-700 hover:bg-gray-100 hover:text-black'}`;
                 const node = nodes.find(n => n.id === contextMenu.nodeId);
+                const canToggleVideoType = node?.type === NodeType.TEXT_TO_VIDEO || node?.type === NodeType.START_END_TO_VIDEO;
                 
                 return (
                     <>
@@ -4020,7 +1058,12 @@ const CanvasWithSidebar: React.FC = () => {
                         </button>
                         {contextMenu.nodeType === NodeType.ORIGINAL_IMAGE && (
                             <button className={menuItemClass} onClick={() => { triggerReplaceImage(contextMenu.nodeId!); setContextMenu(null); }}>
-                                <Icons.Upload size={14}/> 替换素材
+                                <Icons.Upload size={14}/> 替换图片
+                            </button>
+                        )}
+                        {canToggleVideoType && (
+                            <button className={menuItemClass} onClick={() => { if (contextMenu.nodeId) { const newNode = nodes.find(n => n.id === contextMenu.nodeId); if (newNode) { const newType = newNode.type === NodeType.TEXT_TO_VIDEO ? NodeType.START_END_TO_VIDEO : NodeType.TEXT_TO_VIDEO; updateNodeData(contextMenu.nodeId, { type: newType, title: newType === NodeType.START_END_TO_VIDEO ? '首尾帧视频' : '生视频' }); } setContextMenu(null); } }}>
+                                <Icons.RefreshCw size={14}/> {node?.type === NodeType.TEXT_TO_VIDEO ? '切换为首尾帧模式' : '切换为普通视频模式'}
                             </button>
                         )}
                         <button className={menuItemClass} onClick={() => { if (contextMenu.nodeId) copyImageToClipboard(contextMenu.nodeId); setContextMenu(null); }}>
@@ -4040,30 +1083,19 @@ const CanvasWithSidebar: React.FC = () => {
                         <button className={`${menuItemClass} ${!internalClipboard ? 'opacity-40 cursor-not-allowed' : ''}`} onClick={() => { performPaste({ x: contextMenu.worldX, y: contextMenu.worldY }); setContextMenu(null); }} disabled={!internalClipboard}>
                             <Icons.Copy size={14}/> 粘贴
                         </button>
-                        <button className={menuItemClass} onClick={() => { assetImportPositionRef.current = { x: contextMenu.worldX, y: contextMenu.worldY }; assetImportConnectionRef.current = null; assetInputRef.current?.click(); setContextMenu(null); }}>
-                            <Icons.Upload size={14}/> 本地上传
-                        </button>
                         <div className={`h-px my-1.5 mx-2 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`}></div>
                         <div className={`px-3 py-1 text-[9px] font-semibold uppercase tracking-wider ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>添加节点</div>
                         <button className={menuItemClass} onClick={() => { addNode(NodeType.TEXT_TO_IMAGE, contextMenu.worldX, contextMenu.worldY); setContextMenu(null); }}>
                             <div className="w-5 h-5 rounded bg-cyan-500/10 flex items-center justify-center"><Icons.Image size={12} className="text-cyan-400"/></div>
                             <span>生图</span>
                         </button>
-                        <button className={menuItemClass} onClick={() => { addNode(NodeType.CREATIVE_DESC, contextMenu.worldX, contextMenu.worldY); setContextMenu(null); }}>
-                            <div className="w-5 h-5 rounded bg-zinc-500/10 flex items-center justify-center"><Icons.FileText size={12} className={isDark ? 'text-zinc-300' : 'text-zinc-600'}/></div>
-                            <span>文本</span>
-                        </button>
                         <button className={menuItemClass} onClick={() => { addNode(NodeType.TEXT_TO_VIDEO, contextMenu.worldX, contextMenu.worldY); setContextMenu(null); }}>
                             <div className="w-5 h-5 rounded bg-purple-500/10 flex items-center justify-center"><Icons.Video size={12} className="text-purple-400"/></div>
-                            <span>生视�?/span>
+                            <span>生视频</span>
                         </button>
-                        <button className={menuItemClass} onClick={() => { addNode(NodeType.TEXT_TO_AUDIO, contextMenu.worldX, contextMenu.worldY); setContextMenu(null); }}>
-                            <div className="w-5 h-5 rounded bg-amber-500/10 flex items-center justify-center"><Icons.Music size={12} className="text-amber-300"/></div>
-                            <span>音频</span>
-                        </button>
-                        <button className={menuItemClass} onClick={() => { assetImportPositionRef.current = { x: contextMenu.worldX, y: contextMenu.worldY }; assetImportConnectionRef.current = null; assetInputRef.current?.click(); setContextMenu(null); }}>
-                            <div className="w-5 h-5 rounded bg-emerald-500/10 flex items-center justify-center"><Icons.Upload size={12} className="text-emerald-400"/></div>
-                            <span>上传</span>
+                        <button className={menuItemClass} onClick={() => { addNode(NodeType.START_END_TO_VIDEO, contextMenu.worldX, contextMenu.worldY); setContextMenu(null); }}>
+                            <div className="w-5 h-5 rounded bg-emerald-500/10 flex items-center justify-center"><Icons.Frame size={12} className="text-emerald-400"/></div>
+                            <span>首尾帧视频</span>
                         </button>
                     </>
                 );
@@ -4085,7 +1117,7 @@ const CanvasWithSidebar: React.FC = () => {
             onMouseDown={(e) => e.stopPropagation()}
         >
             <div className={`px-3 pb-2 mb-1 text-[11px] font-semibold border-b ${isDark ? 'text-gray-200 border-zinc-800' : 'text-gray-800 border-gray-100'}`}>
-                连接到节�?
+                连接到节点
             </div>
             
             <div className={groupLabelClass}>生成</div>
@@ -4093,26 +1125,13 @@ const CanvasWithSidebar: React.FC = () => {
                 <div className="w-6 h-6 rounded-md bg-cyan-500/10 flex items-center justify-center"><Icons.Image size={14} className="text-cyan-400"/></div>
                 <span>生图</span>
             </button>
-            <button className={menuItemClass} onClick={() => handleQuickAddNode(NodeType.CREATIVE_DESC)}>
-                <div className="w-6 h-6 rounded-md bg-zinc-500/10 flex items-center justify-center"><Icons.FileText size={14} className={isDark ? 'text-zinc-300' : 'text-zinc-600'}/></div>
-                <span>文本</span>
-            </button>
             <button className={menuItemClass} onClick={() => handleQuickAddNode(NodeType.TEXT_TO_VIDEO)}>
                 <div className="w-6 h-6 rounded-md bg-purple-500/10 flex items-center justify-center"><Icons.Video size={14} className="text-purple-400"/></div>
-                <span>生视�?/span>
+                <span>生视频</span>
             </button>
-            <button className={menuItemClass} onClick={() => handleQuickAddNode(NodeType.TEXT_TO_AUDIO)}>
-                <div className="w-6 h-6 rounded-md bg-amber-500/10 flex items-center justify-center"><Icons.Music size={14} className="text-amber-300"/></div>
-                <span>音频</span>
-            </button>
-            <button className={menuItemClass} onClick={() => {
-                assetImportPositionRef.current = { x: quickAddMenu.worldX, y: quickAddMenu.worldY };
-                assetImportConnectionRef.current = { sourceId: quickAddMenu.sourceId, direction: quickAddMenu.direction };
-                assetInputRef.current?.click();
-                setQuickAddMenu(null);
-            }}>
-                <div className="w-6 h-6 rounded-md bg-emerald-500/10 flex items-center justify-center"><Icons.Upload size={14} className="text-emerald-400"/></div>
-                <span>上传</span>
+            <button className={menuItemClass} onClick={() => handleQuickAddNode(NodeType.START_END_TO_VIDEO)}>
+                <div className="w-6 h-6 rounded-md bg-emerald-500/10 flex items-center justify-center"><Icons.Frame size={14} className="text-emerald-400"/></div>
+                <span>首尾帧视频</span>
             </button>
             
         </div>
@@ -4123,38 +1142,14 @@ const CanvasWithSidebar: React.FC = () => {
       setCanvasBg(dark ? '#0B0C0E' : '#F5F7FA');
   };
 
-  if (isCheckingAuth) {
-      return (
-          <div className="w-full h-screen flex items-center justify-center bg-[#0b0c0e] text-zinc-300">
-              <Icons.Loader2 size={24} className="animate-spin mr-2" />
-              加载�?..
-          </div>
-      );
-  }
-
-  if (!isAuthenticated) {
-      return <LoginScreen onLogin={() => setIsAuthenticated(true)} />;
-  }
-
-  if (!currentProject) {
-      return renderProjectDashboardV2();
-  }
-
-  if (!currentCanvas) {
-      return renderCanvasListPage();
-  }
-
   return (
     <div className="w-full h-screen overflow-hidden flex relative font-sans text-gray-800">
-      {/* 添加到资产素材库 Popup */}
-      {assetLibraryPopup && (
+        {assetLibraryPopup && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={handleAssetLibraryPopupClose}>
           <div className={`rounded-2xl border shadow-2xl w-[400px] max-h-[500px] overflow-hidden ${isDark ? 'bg-zinc-900 border-zinc-700' : 'bg-white border-gray-200'}`} onClick={e => e.stopPropagation()}>
             <div className={`px-5 py-4 border-b ${isDark ? 'border-zinc-800' : 'border-gray-100'} flex items-center justify-between`}>
               <h3 className={`text-base font-bold ${isDark ? 'text-zinc-100' : 'text-gray-900'}`}>添加到资产素材库</h3>
-              <button onClick={handleAssetLibraryPopupClose} className={`p-1.5 rounded-lg ${isDark ? 'hover:bg-zinc-800 text-zinc-400' : 'hover:bg-gray-100 text-gray-500'}`}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              </button>
+              <button onClick={handleAssetLibraryPopupClose} className={`p-1.5 rounded-lg ${isDark ? 'hover:bg-zinc-800 text-zinc-400' : 'hover:bg-gray-100 text-gray-500'}`}>✕</button>
             </div>
             <div className="p-5 space-y-3 overflow-y-auto max-h-[420px]">
               {assetLibraryPopup.nodeType === 'image' ? (
@@ -4168,15 +1163,13 @@ const CanvasWithSidebar: React.FC = () => {
                         <span className={`text-sm font-semibold ${isDark ? 'text-zinc-100' : 'text-gray-900'}`}>
                           {type === 'role' ? '角色' : type === 'scene' ? '场景' : '道具'}
                         </span>
-                        <span className={`block text-xs mt-0.5 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>筛选/搜索后精确添加到对应资产</span>
+                        <span className={`block text-xs mt-0.5 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>筛选/搜索后精准添加到对应资产</span>
                       </button>
                     ))}
                     <button className={`w-full text-left p-3 rounded-xl border transition-all ${isDark ? 'border-zinc-800 hover:border-zinc-600 hover:bg-zinc-800/50' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}`}
                       onClick={() => handleAddToAssetLibraryConfirm('role', '', 'new')}>
                       <span className={`text-sm font-semibold ${isDark ? 'text-green-300' : 'text-green-600'}`}>+ 新建资产</span>
                       <span className={`block text-xs mt-0.5 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>选择类型并命名后添加到资产库</span>
-                    </button>
-                  </div>
                     </button>
                   </div>
                 </>
@@ -4196,11 +1189,15 @@ const CanvasWithSidebar: React.FC = () => {
           </div>
         </div>
       )}
-
-        <WelcomeModal
+      <WelcomeModal
             isOpen={isWelcomeOpen}
             onClose={() => setIsWelcomeOpen(false)}
             isDark={isDark}
+        />
+        <SettingsModal 
+            isOpen={isSettingsOpen} 
+            onClose={() => setIsSettingsOpen(false)} 
+            isDark={isDark} 
         />
         <StorageModal
             isOpen={isStorageOpen}
@@ -4222,28 +1219,15 @@ const CanvasWithSidebar: React.FC = () => {
         <Sidebar 
           onAddNode={addNode} 
           onNewWorkflow={handleNewWorkflow}
-          onSaveProject={() => handleSaveProject()}
-          onBackToProjects={returnToProjectManagement}
-          onOpenCreditDashboard={() => setIsCreditDashboardOpen(true)}
           onImportAsset={() => assetInputRef.current?.click()}
           onOpenExportImport={() => setIsExportImportOpen(true)}
           nodes={[...nodes, ...deletedNodes]}
           onPreviewMedia={handleHistoryPreview}
-          onSaveAsset={saveAssetFile}
-          onOpenSaveResult={openSaveResultModal}
-          onCopyAsset={copyAssetToClipboard}
-          onDeleteAsset={deleteAssetFromLibrary}
-          assetLibrary={DEMO_ASSET_LIBRARY}
-          onAddAssetToCanvas={handleAddAssetToCanvas}
-          onAddMaterialToCanvas={handleAddMaterialToCanvas}
-          onToggleMaterialFavorite={toggleMaterialFavorite}
-          onApplyPrompt={handleApplyPrompt}
           isDark={isDark}
         />
         <input type="file" ref={workflowInputRef} hidden accept=".aistudio-flow,.json" onChange={handleLoadWorkflow} />
-        <input type="file" ref={assetInputRef} hidden accept="image/*,video/*,audio/*,.txt,.md,.markdown,text/plain" onChange={handleImportAsset} />
-        <input type="file" ref={replaceImageRef} hidden accept="image/*,video/*,audio/*" onChange={handleReplaceImage} />
-        <input type="file" ref={attachInputRef} hidden accept="image/*,video/*,audio/*,.txt,.md,text/plain" onChange={handleAttachInputAsset} />
+        <input type="file" ref={assetInputRef} hidden accept="image/*,video/*" onChange={handleImportAsset} />
+        <input type="file" ref={replaceImageRef} hidden accept="image/*" onChange={handleReplaceImage} />
         <div 
             ref={containerRef}
             className={`flex-1 w-full h-full relative grid-pattern select-none ${dragMode === 'PAN' ? 'cursor-grabbing' : 'cursor-grab'}`}
@@ -4251,6 +1235,7 @@ const CanvasWithSidebar: React.FC = () => {
                 backgroundColor: canvasBg,
                 '--grid-color': isDark ? '#27272a' : '#E4E4E7'
             } as React.CSSProperties}
+            onWheel={handleWheel}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
@@ -4258,14 +1243,14 @@ const CanvasWithSidebar: React.FC = () => {
             onDragOver={handleDragOver}
             onDrop={handleDrop}
         >
-            <div className="absolute origin-top-left will-change-transform" style={{ transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.k})`, '--canvas-scale': transform.k } as React.CSSProperties}>
+            <div className="absolute origin-top-left will-change-transform" style={{ transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.k})` }}>
                 {/* Connection Lines - Rendered as absolute positioned divs with SVG */}
                 {connections.map(conn => {
                     const source = nodes.find(n => n.id === conn.sourceId);
                     const target = nodes.find(n => n.id === conn.targetId);
                     if (!source || !target) return null;
                     
-                    // 源节点右侧输出端口位�?
+                    // 源节点右侧输出端口位置
                     const sx = source.x + source.width;
                     const sy = source.y + source.height / 2;
                     // 目标节点左侧输入端口位置
@@ -4284,7 +1269,7 @@ const CanvasWithSidebar: React.FC = () => {
                     const svgWidth = maxX - minX;
                     const svgHeight = maxY - minY;
                     
-                    // 相对于SVG的坐�?
+                    // 相对于SVG的坐标
                     const relSx = sx - minX;
                     const relSy = sy - minY;
                     const relTx = tx - minX;
@@ -4293,10 +1278,10 @@ const CanvasWithSidebar: React.FC = () => {
                     const d = `M ${relSx} ${relSy} C ${relSx + cp} ${relSy}, ${relTx - cp} ${relTy}, ${relTx} ${relTy}`;
                     const isSelected = selectedConnectionId === conn.id;
                     
-                    // 连接线颜�?
-                    const lineColor = isSelected ? (isDark ? "#d4d4d8" : "#52525b") : (isDark ? "#71717a" : "#9ca3af");
+                    // 连接线颜色
+                    const lineColor = isSelected ? "#3b82f6" : (isDark ? "#6b7280" : "#9ca3af");
                     
-                    // 计算贝塞尔曲线上 t=0.5 的实际中点位�?
+                    // 计算贝塞尔曲线上 t=0.5 的实际中点位置
                     const t = 0.5;
                     const p0x = relSx, p0y = relSy;
                     const p1x = relSx + cp, p1y = relSy;
@@ -4332,43 +1317,24 @@ const CanvasWithSidebar: React.FC = () => {
                             <path 
                                 d={d} 
                                 stroke={lineColor}
-                                strokeWidth={isSelected ? 2.5 : 2}
+                                strokeWidth={isSelected ? 3 : 2} 
                                 fill="none" 
                                 strokeLinecap="round"
-                                strokeDasharray="2 10"
-                                opacity={isSelected ? 0.9 : 0.56}
                                 style={{ pointerEvents: 'none' }}
-                            >
-                                <animate
-                                    attributeName="stroke-dashoffset"
-                                    from="0"
-                                    to="-12"
-                                    dur="1.25s"
-                                    repeatCount="indefinite"
-                                />
-                            </path>
+                            />
                             {/* 选中时的发光效果 */}
                             {isSelected && (
                                 <path 
                                     d={d} 
-                                    stroke={lineColor}
-                                    strokeWidth={5}
+                                    stroke="#3b82f6"
+                                    strokeWidth={6} 
                                     fill="none" 
                                     strokeLinecap="round"
-                                    strokeDasharray="2 10"
-                                    opacity={0.16}
+                                    opacity={0.3}
                                     style={{ pointerEvents: 'none' }}
-                                >
-                                    <animate
-                                        attributeName="stroke-dashoffset"
-                                        from="0"
-                                        to="-12"
-                                        dur="1.25s"
-                                        repeatCount="indefinite"
-                                    />
-                                </path>
+                                />
                             )}
-                            {/* 删除按钮 - 使用�?SVG 实现 */}
+                            {/* 删除按钮 - 使用纯 SVG 实现 */}
                             {isSelected && (
                                 <g 
                                     style={{ pointerEvents: 'auto', cursor: 'pointer' }}
@@ -4408,34 +1374,30 @@ const CanvasWithSidebar: React.FC = () => {
                     );
                 })}
                 
-                {/* 拖拽连接预览�?*/}
+                {/* 拖拽连接预览线 */}
                 {dragMode === 'CONNECT' && connectionStartRef.current && tempConnection && (() => {
                     const sourceNode = nodes.find(n => n.id === connectionStartRef.current?.nodeId);
                     if (!sourceNode) return null;
-
-                    // 反向连接(从输入端口拖�?时，预览线从节点左侧出发，曲线向左弯�?
-                    const fromSource = connectionStartRef.current?.type === 'source';
-                    const sx = fromSource ? sourceNode.x + sourceNode.width : sourceNode.x;
+                    
+                    const sx = sourceNode.x + sourceNode.width;
                     const sy = sourceNode.y + sourceNode.height / 2;
                     const tx = tempConnection.x;
                     const ty = tempConnection.y;
-
+                    
                     const dist = Math.abs(tx - sx);
                     const cp = Math.max(30, dist * 0.3);
-
+                    
                     const minX = Math.min(sx, tx) - cp - 20;
                     const minY = Math.min(sy, ty) - 20;
                     const maxX = Math.max(sx, tx) + cp + 20;
                     const maxY = Math.max(sy, ty) + 20;
-
+                    
                     const relSx = sx - minX;
                     const relSy = sy - minY;
                     const relTx = tx - minX;
                     const relTy = ty - minY;
-
-                    const c1x = fromSource ? relSx + cp : relSx - cp;
-                    const c2x = fromSource ? relTx - cp : relTx + cp;
-                    const d = `M ${relSx} ${relSy} C ${c1x} ${relSy}, ${c2x} ${relTy}, ${relTx} ${relTy}`;
+                    
+                    const d = `M ${relSx} ${relSy} C ${relSx + cp} ${relSy}, ${relTx - cp} ${relTy}, ${relTx} ${relTy}`;
                     
                     return (
                         <svg 
@@ -4478,8 +1440,6 @@ const CanvasWithSidebar: React.FC = () => {
                         onConnectStart={(e, type) => handleConnectStart(e, node.id, type)}
                         onPortMouseUp={handlePortMouseUp}
                         onResizeStart={(e) => handleResizeStart(e, node.id)}
-                        onAttachInput={triggerAttachInput}
-                onAddToAssetLibrary={handleAddToAssetLibrary}
                         scale={transform.k}
                         isDark={isDark}
                     >
@@ -4490,30 +1450,12 @@ const CanvasWithSidebar: React.FC = () => {
                             selected={selectedNodeIds.has(node.id)}
                             showControls={selectedNodeIds.size === 1}
                             inputs={getInputImages(node.id)}
-                            inputMedia={getInputMedia(node.id)}
-                            onPreviewReference={handlePreviewReference}
-                            onToggleFavoriteArtifact={toggleMaterialFavorite}
-                            isArtifactFavorited={isMaterialFavorited}
                             onMaximize={handleMaximize}
                             onDownload={handleDownload}
                             onUpload={triggerReplaceImage}
-                            onSaveResult={openSaveResultModal}
-                            onCrop={handleCropStart}
-                            onMultiAngle={handleMultiAngleGenerate}
-                            onExtractFrames={handleExtractFrames}
-                            onRemoveSubtitles={handleRemoveSubtitles}
-                            onEnhanceVideo={handleEnhanceVideo}
-                            onMultiGrid={handleMultiGrid}
-                            onRepaint={handleRepaint}
-                            onLighting={handleLighting}
-                            onPanorama={handlePanorama}
-                            onOutpaint={handleOutpaint}
-                            onAnalyzeMedia={handleAnalyzeMedia}
-                            onAnalyzeScript={handleAnalyzeScript}
                             isSelecting={dragMode === 'SELECT'}
                             onDelete={deleteNode}
                             isDark={isDark}
-                            canvasScale={transform.k}
                         />
                     </BaseNode>
                 ))}
@@ -4522,8 +1464,8 @@ const CanvasWithSidebar: React.FC = () => {
                 <div className={`fixed z-50 border rounded-xl shadow-2xl p-2 flex flex-col gap-1 w-48 pointer-events-auto ${isDark ? 'bg-[#1A1D21] border-zinc-700' : 'bg-white border-gray-200'}`} style={{ left: lastMousePosRef.current.x + 20, top: lastMousePosRef.current.y }}>
                     <div className={`text-[10px] uppercase font-bold px-2 py-1 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Quick Connect</div>
                     {suggestedNodes.map(node => (
-                        <button key={node.id} className={`flex items-center gap-2 px-2 py-1.5 rounded text-left text-xs transition-colors ${isDark ? 'hover:bg-zinc-800 text-gray-300 hover:text-cyan-400' : 'hover:bg-gray-100 text-gray-700 hover:text-cyan-600'}`} onClick={(e) => { e.stopPropagation(); const start = connectionStartRef.current!; if (start.type === 'source') createConnection(start.nodeId, node.id); else createConnection(node.id, start.nodeId); }}>
-                            {node.type === NodeType.TEXT_TO_VIDEO ? <Icons.Video size={12} /> : node.type === NodeType.TEXT_TO_AUDIO ? <Icons.Music size={12} /> : node.type === NodeType.CREATIVE_DESC ? <Icons.FileText size={12} /> : <Icons.Image size={12} />}<span className="truncate">{node.title}</span>
+                        <button key={node.id} className={`flex items-center gap-2 px-2 py-1.5 rounded text-left text-xs transition-colors ${isDark ? 'hover:bg-zinc-800 text-gray-300 hover:text-cyan-400' : 'hover:bg-gray-100 text-gray-700 hover:text-cyan-600'}`} onClick={(e) => { e.stopPropagation(); createConnection(connectionStartRef.current!.nodeId, node.id); }}>
+                            {node.type === NodeType.TEXT_TO_VIDEO ? <Icons.Video size={12} /> : <Icons.Image size={12} />}<span className="truncate">{node.title}</span>
                         </button>
                     ))}
                 </div>
@@ -4534,85 +1476,47 @@ const CanvasWithSidebar: React.FC = () => {
             
             {/* Top Left Project Name */}
             <div className="absolute top-4 left-4 z-50">
-                <div className={`flex items-center gap-3 px-2.5 py-2 rounded-2xl backdrop-blur-xl border transition-all duration-300 ${
+                <div className={`flex items-center gap-2.5 px-2 py-1.5 rounded-2xl backdrop-blur-xl border transition-all duration-300 ${
                     isDark 
                         ? 'bg-[#18181b]/90 border-zinc-800 shadow-xl' 
                         : 'bg-white/90 border-gray-200 shadow-lg'
                 }`}>
-                    <button
-                        type="button"
-                        onClick={returnToProjectCanvasList}
-                        title={projectCanvases.length > 1 ? '返回画布列表' : '返回项目列表'}
-                        aria-label={projectCanvases.length > 1 ? '返回画布列表' : '返回项目列表'}
-                        className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 font-bold transition-all ${
-                            isDark
-                                ? 'text-blue-300 hover:bg-blue-500/15 hover:text-blue-200'
-                                : 'text-blue-600 hover:bg-blue-50 hover:text-blue-700'
-                        }`}
-                    >
-                        <Icons.ChevronLeft size={18} strokeWidth={2.8} />
-                    </button>
                     {/* Logo */}
-                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${
                         isDark ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-100 text-blue-600'
                     }`}>
                         <Icons.Sparkles size={16} />
                     </div>
                     
-                    <div className="min-w-0">
-                        {isEditingProjectName ? (
-                            <input
-                                type="text"
-                                value={projectName}
-                                onChange={(e) => setProjectName(e.target.value)}
-                                onBlur={() => setIsEditingProjectName(false)}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter') setIsEditingProjectName(false);
-                                    if (e.key === 'Escape') setIsEditingProjectName(false);
-                                }}
-                                autoFocus
-                                className={`w-48 px-2 py-1 rounded-lg text-sm font-medium border-0 outline-none bg-transparent ${
-                                    isDark ? 'text-white' : 'text-gray-900'
-                                }`}
-                                placeholder="项目名称..."
-                            />
-                        ) : (
-                            <button
-                                onClick={() => {
-                                    if (isReadOnlyCanvas) {
-                                        guardReadOnly('重命名画�?);
-                                        return;
-                                    }
-                                    setIsEditingProjectName(true);
-                                }}
-                                className={`block text-left text-sm font-bold max-w-[220px] truncate transition-colors ${
-                                    isDark ? 'text-blue-100 hover:text-blue-200' : 'text-blue-700 hover:text-blue-800'
-                                }`}
-                            >
-                                {projectName}
-                            </button>
-                        )}
-                        <div className={`mt-0.5 flex items-center gap-2 text-[10px] whitespace-nowrap ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>
-                            <span>{currentProject.id}</span>
-                            <span className={`w-1 h-1 rounded-full ${isDark ? 'bg-zinc-700' : 'bg-gray-300'}`} />
-                            <span>{currentProject.directorGroup}</span>
-                            <span className={`w-1 h-1 rounded-full ${isDark ? 'bg-zinc-700' : 'bg-gray-300'}`} />
-                            <span>{ROLE_LABELS[currentCanvas.permissionRole]}</span>
-                            <span className={`w-1 h-1 rounded-full ${isDark ? 'bg-zinc-700' : 'bg-gray-300'}`} />
-                            <span>{saveStatus === 'saving' ? '保存�? : saveStatus === 'failed' ? '保存失败' : currentCanvas.lastSavedAt}</span>
-                        </div>
-                    </div>
-
+                    {/* Project Name */}
+                    {isEditingProjectName ? (
+                        <input
+                            type="text"
+                            value={projectName}
+                            onChange={(e) => setProjectName(e.target.value)}
+                            onBlur={() => setIsEditingProjectName(false)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') setIsEditingProjectName(false);
+                                if (e.key === 'Escape') setIsEditingProjectName(false);
+                            }}
+                            autoFocus
+                            className={`w-36 px-2 py-1 rounded-lg text-sm font-medium border-0 outline-none bg-transparent ${
+                                isDark ? 'text-white' : 'text-gray-900'
+                            }`}
+                            placeholder="项目名称..."
+                        />
+                    ) : (
+                        <button
+                            onClick={() => setIsEditingProjectName(true)}
+                            className={`text-sm font-medium max-w-[140px] truncate transition-colors ${
+                                isDark ? 'text-gray-200 hover:text-white' : 'text-gray-800 hover:text-black'
+                            }`}
+                        >
+                            {projectName}
+                        </button>
+                    )}
                 </div>
             </div>
-
-            {isReadOnlyCanvas && (
-                <div className={`absolute left-1/2 top-4 z-50 -translate-x-1/2 rounded-2xl border px-4 py-2 text-xs font-semibold shadow-xl backdrop-blur-xl ${
-                    isDark ? 'border-zinc-800 bg-[#18181b]/90 text-zinc-300' : 'border-gray-200 bg-white/90 text-gray-700'
-                }`}>
-                    只读模式：可以查看、缩放和平移，不能编辑或保存
-                </div>
-            )}
 
             {/* Top Right Toolbar */}
             <div className="absolute top-4 right-4 z-50">
@@ -4622,72 +1526,29 @@ const CanvasWithSidebar: React.FC = () => {
                         : 'bg-white/90 border-gray-200 shadow-lg'
                 }`}>
                     {/* Zoom */}
-                    <span className={`hidden px-3 py-1.5 text-sm font-medium tabular-nums ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                    <span className={`px-3 py-1.5 text-sm font-medium tabular-nums ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
                         {Math.round(transform.k * 100)}%
                     </span>
                     
-                    <div className={`hidden w-px h-5 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`} />
-
-                    <button
-                        onClick={() => setIsUserCreditOpen(prev => !prev)}
-                        title="当前用户积分余额"
-                        className={`flex h-9 items-center gap-1.5 rounded-xl px-3 text-sm font-semibold transition-all ${
-                            isDark ? 'bg-amber-500/10 text-amber-200 hover:bg-amber-500/20' : 'bg-amber-50 text-amber-700 hover:bg-amber-100'
-                        }`}
-                    >
-                        <Icons.Coins size={15} />
-                        <span className="tabular-nums">{getUserCreditStats().available}</span>
-                    </button>
+                    <div className={`w-px h-5 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`} />
                     
                     {/* Download */}
                     <button
-                        onClick={() => handleSaveProject()}
-                        title={saveStatus === 'saved' ? '已保�? : '保存项目'}
-                        className={`flex h-9 w-9 items-center justify-center rounded-xl text-sm font-medium transition-all ${
-                            saveStatus === 'saved'
-                                ? (isDark ? 'text-emerald-400 hover:bg-emerald-500/10' : 'text-emerald-600 hover:bg-emerald-50')
-                                : saveStatus === 'failed'
-                                    ? (isDark ? 'text-red-400 hover:bg-red-500/10' : 'text-red-600 hover:bg-red-50')
-                                    : (isDark ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100')
-                        }`}
-                    >
-                        {saveStatus === 'saving' ? <Icons.Loader2 size={15} className="animate-spin" /> : <Icons.Save size={15} />}
-                        <span className="sr-only">{saveStatus === 'saved' ? '已保�? : '保存项目'}</span>
-                    </button>
-
-                    <div className={`w-px h-5 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`} />
-
-                    {/* Download backup */}
-                    <button
                         onClick={() => setIsExportImportOpen(true)}
-                        title="导入/导出备份"
-                        className={`flex h-9 w-9 items-center justify-center rounded-xl text-sm font-medium transition-all ${
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-all ${
                             isDark ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                         }`}
                     >
                         <Icons.Download size={15} />
-                        <span className="sr-only">导入/导出备份</span>
+                        <span>下载</span>
                     </button>
                     
                     <div className={`w-px h-5 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`} />
-
-                    {/* Credit dashboard */}
-                    <button
-                        onClick={() => setIsCreditDashboardOpen(true)}
-                        className={`hidden items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-all ${
-                            isDark ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                        }`}
-                    >
-                        <Icons.Database size={15} />
-                        <span>积分看板</span>
-                    </button>
-
-                    <div className={`hidden w-px h-5 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`} />
                     
                     {/* Theme */}
                     <button
                         onClick={() => toggleTheme(!isDark)}
-                        className={`hidden items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-all ${
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-all ${
                             isDark ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                         }`}
                     >
@@ -4698,22 +1559,11 @@ const CanvasWithSidebar: React.FC = () => {
                     {/* Clear */}
                     <button
                         onClick={handleNewWorkflow}
-                        title="清空画布"
-                        className={`flex h-9 w-9 items-center justify-center rounded-xl text-sm font-medium transition-all ${
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-all ${
                             isDark ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                         }`}
                     >
-                        <Icons.Trash2 size={15} />
-                        <span className="sr-only">清空画布</span>
-                    </button>
-                    <button
-                        onClick={returnToProjectManagement}
-                        className={`hidden items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-all ${
-                            isDark ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                        }`}
-                    >
-                        <Icons.FolderOpen size={15} />
-                        <span>项目</span>
+                        <span>清空</span>
                     </button>
                     
                     <div className={`w-px h-5 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`} />
@@ -4721,26 +1571,31 @@ const CanvasWithSidebar: React.FC = () => {
                     {/* Storage */}
                     <button
                         onClick={handleOpenStorageSettings}
-                        title="存储设置"
-                        className={`flex h-9 w-9 items-center justify-center rounded-xl text-sm font-medium transition-all ${
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-all ${
                             storageDirName 
                                 ? (isDark ? 'text-emerald-400 hover:bg-emerald-500/10' : 'text-emerald-600 hover:bg-emerald-50')
                                 : (isDark ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100')
                         }`}
                     >
                         <Icons.FolderOpen size={15} />
-                        <span className="sr-only">存储设置</span>
+                        <span>存储</span>
                     </button>
                     
+                    {/* API Settings */}
+                    <button
+                        onClick={() => setIsSettingsOpen(true)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-all ${
+                            isDark ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                        }`}
+                    >
+                        <Icons.Settings size={15} />
+                        <span>API 设置</span>
+                    </button>
                 </div>
             </div>
-            {renderCanvasNavigator()}
-            {renderUserCreditPopover()}
             {renderContextMenu()}
             {renderQuickAddMenu()}
             {renderNewWorkflowDialog()}
-            {renderSaveResultModal()}
-            {renderCreditDashboardV2()}
             {previewMedia && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md animate-in fade-in duration-200" onClick={() => setPreviewMedia(null)}>
                     <div className="relative max-w-[90vw] max-h-[90vh] bg-black rounded-lg shadow-2xl overflow-hidden border border-zinc-700" onClick={(e) => e.stopPropagation()}>
@@ -4748,30 +1603,6 @@ const CanvasWithSidebar: React.FC = () => {
                          {previewMedia.type === 'video' ? <video src={previewMedia.url} controls autoPlay className="max-w-full max-h-[90vh]" /> : <img src={previewMedia.url} alt="Preview" className="max-w-full max-h-[90vh] object-contain" />}
                     </div>
                 </div>
-            )}
-            {previewText && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md animate-in fade-in duration-200" onClick={() => setPreviewText(null)}>
-                    <div className={`relative w-[min(760px,92vw)] max-h-[86vh] rounded-2xl shadow-2xl border overflow-hidden ${isDark ? 'bg-[#18181b] border-zinc-700 text-zinc-100' : 'bg-white border-gray-200 text-gray-900'}`} onClick={(e) => e.stopPropagation()}>
-                        <div className={`h-14 px-5 flex items-center justify-between border-b ${isDark ? 'border-zinc-800' : 'border-gray-100'}`}>
-                            <div className="flex items-center gap-2 min-w-0">
-                                <Icons.FileText size={18} />
-                                <span className="font-semibold truncate">{previewText.title}</span>
-                            </div>
-                            <button className={`w-9 h-9 rounded-full flex items-center justify-center ${isDark ? 'hover:bg-zinc-800 text-zinc-400 hover:text-white' : 'hover:bg-gray-100 text-gray-500 hover:text-gray-900'}`} onClick={() => setPreviewText(null)}><Icons.X size={20} /></button>
-                        </div>
-                        <pre className={`max-h-[calc(86vh-56px)] overflow-auto whitespace-pre-wrap break-words p-5 text-sm leading-7 ${isDark ? 'text-zinc-200' : 'text-gray-700'}`}>{previewText.text}</pre>
-                    </div>
-                </div>
-            )}
-            {cropTarget && (
-                <CropModal
-                    imageSrc={cropTarget.imageSrc}
-                    sourceTitle={cropTarget.title}
-                    initialAspectRatio={cropTarget.aspectRatio}
-                    isDark={isDark}
-                    onClose={() => setCropTarget(null)}
-                    onConfirm={handleCropConfirm}
-                />
             )}
         </div>
     </div>
