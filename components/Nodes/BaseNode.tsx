@@ -12,7 +12,6 @@ interface BaseNodeProps {
   onResizeStart?: (e: React.MouseEvent) => void;
   onAttachInput?: (nodeId: string) => void;
   onAddToAssetLibrary?: (nodeId: string) => void;
-  onAddToAssetLibrary?: (nodeId: string) => void;
   children: React.ReactNode;
   scale: number;
   isDark?: boolean;
@@ -116,7 +115,7 @@ const BaseNode: React.FC<BaseNodeProps> = ({
           )}
 
 
-          {/* WLBW5paAWQjeaWsOWKoOWIsOi1hOS6p+e0oOadkOW6kyBidXR0b24gKi99
+          {/* 添加到资产素材库 button */}
           {onAddToAssetLibrary && hasContent && (
             <button
               className={`absolute left-1/2 top-0 -translate-x-1/2 -translate-y-[calc(100%+8px)] z-[78] h-9 px-3 rounded-full border backdrop-blur-xl shadow-lg flex items-center gap-2 text-sm font-semibold transition-all duration-200 ${
@@ -137,7 +136,7 @@ const BaseNode: React.FC<BaseNodeProps> = ({
               <span>添加到素材库</span>
             </button>
           )}
-          {/* 添加到资产素材库 button */}
+          {/* end 添加到资产素材库 */}
           {/* Connection Ports */}
           {showInputPort && (
             <ConnectionPort

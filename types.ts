@@ -153,7 +153,16 @@ export interface ShotClip {
   description?: string;
 }
 
-export type AddToAssetType = 'role' | 'scene' | 'prop' | 'keyframe' | 'shot_clip';
+export type AddToAssetType = 'role' | 'scene' | 'prop' | 'shot_clip';
+
+export interface AddToAssetPanelState {
+  isOpen: boolean;
+  nodeId: string;
+  nodeType: 'image' | 'video';
+  imageSrc?: string;
+  videoSrc?: string;
+  title?: string;
+}
 
 export interface Connection {
   id: string;

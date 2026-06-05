@@ -1,7 +1,8 @@
 ﻿
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import Sidebar from './components/Sidebar';
-import { AssetLibraryItem, AssetLibraryType, InputMedia, MultiAngleOptions, NodeData, Connection, CanvasTransform, Point, DragMode, NodeType } from './types';
+import { AssetSelectionModal } from './components/AssetSelectionModal';
+import { AssetLibraryItem, AssetLibraryType, AddToAssetPanelState, InputMedia, MultiAngleOptions, NodeData, Connection, CanvasTransform, Point, DragMode, NodeType, ShotClip } from './types';
 import BaseNode from './components/Nodes/BaseNode';
 import { NodeContent } from './components/Nodes/NodeContent';
 import { Icons } from './components/Icons';
@@ -205,6 +206,7 @@ const NODE_MEDIA_CATEGORY: Record<NodeType, MediaCategory> = {
     [NodeType.IMAGE_TO_VIDEO]: 'video',
     [NodeType.START_END_TO_VIDEO]: 'video',
     [NodeType.CREATIVE_DESC]: 'text',
+    [NodeType.TEXT_TO_AUDIO]: 'text',
 };
 
 // 目标节点（下游）允许接收的来源节点（上游）类别：
@@ -371,6 +373,7 @@ const CanvasWithSidebar: React.FC = () => {
   const [saveAssetType, setSaveAssetType] = useState<AssetLibraryType>('role');
   const [saveTargetAssetId, setSaveTargetAssetId] = useState(DEMO_ASSET_LIBRARY[0]?.id || '');
   const [saveResultNote, setSaveResultNote] = useState('');
+  const [addToAssetPanel, setAddToAssetPanel] = useState<AddToAssetPanelState>({ isOpen: false, nodeId: '', nodeType: 'image' });
   const [isCreditDashboardOpen, setIsCreditDashboardOpen] = useState(false);
   const [creditProjectId, setCreditProjectId] = useState('');
   const [isUserCreditOpen, setIsUserCreditOpen] = useState(false);
@@ -818,7 +821,145 @@ const CanvasWithSidebar: React.FC = () => {
       });
   };
 
-  const handlePaste = useCallback(async (e: ClipboardEvent) => {
+  
+
+  const handleOpenAssetSelection = (nodeId: string) => {
+    const node = nodes.find(n => n.id === nodeId);
+    if (!node) return;
+    const isVideo = node.type === NodeType.TEXT_TO_VIDEO || node.type === NodeType.IMAGE_TO_VIDEO || node.type === NodeType.START_END_TO_VIDEO;
+    setAddToAssetPanel({
+      isOpen: true,
+      nodeId,
+      nodeType: isVideo ? 'video' : 'image',
+      imageSrc: node.imageSrc,
+      videoSrc: node.videoSrc,
+      title: node.title,
+    });
+  };
+
+  const handleCloseAssetSelection = () => {
+    setAddToAssetPanel({ isOpen: false, nodeId: '', nodeType: 'image' });
+  };
+
+  const handleAddToExistingAsset = (nodeId: string, assetId: string, targetType: string) => {
+    const asset = DEMO_ASSET_LIBRARY.find(a => a.id === assetId);
+    const node = nodes.find(n => n.id === nodeId);
+    if (!asset || !node) return;
+    updateNodeData(nodeId, { 
+      source: 'asset_library', 
+      sourceRefId: assetId,
+      title: asset.name
+    });
+    handleCloseAssetSelection();
+  };
+
+  const handleCreateNewAsset = (nodeId: string, assetType: AssetLibraryType, name: string) => {
+    const node = nodes.find(n => n.id === nodeId);
+    if (!node) return;
+    const newId = `asset_${assetType}_${Date.now()}`;
+    const newAsset: AssetLibraryItem = {
+      id: newId,
+      type: assetType,
+      scope: 'project',
+      name,
+      version: 'v1',
+      updatedAt: '刚刚',
+      previewUrl: node.imageSrc || node.videoSrc || '',
+      description: node.title,
+    };
+    DEMO_ASSET_LIBRARY.push(newAsset);
+    updateNodeData(nodeId, { 
+      source: 'asset_library', 
+      sourceRefId: newId,
+      title: name
+    });
+    handleCloseAssetSelection();
+  };
+
+  const handleAddNodeToShotClip = (nodeId: string, shotClipId: string) => {
+    const node = nodes.find(n => n.id === nodeId);
+    if (!node) return;
+    updateNodeData(nodeId, {
+      source: 'linear_pipeline',
+      shotId: shotClipId,
+    });
+    handleCloseAssetSelection();
+  };
+
+  const handleAddShotClipToCanvas = (clip: ShotClip) => {
+    const { width: vw, height: vh } = getNodeSizeForAspectRatio('16:9', 350);
+    const rect = containerRef.current?.getBoundingClientRect();
+    const center = rect ? screenToWorld(rect.width / 2, rect.height / 2) : { x: 0, y: 0 };
+    
+    const keyframeNodes: NodeData[] = clip.keyframeUrls && clip.keyframeUrls.length > 0 
+      ? clip.keyframeUrls.map((url, i) => ({
+          id: generateId(),
+          type: NodeType.ORIGINAL_IMAGE,
+          x: center.x + (i * 320) - vw / 2,
+          y: center.y - vh - 100,
+          width: 280,
+          height: 200,
+          title: `${clip.shotName} - 关键帧${i + 1}`,
+          imageSrc: url,
+          aspectRatio: '16:9',
+          source: 'linear_pipeline',
+          shotId: clip.id,
+          episodeNo: clip.episodeNo,
+          sceneNo: clip.sceneNo,
+          shotNo: clip.shotNo,
+          shotName: clip.shotName,
+          projectId: currentProject?.id || DEMO_PROJECT_META.id,
+        }))
+      : [];
+
+    const audioNode: NodeData | null = clip.audioUrl ? {
+      id: generateId(),
+      type: NodeType.TEXT_TO_AUDIO,
+      x: center.x + vw + 40,
+      y: center.y - (clip.keyframeUrls && clip.keyframeUrls.length > 0 ? 0 : vh),
+      width: 260,
+      height: 180,
+      title: `${clip.shotName} - 音频`,
+      audioSrc: clip.audioUrl,
+      source: 'linear_pipeline',
+      shotId: clip.id,
+      episodeNo: clip.episodeNo,
+      sceneNo: clip.sceneNo,
+      shotNo: clip.shotNo,
+      shotName: clip.shotName,
+      projectId: currentProject?.id || DEMO_PROJECT_META.id,
+    } : null;
+
+    const videoNode: NodeData = {
+      id: generateId(),
+      type: NodeType.TEXT_TO_VIDEO,
+      x: center.x - vw / 2,
+      y: center.y,
+      width: vw,
+      height: vh,
+      title: clip.shotName,
+      prompt: clip.prompt || '',
+      videoSrc: clip.videoUrl || undefined,
+      model: 'Seedance 1.5 Pro',
+      aspectRatio: '16:9',
+      source: 'linear_pipeline',
+      shotId: clip.id,
+      episodeNo: clip.episodeNo,
+      sceneNo: clip.sceneNo,
+      shotNo: clip.shotNo,
+      shotName: clip.shotName,
+      shotDescription: clip.description,
+      projectId: currentProject?.id || DEMO_PROJECT_META.id,
+      directorGroupName: currentProject?.directorGroup || DEMO_PROJECT_META.directorGroup,
+    };
+
+    const newNodes: NodeData[] = [...keyframeNodes, videoNode];
+    if (audioNode) newNodes.push(audioNode);
+    
+    setNodes(prev => [...prev, ...newNodes]);
+  };
+
+const handlePaste = useCallback(async (e: ClipboardEvent) => {
     const activeElement = document.activeElement;
     const isInputFocused = activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement;
     if (isInputFocused) return;
@@ -3116,6 +3257,7 @@ const CanvasWithSidebar: React.FC = () => {
           onAddAssetToCanvas={handleAddAssetToCanvas}
           onAddMaterialToCanvas={handleAddMaterialToCanvas}
           onToggleMaterialFavorite={handleToggleMaterialFavorite}
+          onAddShotClipToCanvas={handleAddShotClipToCanvas}
           isDark={isDark}
         />
         <input type="file" ref={workflowInputRef} hidden accept=".aistudio-flow,.json" onChange={handleLoadWorkflow} />
@@ -3357,6 +3499,7 @@ const CanvasWithSidebar: React.FC = () => {
                         onPortMouseUp={handlePortMouseUp}
                         onResizeStart={(e) => handleResizeStart(e, node.id)}
                         onAttachInput={triggerAttachInput}
+                        onAddToAssetLibrary={handleOpenAssetSelection}
                         scale={transform.k}
                         isDark={isDark}
                     >
@@ -3614,6 +3757,27 @@ const CanvasWithSidebar: React.FC = () => {
                     </div>
                 </div>
             )}
+            {addToAssetPanel.isOpen && (
+                <AssetSelectionModal
+                    isOpen={addToAssetPanel.isOpen}
+                    nodeId={addToAssetPanel.nodeId}
+                    nodeType={addToAssetPanel.nodeType}
+                    nodeTitle={addToAssetPanel.title}
+                    assetLibrary={DEMO_ASSET_LIBRARY}
+                    shotClips={[
+                      { id: 'shot_001', episodeNo: 1, sceneNo: 1, shotNo: 1, shotName: '开场全景', description: '第一集第一场开场镜头' },
+                      { id: 'shot_002', episodeNo: 1, sceneNo: 1, shotNo: 2, shotName: '主角近景', description: '主角登场特写' },
+                      { id: 'shot_003', episodeNo: 1, sceneNo: 2, shotNo: 1, shotName: '街道跟拍', description: '街道追逐戏' },
+                      { id: 'shot_004', episodeNo: 2, sceneNo: 1, shotNo: 1, shotName: '室内对话', description: '办公室对话场景' },
+                    ]}
+                    isDark={isDark}
+                    onClose={handleCloseAssetSelection}
+                    onAddToExistingAsset={handleAddToExistingAsset}
+                    onCreateNewAsset={handleCreateNewAsset}
+                    onAddToShotClip={handleAddNodeToShotClip}
+                />
+            )}
+
             {cropTarget && (
                 <CropModal
                     imageSrc={cropTarget.imageSrc}

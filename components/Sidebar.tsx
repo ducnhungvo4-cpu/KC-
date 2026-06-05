@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, memo, useMemo } from 'react';
 import { Icons } from './Icons';
-import { AssetLibraryItem, AssetLibraryScope, AssetLibraryType, MaterialLibraryItem, NodeType, NodeData, PromptTemplate, ShotClip, AddToAssetType } from '../types';
+import { AssetLibraryItem, AssetLibraryScope, AssetLibraryType, MaterialLibraryItem, NodeType, NodeData, ShotClip, AddToAssetType } from '../types';
 
 interface SidebarProps {
   onAddNode: (type: NodeType) => void;
@@ -20,28 +20,13 @@ interface SidebarProps {
   onAddAssetToCanvas: (asset: AssetLibraryItem) => void;
   onAddMaterialToCanvas: (item: MaterialLibraryItem) => void;
   onToggleMaterialFavorite: (nodeId: string, url: string, type: 'image' | 'video') => void;
-  onApplyPrompt?: (prompt: string) => void;
+  onAddShotClipToCanvas?: (clip: ShotClip) => void;
   isDark?: boolean;
 }
 
-type ActivePanel = 'ADD' | 'HISTORY' | 'ASSET_MATERIAL' | 'PROJECT' | 'PROMPT_LIBRARY' | null;
+type ActivePanel = 'ADD' | 'HISTORY' | 'ASSET_MATERIAL' | 'PROJECT' | null;
 
-const PROMPT_TEMPLATES: PromptTemplate[] = [
-  { id: 'p1', category: '人物', title: '电影级人物特写', prompt: '电影级人物特写，柔和的伦勃朗光，浅景深，肤色自然，眼神有故事感，35mm 镜头质感' },
-  { id: 'p2', category: '人物', title: '赛博朋克角色', prompt: '赛博朋克风格角色全身像，霓虹灯反射，机械改造细节，雨夜街道背景，高对比度' },
-  { id: 'p3', category: '人物', title: '古风人像', prompt: '中国古风人像，汉服造型，水墨画背景，自然光线，淡雅色调，意境悠远' },
-  { id: 'p4', category: '场景', title: '电影级室内', prompt: '电影级室内场景，暖色调台灯光，木质家具，窗外夜景，胶片质感，景深柔和' },
-  { id: 'p5', category: '场景', title: '末日废土', prompt: '末日废土场景，荒芜城市废墟，锈蚀金属，雾气弥漫，戏剧性天光，超写实风格' },
-  { id: 'p6', category: '场景', title: '奇幻森林', prompt: '奇幻森林场景，巨型蘑菇和发光植物，萤火虫飞舞，薄雾缭绕，魔幻氛围' },
-  { id: 'p7', category: '产品', title: '高端产品摄影', prompt: '高端产品摄影，纯黑背景，单侧主光，产品轮廓光，反射面材质，商业广告品质' },
-  { id: 'p8', category: '产品', title: '美食特写', prompt: '美食特写摄影，顶光 + 侧面补光，食材纹理清晰，微距浅景深，暖色调，令人食欲大开' },
-  { id: 'p9', category: '风格', title: '日式动漫', prompt: '日式动漫风格，细腻线条，柔和渐变色彩，樱花背景，角色表情生动' },
-  { id: 'p10', category: '风格', title: '水彩手绘', prompt: '水彩手绘风格，笔触自然随性，颜料晕染效果，留白意境，纸张纹理' },
-  { id: 'p11', category: '风格', title: '像素艺术', prompt: '16-bit 像素艺术风格，复古游戏画面，有限调色板，清晰像素边缘，怀旧氛围' },
-  { id: 'p12', category: '风格', title: '3D 写实渲染', prompt: '3D 写实渲染，Octane Render 品质，全局光照，PBR 材质，8K 细节纹理' },
-];
 
-const PROMPT_CATEGORIES = ['全部', '人物', '场景', '产品', '风格'];
 const HistoryItem = memo(({ node, type, onClick, isDark }: { node: NodeData, type: 'image' | 'video', onClick: () => void, isDark: boolean }) => {
     const stackCount = node.outputArtifacts?.length || 0;
     
@@ -54,36 +39,29 @@ const HistoryItem = memo(({ node, type, onClick, isDark }: { node: NodeData, typ
                 <img src={node.imageSrc} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" decoding="async"/>
             ) : (
                 <div className="w-full h-full relative">
-                   <video src={node.videoSrc} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" muted preload="metadata" />
+                   <video src={node.videoSrc} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" muted preload="metadata"/>
                    <div className="absolute inset-0 flex items-center justify-center">
-                       <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isDark ? 'bg-white/20' : 'bg-black/20'} backdrop-blur-sm`}>
-                           <Icons.Play size={14} className="text-white ml-0.5"/>
-                       </div>
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-transform duration-300 group-hover:scale-110 ${isDark ? 'bg-black/70 text-white' : 'bg-white/70 text-black'}`}>
+                        <Icons.Play size={18} fill="currentColor" />
+                      </div>
                    </div>
                 </div>
             )}
-            
-            {stackCount > 1 && (
-                <div className={`absolute top-1.5 right-1.5 text-[10px] px-1.5 py-0.5 rounded-md flex items-center gap-1 ${isDark ? 'bg-black/60 text-white' : 'bg-white/80 text-gray-700'} backdrop-blur-sm`}>
-                    <Icons.Layers size={10} />
-                    <span className="font-semibold">{stackCount}</span>
+            {/* Stack badge */}
+            {stackCount > 0 && (
+                <div className={`absolute top-2 right-2 px-1.5 py-0.5 rounded-md text-[10px] font-bold backdrop-blur-md ${isDark ? 'bg-white/10 text-white' : 'bg-black/10 text-black'}`}>
+                    {stackCount}
                 </div>
             )}
-
-            <div className={`absolute inset-x-0 bottom-0 p-2 ${isDark ? 'bg-gradient-to-t from-black/80 to-transparent' : 'bg-gradient-to-t from-white/90 to-transparent'}`}>
-                <div className={`text-[11px] truncate font-medium ${isDark ? 'text-white' : 'text-gray-800'}`}>{node.title}</div>
+            {/* Title overlay */}
+            <div className={`absolute bottom-0 left-0 right-0 px-2 py-1.5 bg-gradient-to-t ${isDark ? 'from-black/80 to-transparent' : 'from-white/80 to-transparent'}`}>
+                <p className={`text-[11px] font-medium truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>{node.title}</p>
             </div>
         </div>
     );
-}, (prev, next) => {
-    return prev.type === next.type && 
-           prev.node.id === next.node.id && 
-           prev.node.imageSrc === next.node.imageSrc && 
-           prev.node.videoSrc === next.node.videoSrc &&
-           prev.node.title === next.node.title &&
-           prev.isDark === next.isDark &&
-           (prev.node.outputArtifacts?.length || 0) === (next.node.outputArtifacts?.length || 0);
 });
+
+
 
 const Sidebar: React.FC<SidebarProps> = ({ 
   onAddNode, 
@@ -103,16 +81,17 @@ const Sidebar: React.FC<SidebarProps> = ({
   onAddAssetToCanvas,
   onAddMaterialToCanvas,
   onToggleMaterialFavorite,
-  onApplyPrompt,
+  onAddShotClipToCanvas,
   isDark = true
 }) => {
   const [activePanel, setActivePanel] = useState<ActivePanel>(null);
   const [historyTab, setHistoryTab] = useState<'image' | 'video'>('image');
   const [assetScope, setAssetScope] = useState<AssetLibraryScope | 'all'>('project');
-  const [assetTab, setAssetTab] = useState<AssetLibraryType | 'all'>('all');
+  const [assetTab, setAssetTab] = useState<AssetLibraryType>('role');
   const [assetSearch, setAssetSearch] = useState('');
   const [mediaTab, setMediaTab] = useState<'image' | 'video'>('image');
   const [shotEpisode, setShotEpisode] = useState<number | 'all'>('all');
+  const [shotSearch, setShotSearch] = useState('');
   const sidebarRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -136,23 +115,28 @@ const Sidebar: React.FC<SidebarProps> = ({
   // Mock shot clips for demo - will be replaced by real data
   const shotClips = useMemo<ShotClip[]>(() => {
     return [
-      { id: 'shot_001', episodeNo: 1, sceneNo: 1, shotNo: 1, shotName: '开场全景', videoUrl: '', prompt: '电影级全景镜头，清晨的城市天际线', keyframeUrls: [], description: '第一集第一场开场镜头' },
-      { id: 'shot_002', episodeNo: 1, sceneNo: 1, shotNo: 2, shotName: '主角近景', videoUrl: '', prompt: '男主角面部特写，柔和的侧光', keyframeUrls: [], description: '主角登场特写' },
-      { id: 'shot_003', episodeNo: 1, sceneNo: 2, shotNo: 1, shotName: '街道跟拍', videoUrl: '', prompt: '手持跟拍，主角穿过繁忙街道', keyframeUrls: [], description: '街道追逐戏' },
-      { id: 'shot_004', episodeNo: 2, sceneNo: 1, shotNo: 1, shotName: '室内对话', videoUrl: '', prompt: '双人中景，暖色调室内灯光', keyframeUrls: [], description: '办公室对话场景' },
+      { id: 'shot_001', episodeNo: 1, sceneNo: 1, shotNo: 1, shotName: '开场全景', videoUrl: '', prompt: '电影级全景镜头，清晨的城市天际线', keyframeUrls: [], audioUrl: '', description: '第一集第一场开场镜头' },
+      { id: 'shot_002', episodeNo: 1, sceneNo: 1, shotNo: 2, shotName: '主角近景', videoUrl: '', prompt: '男主角面部特写，柔和的侧光', keyframeUrls: [], audioUrl: '', description: '主角登场特写' },
+      { id: 'shot_003', episodeNo: 1, sceneNo: 2, shotNo: 1, shotName: '街道跟拍', videoUrl: '', prompt: '手持跟拍，主角穿过繁忙街道', keyframeUrls: [], audioUrl: '', description: '街道追逐戏' },
+      { id: 'shot_004', episodeNo: 2, sceneNo: 1, shotNo: 1, shotName: '室内对话', videoUrl: '', prompt: '双人中景，暖色调室内灯光', keyframeUrls: [], audioUrl: '', description: '办公室对话场景' },
     ];
   }, []);
 
   const filteredShotClips = useMemo(() => {
     return shotClips.filter(s => {
       if (shotEpisode !== 'all' && s.episodeNo !== shotEpisode) return false;
+      if (shotSearch.trim()) {
+        const kw = shotSearch.trim().toLowerCase();
+        const match = `${s.shotName} ${s.description || ''} ${s.prompt || ''} ${s.episodeNo} ${s.shotNo}`.toLowerCase().includes(kw);
+        if (!match) return false;
+      }
       return true;
     });
-  }, [shotClips, shotEpisode]);
+  }, [shotClips, shotEpisode, shotSearch]);
 
   const episodes = useMemo(() => {
     const set = new Set(shotClips.map(s => s.episodeNo));
-    return Array.from(set).sort((a, b) => a - b);
+    return Array.from(set).sort((a: number, b: number) => a - b);
   }, [shotClips]);
 
 
@@ -388,114 +372,108 @@ const Sidebar: React.FC<SidebarProps> = ({
           ))}
         </div>
 
-        {/* Image tab */}
+        {/* Image tab — Assets with hierarchy */}
         {mediaTab === "image" && (
           <div className="flex-1 flex flex-col gap-3 overflow-hidden">
-            <>
-                <div className="flex gap-1 shrink-0">
-                  {[
-                    { key: "role" as AssetLibraryType, label: "角色" },
-                    { key: "scene" as AssetLibraryType, label: "场景" },
-                    { key: "prop" as AssetLibraryType, label: "道具" },
-                  ].map(tab => (
-                    <button key={tab.key} className={"h-8 flex-1 rounded-lg text-xs font-semibold transition-all " + (
-                      assetTab === tab.key
-                        ? (isDark ? "bg-blue-500/20 text-blue-300" : "bg-blue-50 text-blue-600")
-                        : (isDark ? "text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200" : "text-gray-500 hover:bg-gray-100 hover:text-gray-800")
-                    )} onClick={() => setAssetTab(tab.key)}>{tab.label}</button>
-                  ))}
-                </div>
+            <div className="flex gap-1 shrink-0">
+              {[
+                { key: "role" as AssetLibraryType, label: "角色" },
+                { key: "scene" as AssetLibraryType, label: "场景" },
+                { key: "prop" as AssetLibraryType, label: "道具" },
+              ].map(tab => (
+                <button key={tab.key} className={"h-8 flex-1 rounded-lg text-xs font-semibold transition-all " + (
+                  assetTab === tab.key
+                    ? (isDark ? "bg-blue-500/20 text-blue-300" : "bg-blue-50 text-blue-600")
+                    : (isDark ? "text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200" : "text-gray-500 hover:bg-gray-100 hover:text-gray-800")
+                )} onClick={() => { setAssetTab(tab.key); setAssetSearch(''); }}>{tab.label}</button>
+              ))}
+            </div>
 
-                <div className={"flex items-center gap-2 rounded-xl border px-3 py-2 shrink-0 " + (isDark ? "border-zinc-800 bg-zinc-950/40" : "border-gray-200 bg-gray-50")}>
-                  <Icons.Search size={15} className={textMuted} />
-                  <input value={assetSearch} onChange={(e) => setAssetSearch(e.target.value)}
-                    placeholder="搜索角色、场景、道具"
-                    className={"min-w-0 flex-1 bg-transparent text-xs outline-none " + (isDark ? "text-zinc-100 placeholder:text-zinc-600" : "text-gray-900 placeholder:text-gray-400")} />
-                </div>
+            <div className={"flex items-center gap-2 rounded-xl border px-3 py-2 shrink-0 " + (isDark ? "border-zinc-800 bg-zinc-950/40" : "border-gray-200 bg-gray-50")}>
+              <Icons.Search size={15} className={textMuted} />
+              <input value={assetSearch} onChange={(e) => setAssetSearch(e.target.value)}
+                placeholder={`搜索${typeLabel[assetTab]}...`}
+                className={"min-w-0 flex-1 bg-transparent text-xs outline-none " + (isDark ? "text-zinc-100 placeholder:text-zinc-600" : "text-gray-900 placeholder:text-gray-400")} />
+            </div>
 
-                <div className={"grid grid-cols-3 gap-1 rounded-xl p-1 shrink-0 " + (isDark ? "bg-zinc-950/45" : "bg-gray-100")}>
-                  {scopeTabs.map(tab => (
-                    <button key={tab.key} className={"h-8 rounded-lg text-xs font-semibold transition-all " + (
-                      assetScope === tab.key
-                        ? (isDark ? "bg-blue-500/20 text-blue-300" : "bg-white text-blue-600 shadow-sm")
-                        : (isDark ? "text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200" : "text-gray-500 hover:bg-white/70 hover:text-gray-800")
-                    )} onClick={() => setAssetScope(tab.key)}>{tab.label}</button>
-                  ))}
-                </div>
+            <div className={"grid grid-cols-3 gap-1 rounded-xl p-1 shrink-0 " + (isDark ? "bg-zinc-950/45" : "bg-gray-100")}>
+              {scopeTabs.map(tab => (
+                <button key={tab.key} className={"h-8 rounded-lg text-xs font-semibold transition-all " + (
+                  assetScope === tab.key
+                    ? (isDark ? "bg-blue-500/20 text-blue-300" : "bg-white text-blue-600 shadow-sm")
+                    : (isDark ? "text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200" : "text-gray-500 hover:bg-white/70 hover:text-gray-800")
+                )} onClick={() => setAssetScope(tab.key)}>{tab.label}</button>
+              ))}
+            </div>
 
-                <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 space-y-2">
-                  {filteredAssetLibrary.length === 0 ? (
-                    <div className={"h-full flex flex-col items-center justify-center " + textMuted}>
-                      <Icons.Database size={28} className="opacity-40" />
-                      <p className="mt-3 text-sm font-medium">没有匹配资产</p>
-                    </div>
-                  ) : (
-                    (() => {
-                      const parents = filteredAssetLibrary.filter((a: AssetLibraryItem) => !a.parentId);
-                      const getChildren = (parentId: string) => filteredAssetLibrary.filter((a: AssetLibraryItem) => a.parentId === parentId);
-                      return parents.map((asset: AssetLibraryItem) => {
-                        const children = getChildren(asset.id);
-                        return (
-                          <div key={asset.id}>
-                            <div draggable
-                              onDragStart={(event: React.DragEvent) => { event.dataTransfer.setData("application/kc-asset", asset.id); event.dataTransfer.effectAllowed = "copy"; }}
-                              className={"group rounded-2xl border p-2 transition-all cursor-grab active:cursor-grabbing " + (isDark ? "border-zinc-800 bg-zinc-950/35 hover:border-zinc-700 hover:bg-zinc-900/70" : "border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm")}
-                            >
-                              <div className="flex gap-3">
-                                <button className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl" onClick={() => onPreviewMedia(asset.previewUrl, "image")} title="查看资产预览">
-                                  <img src={asset.previewUrl} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" decoding="async" />
-                                </button>
-                                <div className="min-w-0 flex-1">
-                                  <div className="flex items-center gap-2">
-                                    <span className={"truncate text-sm font-semibold " + textMain}>{asset.name}</span>
-                                    <span className={"shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold " + (isDark ? "bg-zinc-800 text-zinc-300" : "bg-gray-100 text-gray-600")}>{asset.version}</span>
-                                  </div>
-                                  {asset.voiceTimbre && (
-                                    <div className="mt-0.5 flex items-center gap-1 text-[10px]">
-                                      <Icons.Music size={10} className={textMuted} />
-                                      <span className={textMuted}>音色: {asset.voiceTimbre}</span>
-                                    </div>
+            <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 space-y-2">
+              {filteredAssetLibrary.length === 0 ? (
+                <div className={"h-full flex flex-col items-center justify-center " + textMuted}>
+                  <Icons.Database size={28} className="opacity-40" />
+                  <p className="mt-3 text-sm font-medium">没有匹配资产</p>
+                </div>
+              ) : (
+                (() => {
+                  const parents = filteredAssetLibrary.filter((a: AssetLibraryItem) => !a.parentId);
+                  const getChildren = (parentId: string) => filteredAssetLibrary.filter((a: AssetLibraryItem) => a.parentId === parentId);
+                  return parents.map((asset: AssetLibraryItem) => {
+                    const children = getChildren(asset.id);
+                    return (
+                      <div key={asset.id}>
+                        <div draggable
+                          onDragStart={(event: React.DragEvent) => { event.dataTransfer.setData("application/kc-asset", asset.id); event.dataTransfer.effectAllowed = "copy"; }}
+                          className={"group rounded-xl border p-3 transition-all cursor-grab active:cursor-grabbing " + (isDark ? "border-zinc-800 bg-zinc-950/35 hover:border-zinc-700 hover:bg-zinc-900/70" : "border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm")}
+                        >
+                          <div className="flex items-center gap-3">
+                            <img src={asset.previewUrl} className="h-10 w-10 rounded-lg object-cover shrink-0" loading="lazy" />
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5">
+                                <span className={"truncate text-sm font-semibold " + textMain}>{asset.name}</span>
+                                <span className={"text-[10px] shrink-0 " + textMuted}>{asset.version}</span>
+                              </div>
+                              {asset.voiceTimbre && (
+                                <span className={"inline-flex items-center gap-1 mt-0.5 text-[10px] rounded-md px-1.5 py-0.5 " + (isDark ? "bg-amber-500/15 text-amber-300" : "bg-amber-100 text-amber-700")}>
+                                  <Icons.Mic size={9} />
+                                  {asset.voiceTimbre}
+                                </span>
+                              )}
+                              {asset.description && (
+                                <p className={"mt-1 text-[11px] truncate " + textMuted}>{asset.description}</p>
+                              )}
+                            </div>
+                            <span className={"text-[10px] shrink-0 " + textMuted}>{asset.updatedAt}</span>
+                          </div>
+                        </div>
+                        {children.length > 0 && (
+                          <div className="ml-4 mt-1 space-y-1 border-l-2 pl-3" style={{ borderColor: isDark ? 'rgba(63,63,70,0.5)' : 'rgba(229,231,235,0.8)' }}>
+                            {children.map((child: AssetLibraryItem) => (
+                              <div key={child.id} draggable
+                                onDragStart={(event: React.DragEvent) => { event.dataTransfer.setData("application/kc-asset", child.id); event.dataTransfer.effectAllowed = "copy"; }}
+                                className={"group rounded-lg border p-2 transition-all cursor-grab active:cursor-grabbing " + (isDark ? "border-zinc-800/60 bg-zinc-950/20 hover:border-zinc-700 hover:bg-zinc-900/50" : "border-gray-100 bg-gray-50 hover:border-gray-200 hover:bg-white")}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <img src={child.previewUrl} className="h-8 w-8 rounded-lg object-cover shrink-0" loading="lazy" />
+                                  <span className={"truncate text-xs font-medium " + textMain}>{child.name}</span>
+                                  {child.voiceTimbre && (
+                                    <span className={"text-[10px] shrink-0 " + textMuted} title={child.voiceTimbre}>
+                                      <Icons.Mic size={9} className="inline" />
+                                    </span>
                                   )}
-                                  <div className={"mt-1 flex items-center gap-2 text-[10px] " + textMuted}>
-                                    <span>{typeLabel[asset.type]}</span>
-                                    <span className={"h-1 w-1 rounded-full " + (isDark ? "bg-zinc-700" : "bg-gray-300")} />
-                                    <span>{asset.updatedAt}</span>
-                                  </div>
                                 </div>
                               </div>
-                              <div className="mt-2 flex items-center justify-between">
-                                <span className={"text-[10px] " + textMuted}>拖到画布或点击放入</span>
-                                <button className={"h-7 rounded-lg px-2.5 text-xs font-semibold transition-all " + (isDark ? "bg-blue-500/15 text-blue-300 hover:bg-blue-500/25" : "bg-blue-50 text-blue-600 hover:bg-blue-100")}
-                                  onClick={() => onAddAssetToCanvas(asset)}>放到画布</button>
-                              </div>
-                            </div>
-                            {children.length > 0 && (
-                              <div className="ml-4 mt-1 space-y-1 border-l-2 pl-3" style={{ borderColor: isDark ? "#3f3f46" : "#e5e7eb" }}>
-                                {children.map((child: AssetLibraryItem) => (
-                                  <div key={child.id} draggable
-                                    onDragStart={(event: React.DragEvent) => { event.dataTransfer.setData("application/kc-asset", child.id); event.dataTransfer.effectAllowed = "copy"; }}
-                                    className={"group rounded-xl border p-1.5 transition-all cursor-grab text-xs " + (isDark ? "border-zinc-800 bg-zinc-950/25 hover:border-zinc-700" : "border-gray-200 bg-white hover:border-gray-300")}
-                                  >
-                                    <div className="flex items-center gap-2">
-                                      <img src={child.previewUrl} className="h-8 w-8 rounded-lg object-cover" loading="lazy" />
-                                      <span className={"truncate font-medium " + textMain}>{child.name}</span>
-                                      {child.voiceTimbre && <span className={"text-[10px] " + textMuted}>{child.voiceTimbre}</span>}
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
+                            ))}
                           </div>
-                        );
-                      });
-                    })()
-                  )}
-                </div>
-              </>
+                        )}
+                      </div>
+                    );
+                  });
+                })()
+              )}
+            </div>
           </div>
         )}
 
-        {/* Video tab */}
+        {/* Video tab — Shot clips */}
         {mediaTab === "video" && (
           <div className="flex-1 flex flex-col gap-3 overflow-hidden">
             <div className="flex gap-2 shrink-0">
@@ -504,9 +482,10 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <option value="all">全部集数</option>
                 {episodes.map((ep: number) => <option key={ep} value={String(ep)}>第{ep} 集</option>)}
               </select>
-              <div className={"flex items-center rounded-xl border px-3 " + (isDark ? "border-zinc-800 bg-zinc-950/40" : "border-gray-200 bg-gray-50")}>
+              <div className={"flex items-center gap-2 rounded-xl border px-3 flex-1 " + (isDark ? "border-zinc-800 bg-zinc-950/40" : "border-gray-200 bg-gray-50")}>
                 <Icons.Search size={14} className={textMuted} />
-                <input className={"w-24 bg-transparent text-xs outline-none " + (isDark ? "text-zinc-100 placeholder:text-zinc-600" : "text-gray-900 placeholder:text-gray-400")} placeholder="搜索镜次" />
+                <input value={shotSearch} onChange={(e) => setShotSearch(e.target.value)}
+                  className={"min-w-0 flex-1 bg-transparent text-xs outline-none " + (isDark ? "text-zinc-100 placeholder:text-zinc-600" : "text-gray-900 placeholder:text-gray-400")} placeholder="搜索镜次" />
               </div>
             </div>
             <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 space-y-2">
@@ -526,19 +505,26 @@ const Sidebar: React.FC<SidebarProps> = ({
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5">
                           <span className={"rounded-md px-1.5 py-0.5 text-[10px] font-bold " + (isDark ? "bg-purple-500/20 text-purple-300" : "bg-purple-100 text-purple-700")}>
-                            第{clip.episodeNo}集 第{clip.sceneNo}场 第{String(clip.shotNo).padStart(2, "0")}镜</span>
+                            第{clip.episodeNo}集·第{clip.sceneNo}场·第{String(clip.shotNo).padStart(2, "0")}镜
+                          </span>
                         </div>
                         <p className={"mt-1.5 text-sm font-semibold truncate " + textMain}>{clip.shotName}</p>
                         {clip.prompt && <p className={"mt-1 text-[11px] line-clamp-2 " + textSub}>{clip.prompt}</p>}
                       </div>
-                      <button className={"h-8 rounded-lg px-2.5 text-xs font-semibold transition-all shrink-0 ml-2 " + (isDark ? "bg-blue-500/15 text-blue-300 hover:bg-blue-500/25" : "bg-blue-50 text-blue-600 hover:bg-blue-100")}
-                        onClick={() => { onAddAssetToCanvas?.({ id: clip.id, type: "role", name: clip.shotName, version: "v1", updatedAt: "", previewUrl: "", description: clip.description || "" }); }}>
-                        放到画布
-                      </button>
                     </div>
                     <div className={"mt-2 flex items-center gap-3 text-[10px] " + textMuted}>
+                      {clip.keyframeUrls && clip.keyframeUrls.length > 0 && (
+                        <span className="flex items-center gap-1"><Icons.Image size={10} />{clip.keyframeUrls.length} 关键帧</span>
+                      )}
                       {clip.audioUrl && <span className="flex items-center gap-1"><Icons.Music size={10} />音频</span>}
+                      {clip.videoUrl && <span className="flex items-center gap-1"><Icons.Video size={10} />视频</span>}
                     </div>
+                    <button 
+                      className={"mt-2 w-full h-8 rounded-lg text-xs font-semibold transition-all " + (isDark ? "bg-blue-500/15 text-blue-300 hover:bg-blue-500/25" : "bg-blue-50 text-blue-600 hover:bg-blue-100")}
+                      onClick={(e) => { e.stopPropagation(); onAddShotClipToCanvas?.(clip); }}
+                    >
+                      放到画布
+                    </button>
                   </div>
                 ))
               )}
@@ -549,52 +535,6 @@ const Sidebar: React.FC<SidebarProps> = ({
     );
   };
 
-  const [promptCategory, setPromptCategory] = useState<string>('全部');
-
-  const filteredPrompts = useMemo(() => {
-    if (promptCategory === '全部') return PROMPT_TEMPLATES;
-    return PROMPT_TEMPLATES.filter(t => t.category === promptCategory);
-  }, [promptCategory]);
-  const renderPromptLibraryPanel = () => (
-    <div className="h-full flex flex-col gap-3">
-      <div className={`flex gap-1 rounded-xl p-1 ${isDark ? 'bg-zinc-950/45' : 'bg-gray-100'}`}>
-        {PROMPT_CATEGORIES.map(cat => (
-          <button
-            key={cat}
-            className={`h-7 px-2.5 rounded-lg text-[11px] font-semibold transition-all ${
-              promptCategory === cat
-                ? (isDark ? 'bg-blue-500/20 text-blue-300' : 'bg-white text-blue-600 shadow-sm')
-                : (isDark ? 'text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200' : 'text-gray-500 hover:bg-white/70 hover:text-gray-800')
-            }`}
-            onClick={() => setPromptCategory(cat)}
-          >
-            {cat}
-          </button>
-        ))}
-      </div>
-      <div className="flex-1 overflow-y-auto space-y-2 no-scrollbar">
-        {filteredPrompts.map(template => (
-          <button
-            key={template.id}
-            className={`w-full text-left p-3 rounded-xl border transition-all group ${
-              isDark
-                ? 'border-zinc-800 hover:border-zinc-600 hover:bg-zinc-800/50'
-                : 'border-gray-100 hover:border-gray-300 hover:bg-gray-50'
-            }`}
-            onClick={() => { onApplyPrompt?.(template.prompt); setActivePanel(null); }}
-          >
-            <div className="flex items-center justify-between mb-1">
-              <span className={`text-xs font-semibold ${textMain}`}>{template.title}</span>
-              <span className={`text-[10px] px-1.5 py-0.5 rounded-md ${isDark ? 'bg-zinc-800 text-zinc-400' : 'bg-gray-100 text-gray-500'}`}>{template.category}</span>
-            </div>
-            <div className={`text-[11px] leading-relaxed line-clamp-2 ${textSub}`}>{template.prompt}</div>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-
-  // 渲染面板内容
   const renderPanel = () => {
     if (!activePanel) return null;
 
@@ -705,16 +645,13 @@ const Sidebar: React.FC<SidebarProps> = ({
         title = '资产素材库';
         content = renderAssetMaterialPanel();
         break;
-      case 'PROMPT_LIBRARY':
-        title = '提示词库';
-        content = renderPromptLibraryPanel();
-        break;
+
     }
 
     return (
       <div 
         ref={panelRef}
-        className={`fixed left-[76px] top-1/2 -translate-y-1/2 ${activePanel === 'ASSET_MATERIAL' || activePanel === 'PROMPT_LIBRARY' ? 'w-80 h-[70vh]' : 'w-64 max-h-[80vh]'} ${bgMain} backdrop-blur-xl border ${borderColor} rounded-2xl z-[190] flex flex-col shadow-xl animate-in slide-in-from-left-2 duration-200`}
+        className={`fixed left-[76px] top-1/2 -translate-y-1/2 ${activePanel === 'ASSET_MATERIAL' ? 'w-80 h-[70vh]' : 'w-64 max-h-[80vh]'} ${bgMain} backdrop-blur-xl border ${borderColor} rounded-2xl z-[190] flex flex-col shadow-xl animate-in slide-in-from-left-2 duration-200`}
       >
         {/* Panel Header */}
         <div className={`px-4 py-3 border-b ${borderColor} flex items-center justify-between shrink-0`}>
@@ -749,8 +686,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         <SidebarButton icon={Icons.Clock} panel="HISTORY" tooltip="生成历史" />
         <SidebarButton icon={Icons.Coins} tooltip="积分看板" onClick={onOpenCreditDashboard} />
         <SidebarButton icon={Icons.Database} panel="ASSET_MATERIAL" tooltip="资产素材库" />
-        <SidebarButton icon={Icons.Library} panel="PROMPT_LIBRARY" tooltip="提示词库" />
-        <SidebarButton icon={Icons.Upload} tooltip="导入素材" onClick={onImportAsset} />
+<SidebarButton icon={Icons.Upload} tooltip="导入素材" onClick={onImportAsset} />
         
       </div>
 
