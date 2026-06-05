@@ -1,25 +1,12 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { CameraMovementPreset, InputMedia, NodeData } from '../../types';
+import { InputMedia, NodeData } from '../../types';
 import { Icons } from '../Icons';
 import { getModelConfig, MODEL_REGISTRY, getVisibleModels } from '../../services/geminiService';
 import { VIDEO_HANDLERS } from '../../services/mode/video/configurations';
 import { getVideoConstraints, getAutoCorrectedVideoSettings } from '../../services/mode/video/rules';
 import { LocalEditableTitle, LocalCustomDropdown, LocalInputThumbnails, LocalMediaStack } from './Shared/LocalNodeComponents';
-
-const CAMERA_PRESETS: CameraMovementPreset[] = [
-  { key: 'push', label: '推', description: '镜头向前推进', icon: '↗' },
-  { key: 'pull', label: '拉', description: '镜头向后拉远', icon: '↙' },
-  { key: 'pan_left', label: '左摇', description: '镜头水平左移', icon: '←' },
-  { key: 'pan_right', label: '右摇', description: '镜头水平右移', icon: '→' },
-  { key: 'tilt_up', label: '仰', description: '镜头向上抬', icon: '↑' },
-  { key: 'tilt_down', label: '俯', description: '镜头向下压', icon: '↓' },
-  { key: 'orbit', label: '环绕', description: '绕主体 360° 旋转', icon: '⟳' },
-  { key: 'crane_up', label: '升', description: '镜头垂直上升', icon: '⇡' },
-  { key: 'crane_down', label: '降', description: '镜头垂直下降', icon: '⇣' },
-  { key: 'follow', label: '跟随', description: '跟随主体运动', icon: '⇢' },
-  { key: 'static', label: '固定', description: '静止镜头', icon: '◎' },
-];
+import { VideoFrameExtractPanel } from '../VideoFrameExtractPanel';
 
 interface TextToVideoNodeProps {
   data: NodeData;
@@ -35,8 +22,10 @@ interface TextToVideoNodeProps {
   onUpload?: (id: string) => void;
   onSaveResult?: (id: string) => void;
   onExtractFrames?: (id: string) => void;
+  onExtractSingleFrame?: (id: string, imageDataUrl: string, timeSeconds: number) => void;
   onRemoveSubtitles?: (id: string) => void;
   onEnhanceVideo?: (id: string) => void;
+  onRemoveBGM?: (id: string) => void;
   onToggleFavoriteArtifact?: (nodeId: string, url: string, type: 'image' | 'video') => void;
   isArtifactFavorited?: (nodeId: string, url: string) => boolean;
   isDark?: boolean;
@@ -45,14 +34,14 @@ interface TextToVideoNodeProps {
 }
 
 export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
-    data, updateData, onGenerate, selected, showControls, inputs = [], inputMedia = [], onPreviewReference, onMaximize, onDownload, onUpload, onSaveResult, onExtractFrames, onRemoveSubtitles, onEnhanceVideo, onToggleFavoriteArtifact, isArtifactFavorited, isDark = true, isSelecting, canvasScale = 1
+    data, updateData, onGenerate, selected, showControls, inputs = [], inputMedia = [], onPreviewReference, onMaximize, onDownload, onUpload, onSaveResult, onExtractFrames, onExtractSingleFrame, onRemoveSubtitles, onEnhanceVideo, onRemoveBGM, onToggleFavoriteArtifact, isArtifactFavorited, isDark = true, isSelecting, canvasScale = 1
 }) => {
     const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
     const [deferredInputs, setDeferredInputs] = useState(false);
     const [progress, setProgress] = useState(0);
     const [isConfigured, setIsConfigured] = useState(true);
     const [videoModels, setVideoModels] = useState<string[]>([]);
-    const [isCameraLibOpen, setIsCameraLibOpen] = useState(false);
+    const [isFrameExtractOpen, setIsFrameExtractOpen] = useState(false);
 
     const isSelectedAndStable = selected && !isSelecting;
     // Panel stays a constant screen size while zooming via the --canvas-scale CSS var,
@@ -319,10 +308,6 @@ export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
 
         {isSelectedAndStable && showControls && hasResult && (
             <div className={`absolute bottom-full left-1/2 mb-4 z-[75] flex items-center gap-1.5 rounded-2xl border px-3 py-2 shadow-2xl backdrop-blur-xl pointer-events-auto ${isDark ? 'bg-[#202020]/95 border-zinc-700 text-zinc-100' : 'bg-white/95 border-gray-200 text-gray-900'}`} style={panelTransform} onMouseDown={(e) => e.stopPropagation()}>
-                <button className={`h-9 px-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onExtractFrames?.(data.id)} title="从视频提取关键帧为图片节点">
-                    <Icons.Frame size={16} />
-                    <span>截帧</span>
-                </button>
                 <button className={`h-9 px-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onRemoveSubtitles?.(data.id)} title="AI 检测并移除硬字幕和水印">
                     <Icons.Subtitles size={16} />
                     <span>去字幕</span>
@@ -330,6 +315,14 @@ export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
                 <button className={`h-9 px-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onEnhanceVideo?.(data.id)} title="帧插值提升帧率 / 超分辨率提升画质">
                     <Icons.TrendingUp size={16} />
                     <span>增分</span>
+                </button>
+                <button className={`h-9 px-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => setIsFrameExtractOpen(true)} title="逐帧浏览视频并抽取为图片">
+                    <Icons.Frame size={16} />
+                    <span>视频截帧</span>
+                </button>
+                <button className={`h-9 px-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onRemoveBGM?.(data.id)} title="移除背景音乐，保留人声对白">
+                    <Icons.VolumeX size={16} />
+                    <span>去BGM</span>
                 </button>
                 <div className={`w-px h-6 mx-1 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`} />
                 <button className={`h-9 px-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onUpload?.(data.id)} title="上传替换当前视频">
@@ -374,46 +367,6 @@ export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
                                   </button>
                               </div>
                           </div>
-                      </div>
-                  )}
-                  {/* Camera Movement Library Toggle */}
-                  <div className="flex items-center gap-2">
-                      <button
-                          className={`h-8 px-3 rounded-lg text-xs font-semibold flex items-center gap-1.5 border transition-colors ${
-                              isCameraLibOpen
-                                  ? (isDark ? 'bg-purple-500/20 border-purple-500/30 text-purple-300' : 'bg-purple-50 border-purple-200 text-purple-700')
-                                  : (isDark ? 'border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-600' : 'border-gray-200 text-gray-500 hover:text-gray-700 hover:border-gray-300')
-                          }`}
-                          onClick={() => setIsCameraLibOpen(!isCameraLibOpen)}
-                      >
-                          <Icons.Move3d size={14} />
-                          <span>运镜库</span>
-                          <Icons.ChevronDown size={12} className={`transition-transform ${isCameraLibOpen ? 'rotate-180' : ''}`} />
-                      </button>
-                      {data.cameraMovement && (
-                          <span className={`text-[11px] px-2 py-1 rounded-md ${isDark ? 'bg-purple-500/15 text-purple-300' : 'bg-purple-50 text-purple-600'}`}>
-                              {CAMERA_PRESETS.find(p => p.key === data.cameraMovement)?.label || data.cameraMovement}
-                          </span>
-                      )}
-                  </div>
-
-                  {isCameraLibOpen && (
-                      <div className={`grid grid-cols-4 gap-1.5 p-2 rounded-xl border ${isDark ? 'bg-zinc-900/70 border-zinc-800' : 'bg-gray-50 border-gray-200'}`}>
-                          {CAMERA_PRESETS.map(preset => (
-                              <button
-                                  key={preset.key}
-                                  className={`flex flex-col items-center gap-1 px-2 py-2 rounded-lg text-center transition-colors ${
-                                      data.cameraMovement === preset.key
-                                          ? (isDark ? 'bg-purple-500/20 border border-purple-500/40 text-purple-200' : 'bg-purple-100 border border-purple-300 text-purple-800')
-                                          : (isDark ? 'hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200' : 'hover:bg-gray-100 text-gray-500 hover:text-gray-700')
-                                  }`}
-                                  onClick={() => updateData(data.id, { cameraMovement: data.cameraMovement === preset.key ? undefined : preset.key })}
-                                  title={preset.description}
-                              >
-                                  <span className="text-lg leading-none">{preset.icon}</span>
-                                  <span className="text-[10px] font-medium">{preset.label}</span>
-                              </button>
-                          ))}
                       </div>
                   )}
 
@@ -491,6 +444,19 @@ export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
                   </div>
               </div>
           </div>
+        )}
+
+        {isFrameExtractOpen && data.videoSrc && (
+            <VideoFrameExtractPanel
+                isOpen={isFrameExtractOpen}
+                videoSrc={data.videoSrc}
+                isDark={isDark}
+                onClose={() => setIsFrameExtractOpen(false)}
+                onExtractFrame={(imageDataUrl, timeSeconds) => {
+                    onExtractSingleFrame?.(data.id, imageDataUrl, timeSeconds);
+                    setIsFrameExtractOpen(false);
+                }}
+            />
         )}
       </>
     );

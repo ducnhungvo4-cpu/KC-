@@ -55,6 +55,17 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
     const [isAngleDragging, setIsAngleDragging] = useState(false);
     const anglePadRef = useRef<HTMLDivElement>(null);
 
+    const [isLightingOpen, setIsLightingOpen] = useState(false);
+    const [lightView, setLightView] = useState<'perspective' | 'front'>('perspective');
+    const [lightBrightness, setLightBrightness] = useState(50);
+    const [lightDirection, setLightDirection] = useState<string>('front');
+    const [lightRimEnabled, setLightRimEnabled] = useState(false);
+    const [lightSmartMode, setLightSmartMode] = useState(false);
+    const [isLightDragging, setIsLightDragging] = useState(false);
+    const [lightAzimuth, setLightAzimuth] = useState(0);
+    const [lightElevation, setLightElevation] = useState(30);
+    const lightPadRef = useRef<HTMLDivElement>(null);
+
     const isSelectedAndStable = selected && !isSelecting;
     // Panel stays a constant screen size while zooming via the --canvas-scale CSS var,
     // so zoom no longer re-renders the node (heavy base64 media stays off the hot path).
@@ -167,6 +178,61 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
             preset: anglePreset,
             targetMode: 'scene',
         });
+    };
+
+    const LIGHT_DIRECTIONS: { key: string; label: string }[] = [
+        { key: 'left', label: '左侧' }, { key: 'top', label: '顶部' }, { key: 'right', label: '右侧' },
+        { key: 'front', label: '前方' }, { key: 'bottom', label: '底部' }, { key: 'back', label: '后方' },
+    ];
+
+    const lightDirToAzEl: Record<string, [number, number]> = {
+        left: [-90, 0], top: [0, 80], right: [90, 0],
+        front: [0, 30], bottom: [0, -60], back: [180, 0],
+    };
+
+    const applyLightDirection = (dir: string) => {
+        setLightDirection(dir);
+        const [az, el] = lightDirToAzEl[dir] || [0, 30];
+        setLightAzimuth(az);
+        setLightElevation(el);
+    };
+
+    const updateLightFromPointer = (e: React.PointerEvent<HTMLDivElement>) => {
+        const el = lightPadRef.current;
+        if (!el) return;
+        const rect = el.getBoundingClientRect();
+        const nx = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+        const ny = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+        setLightAzimuth(Math.round((nx - 0.5) * 360));
+        setLightElevation(Math.round((0.5 - ny) * 180));
+        setLightDirection('');
+    };
+
+    const handleLightPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+        e.stopPropagation();
+        setIsLightDragging(true);
+        e.currentTarget.setPointerCapture(e.pointerId);
+        updateLightFromPointer(e);
+    };
+    const handleLightPointerMove = (e: React.PointerEvent<HTMLDivElement>) => { if (isLightDragging) updateLightFromPointer(e); };
+    const handleLightPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+        setIsLightDragging(false);
+        if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+    };
+
+    const handleLightingGenerate = () => {
+        if (!data.imageSrc || data.isLoading) return;
+        onLighting?.(data.id);
+    };
+
+    const resetLighting = () => {
+        setLightView('perspective');
+        setLightBrightness(50);
+        setLightDirection('front');
+        setLightRimEnabled(false);
+        setLightSmartMode(false);
+        setLightAzimuth(0);
+        setLightElevation(30);
     };
 
     const handleRatioChange = (ratio: string) => {
@@ -293,7 +359,7 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
                         <Icons.RefreshCw size={16} />
                         <span>多角度</span>
                     </button>
-                    <button className={`h-9 px-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onLighting?.(data.id)} title="调整灯光方向和类型">
+                    <button className={`h-9 px-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-colors ${isLightingOpen ? (isDark ? 'bg-amber-500/15 text-amber-300' : 'bg-amber-50 text-amber-700') : (isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100')}`} onClick={() => setIsLightingOpen(true)} title="调整灯光方向和类型">
                         <Icons.Sun size={16} />
                         <span>打光</span>
                     </button>
@@ -338,7 +404,7 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
         )}
 
         {/* Control Panel */}
-        {isSelectedAndStable && showControls && (!hasResult || isAngleEditorOpen) && (
+        {isSelectedAndStable && showControls && (!hasResult || isAngleEditorOpen || isLightingOpen) && (
             <div className="absolute top-full left-1/2 min-w-[520px] pt-4 z-[70] pointer-events-auto" style={panelTransform} onMouseDown={(e) => e.stopPropagation()}>
                  {!hasResult && inputMedia.length > 0 && <LocalInputThumbnails inputs={inputs} items={inputMedia} ready={deferredInputs} isDark={isDark} onPreview={onPreviewReference} />}
                  <div className={`${controlPanelBg} rounded-2xl p-4 flex flex-col gap-3 border`}>
@@ -599,6 +665,125 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
                                       <span>重置参数</span>
                                   </button>
                                   <button className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all ${data.isLoading ? 'bg-gray-400 text-white cursor-not-allowed' : 'bg-white text-zinc-950 hover:bg-cyan-100 shadow-lg'}`} disabled={data.isLoading} onClick={handleMultiAngleGenerate} title="生成多角度图片">
+                                      {data.isLoading ? <Icons.Loader2 size={22} className="animate-spin" /> : <Icons.ArrowUp size={26} />}
+                                  </button>
+                              </div>
+                          </div>
+                      )}
+                      {data.imageSrc && isLightingOpen && (
+                          <div className={`rounded-2xl border p-5 flex flex-col gap-4 ${isDark ? 'border-zinc-700 bg-[#202020]' : 'border-gray-200 bg-white shadow-xl'}`}>
+                              <div className="flex items-center justify-between gap-3">
+                                  <div className={`text-lg font-semibold ${isDark ? 'text-zinc-100' : 'text-gray-900'}`}>打光效果</div>
+                                  <button
+                                      className={`w-9 h-9 rounded-lg flex items-center justify-center ${isDark ? 'hover:bg-zinc-800 text-zinc-400' : 'hover:bg-gray-100 text-gray-500'}`}
+                                      onClick={() => setIsLightingOpen(false)}
+                                  >
+                                      <Icons.X size={22} />
+                                  </button>
+                              </div>
+                              <div className="grid grid-cols-[240px_1fr] gap-6">
+                                  {/* Left: sphere */}
+                                  <div className="flex flex-col gap-3">
+                                      <div className={`flex p-0.5 rounded-lg ${isDark ? 'bg-zinc-900' : 'bg-gray-100'}`}>
+                                          {[{ key: 'perspective' as const, label: '透视' }, { key: 'front' as const, label: '正面' }].map(v => (
+                                              <button key={v.key} className={`flex-1 h-8 rounded-md text-xs font-semibold transition-colors ${lightView === v.key ? (isDark ? 'bg-zinc-700 text-white' : 'bg-white text-gray-900 shadow-sm') : (isDark ? 'text-zinc-500' : 'text-gray-400')}`} onClick={() => setLightView(v.key)}>{v.label}</button>
+                                          ))}
+                                      </div>
+                                      <div
+                                          ref={lightPadRef}
+                                          className={`relative aspect-square rounded-2xl overflow-hidden cursor-crosshair touch-none ${isDark ? 'bg-zinc-800' : 'bg-gray-100'}`}
+                                          onPointerDown={handleLightPointerDown}
+                                          onPointerMove={handleLightPointerMove}
+                                          onPointerUp={handleLightPointerUp}
+                                          onPointerCancel={handleLightPointerUp}
+                                      >
+                                          {/* Sphere guides */}
+                                          <div className={`absolute inset-6 rounded-full border ${isDark ? 'border-zinc-600/50' : 'border-gray-300/60'}`} />
+                                          <div className={`absolute inset-12 rounded-full border ${isDark ? 'border-zinc-600/30' : 'border-gray-300/40'}`} />
+                                          <div className={`absolute left-1/2 top-6 bottom-6 w-px ${isDark ? 'bg-zinc-600/30' : 'bg-gray-300/40'}`} />
+                                          <div className={`absolute top-1/2 left-6 right-6 h-px ${isDark ? 'bg-zinc-600/30' : 'bg-gray-300/40'}`} />
+                                          {/* Light beam cone */}
+                                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                              <div
+                                                  className="absolute w-20 h-28 opacity-40"
+                                                  style={{
+                                                      left: `${50 + (lightAzimuth / 180) * 35}%`,
+                                                      top: `${50 - (lightElevation / 90) * 35}%`,
+                                                      transform: `translate(-50%, -50%) rotate(${-lightAzimuth / 3}deg)`,
+                                                      background: `conic-gradient(from ${180 + lightAzimuth / 2}deg, rgba(255,255,200,0.5) 0deg, transparent 40deg, transparent 320deg, rgba(255,255,200,0.5) 360deg)`,
+                                                      borderRadius: '50%',
+                                                  }}
+                                              />
+                                          </div>
+                                          {/* Light dot */}
+                                          <div
+                                              className="absolute z-10 w-4 h-4 rounded-full bg-amber-400 border-2 border-white shadow-[0_0_12px_rgba(251,191,36,0.6)]"
+                                              style={{
+                                                  left: `${50 + (lightAzimuth / 180) * 35}%`,
+                                                  top: `${50 - (lightElevation / 90) * 35}%`,
+                                                  transform: 'translate(-50%, -50%)',
+                                              }}
+                                          />
+                                      </div>
+                                  </div>
+                                  {/* Right: controls */}
+                                  <div className="flex flex-col gap-4 justify-center">
+                                      {/* Global / Smart mode */}
+                                      <div className="flex items-center justify-between">
+                                          <span className={`text-sm font-semibold ${isDark ? 'text-zinc-200' : 'text-gray-800'}`}>全局</span>
+                                          <label className="flex items-center gap-2 cursor-pointer">
+                                              <span className={`text-xs ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>智能模式</span>
+                                              <button className={`relative w-10 h-5 rounded-full transition-colors ${lightSmartMode ? 'bg-blue-500' : (isDark ? 'bg-zinc-700' : 'bg-gray-300')}`} onClick={() => setLightSmartMode(!lightSmartMode)}>
+                                                  <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${lightSmartMode ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                                              </button>
+                                          </label>
+                                      </div>
+                                      {/* Brightness */}
+                                      <div className="flex items-center gap-3">
+                                          <span className={`text-sm w-10 shrink-0 ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>亮度</span>
+                                          <input type="range" min={0} max={100} value={lightBrightness} onChange={(e) => setLightBrightness(Number(e.target.value))} className="flex-1 accent-amber-400" />
+                                          <span className={`text-sm font-semibold w-12 text-right ${isDark ? 'text-zinc-100' : 'text-gray-900'}`}>{lightBrightness}%</span>
+                                      </div>
+                                      {/* Color */}
+                                      <div className="flex items-center gap-3">
+                                          <span className={`text-sm w-10 shrink-0 ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>颜色</span>
+                                          <div className={`w-10 h-6 rounded-md border ${isDark ? 'border-zinc-600 bg-zinc-700' : 'border-gray-300 bg-gray-200'}`} style={{ background: `hsl(${lightBrightness * 3.6}, 20%, ${40 + lightBrightness * 0.4}%)` }} />
+                                      </div>
+                                      {/* Light direction */}
+                                      <div>
+                                          <span className={`text-sm mb-2 block ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>主光源</span>
+                                          <div className="grid grid-cols-3 gap-1.5">
+                                              {LIGHT_DIRECTIONS.map(d => (
+                                                  <button
+                                                      key={d.key}
+                                                      className={`h-8 rounded-lg text-xs font-semibold border transition-all ${
+                                                          lightDirection === d.key
+                                                              ? (isDark ? 'bg-zinc-600 border-zinc-500 text-white' : 'bg-gray-900 border-gray-900 text-white')
+                                                              : (isDark ? 'border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-600' : 'border-gray-200 text-gray-500 hover:text-gray-900 hover:border-gray-300')
+                                                      }`}
+                                                      onClick={() => applyLightDirection(d.key)}
+                                                  >
+                                                      {d.label}
+                                                  </button>
+                                              ))}
+                                          </div>
+                                      </div>
+                                      {/* Rim light */}
+                                      <div className="flex items-center justify-between">
+                                          <span className={`text-sm ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>轮廓光</span>
+                                          <button className={`relative w-10 h-5 rounded-full transition-colors ${lightRimEnabled ? 'bg-blue-500' : (isDark ? 'bg-zinc-700' : 'bg-gray-300')}`} onClick={() => setLightRimEnabled(!lightRimEnabled)}>
+                                              <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${lightRimEnabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                                          </button>
+                                      </div>
+                                  </div>
+                              </div>
+                              {/* Footer */}
+                              <div className="flex items-center justify-between pt-1">
+                                  <button className={`h-8 px-3 rounded-lg text-sm flex items-center gap-2 ${isDark ? 'text-zinc-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'}`} onClick={resetLighting}>
+                                      <Icons.RotateCcw size={15} />
+                                      <span>重置参数</span>
+                                  </button>
+                                  <button className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all ${data.isLoading ? 'bg-gray-400 text-white cursor-not-allowed' : 'bg-white text-zinc-950 hover:bg-amber-100 shadow-lg'}`} disabled={data.isLoading} onClick={handleLightingGenerate} title="应用打光效果">
                                       {data.isLoading ? <Icons.Loader2 size={22} className="animate-spin" /> : <Icons.ArrowUp size={26} />}
                                   </button>
                               </div>

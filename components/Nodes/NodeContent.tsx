@@ -24,8 +24,10 @@ interface NodeContentProps {
   onAnalyzeScript?: (nodeId: string) => void;
   onPreviewReference?: (item: InputMedia) => void;
   onExtractFrames?: (nodeId: string) => void;
+  onExtractSingleFrame?: (nodeId: string, imageDataUrl: string, timeSeconds: number) => void;
   onRemoveSubtitles?: (nodeId: string) => void;
   onEnhanceVideo?: (nodeId: string) => void;
+  onRemoveBGM?: (nodeId: string) => void;
   onMultiGrid?: (nodeId: string, preset: string) => void;
   onRepaint?: (nodeId: string) => void;
   onLighting?: (nodeId: string) => void;

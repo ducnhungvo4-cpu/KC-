@@ -244,7 +244,6 @@ const Sidebar: React.FC<SidebarProps> = ({
 
     return (
       <div className="space-y-2">
-        <div className={`text-[10px] font-bold uppercase tracking-wider ${textMuted}`}>生成节点</div>
         <div className="space-y-2">
           <NodeButton 
             icon={Icons.FileText} 
