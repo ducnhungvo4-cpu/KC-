@@ -11,6 +11,8 @@ interface BaseNodeProps {
   onPortMouseUp?: (e: React.MouseEvent, nodeId: string, type: 'source' | 'target') => void;
   onResizeStart?: (e: React.MouseEvent) => void;
   onAttachInput?: (nodeId: string) => void;
+  onAddToAssetLibrary?: (nodeId: string) => void;
+  onAddToAssetLibrary?: (nodeId: string) => void;
   children: React.ReactNode;
   scale: number;
   isDark?: boolean;
@@ -69,7 +71,7 @@ const ConnectionPort: React.FC<{
 };
 
 const BaseNode: React.FC<BaseNodeProps> = ({ 
-  data, selected, onMouseDown, onContextMenu, onConnectStart, onPortMouseUp, children, onResizeStart, onAttachInput, isDark = true
+  data, selected, onMouseDown, onContextMenu, onConnectStart, onPortMouseUp, children, onResizeStart, onAttachInput, onAddToAssetLibrary, isDark = true
 }) => {
   const showInputPort = data.type !== NodeType.ORIGINAL_IMAGE;
   const hasContent = Boolean(data.imageSrc || data.videoSrc || data.audioSrc);
@@ -113,6 +115,29 @@ const BaseNode: React.FC<BaseNodeProps> = ({
             </button>
           )}
 
+
+          {/* WLBW5paAWQjeaWsOWKoOWIsOi1hOS6p+e0oOadkOW6kyBidXR0b24gKi99
+          {onAddToAssetLibrary && hasContent && (
+            <button
+              className={`absolute left-1/2 top-0 -translate-x-1/2 -translate-y-[calc(100%+8px)] z-[78] h-9 px-3 rounded-full border backdrop-blur-xl shadow-lg flex items-center gap-2 text-sm font-semibold transition-all duration-200 ${
+                selected ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+              } ${
+                isDark
+                  ? "bg-green-950/90 border-green-700 text-green-200 hover:border-green-400 hover:text-white"
+                  : "bg-white/95 border-green-200 text-green-700 hover:border-green-400 hover:text-green-950"
+              }`}
+              title="添加到资产素材库"
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                onAddToAssetLibrary(data.id);
+              }}
+            >
+              <Icons.Database size={14} />
+              <span>添加到素材库</span>
+            </button>
+          )}
+          {/* 添加到资产素材库 button */}
           {/* Connection Ports */}
           {showInputPort && (
             <ConnectionPort

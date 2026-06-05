@@ -299,11 +299,6 @@ export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
                     <Icons.Upload size={16} />
                     <span>上传</span>
                 </button>
-                <button className={`h-9 px-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onSaveResult?.(data.id)} title="保存到项目素材或更新资产">
-                    <Icons.Save size={16} />
-                    <span>保存</span>
-                </button>
-                <div className={`w-px h-6 mx-1 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`} />
                 <button className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onDownload?.(data.id)} title="下载">
                     <Icons.Download size={17} />
                 </button>
@@ -314,7 +309,7 @@ export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
         )}
 
         {/* Control Panel */}
-        {isSelectedAndStable && showControls && !hasResult && (
+        {isSelectedAndStable && showControls && (
           <div className="absolute top-full left-1/2 min-w-[580px] pt-4 z-[70] pointer-events-auto" style={panelTransform} onMouseDown={(e) => e.stopPropagation()}>
                {inputMedia.length > 0 && <LocalInputThumbnails inputs={inputs} items={inputMedia} ready={deferredInputs} isDark={isDark} onPreview={onPreviewReference} />}
               <div className={`${controlPanelBg} rounded-2xl p-4 flex flex-col gap-3 border`}>

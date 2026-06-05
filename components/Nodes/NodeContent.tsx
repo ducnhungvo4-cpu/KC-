@@ -35,6 +35,7 @@ interface NodeContentProps {
   isArtifactFavorited?: (nodeId: string, url: string) => boolean;
   isSelecting?: boolean;
   onDelete?: (id: string) => void;
+  onAddToAssetLibrary?: (nodeId: string) => void;
   isDark?: boolean;
   inputMedia?: InputMedia[];
   canvasScale?: number;

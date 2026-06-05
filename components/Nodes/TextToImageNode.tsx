@@ -332,9 +332,6 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
                         <Icons.Upload size={17} />
                     </button>
                     <button className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onSaveResult?.(data.id)} title="保存">
-                        <Icons.Save size={17} />
-                    </button>
-                    <button className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onDownload?.(data.id)} title="下载">
                         <Icons.Download size={17} />
                     </button>
                     <button className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onMaximize?.(data.id)} title="放大查看">

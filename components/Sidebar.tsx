@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, memo, useMemo } from 'react';
 import { Icons } from './Icons';
-import { AssetLibraryItem, AssetLibraryScope, AssetLibraryType, MaterialLibraryItem, NodeType, NodeData, PromptTemplate } from '../types';
+import { AssetLibraryItem, AssetLibraryScope, AssetLibraryType, MaterialLibraryItem, NodeType, NodeData, PromptTemplate, ShotClip, AddToAssetType } from '../types';
 
 interface SidebarProps {
   onAddNode: (type: NodeType) => void;
@@ -24,7 +24,7 @@ interface SidebarProps {
   isDark?: boolean;
 }
 
-type ActivePanel = 'ADD' | 'HISTORY' | 'ASSET_LIBRARY' | 'ASSETS' | 'PROJECT' | 'PROMPT_LIBRARY' | null;
+type ActivePanel = 'ADD' | 'HISTORY' | 'ASSET_MATERIAL' | 'PROJECT' | 'PROMPT_LIBRARY' | null;
 
 const PROMPT_TEMPLATES: PromptTemplate[] = [
   { id: 'p1', category: '人物', title: '电影级人物特写', prompt: '电影级人物特写，柔和的伦勃朗光，浅景深，肤色自然，眼神有故事感，35mm 镜头质感' },
@@ -42,11 +42,6 @@ const PROMPT_TEMPLATES: PromptTemplate[] = [
 ];
 
 const PROMPT_CATEGORIES = ['全部', '人物', '场景', '产品', '风格'];
-type AssetItem = MaterialLibraryItem & {
-    nodeId: string;
-    type: 'image' | 'video';
-};
-
 const HistoryItem = memo(({ node, type, onClick, isDark }: { node: NodeData, type: 'image' | 'video', onClick: () => void, isDark: boolean }) => {
     const stackCount = node.outputArtifacts?.length || 0;
     
@@ -116,8 +111,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [assetScope, setAssetScope] = useState<AssetLibraryScope | 'all'>('project');
   const [assetTab, setAssetTab] = useState<AssetLibraryType | 'all'>('all');
   const [assetSearch, setAssetSearch] = useState('');
-  const [materialTab, setMaterialTab] = useState<'all' | 'image' | 'video' | 'favorite'>('all');
-  const [assetMenu, setAssetMenu] = useState<{ x: number; y: number; item: AssetItem } | null>(null);
+  const [mediaTab, setMediaTab] = useState<'image' | 'video'>('image');
+  const [shotEpisode, setShotEpisode] = useState<number | 'all'>('all');
   const sidebarRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -138,44 +133,28 @@ const Sidebar: React.FC<SidebarProps> = ({
       uniqueNodes.filter(n => n.videoSrc && !n.isLoading), 
   [uniqueNodes]);
 
-  const materialAssets = useMemo(() => {
-      const map = new Map<string, AssetItem>();
-      uniqueNodes.forEach(node => {
-          const nodeType: 'image' | 'video' = node.videoSrc ? 'video' : 'image';
-          const favoriteSet = new Set(node.favoriteArtifacts || []);
-          const isAudioUrl = (url: string) => /^(data:audio)/.test(url) || /\.(mp3|wav|m4a|aac|ogg|flac)(\?|$)/i.test(url);
-          const isImageOrVideoUrl = (url: string) => /^(data:image|data:video|https?:|blob:)/.test(url) && !isAudioUrl(url);
-          const urls = [
-              ...(node.imageSrc ? [node.imageSrc] : []),
-              ...(node.videoSrc ? [node.videoSrc] : []),
-              ...(node.outputArtifacts || []).filter(isImageOrVideoUrl),
-          ].filter(Boolean);
-          urls.forEach((url, index) => {
-              const type: 'image' | 'video' = node.videoSrc === url || /\.(mp4|webm|mov|mkv)(\?|$)/i.test(url) ? 'video' : nodeType;
-              const id = `${node.id}:${url}`;
-              if (!map.has(id)) {
-                  map.set(id, {
-                      id,
-                      nodeId: node.id,
-                      url,
-                      type,
-                      title: index === 0 ? node.title : `${node.title} #${index + 1}`,
-                      isFavorite: favoriteSet.has(url),
-                  });
-              }
-          });
-      });
-      return Array.from(map.values());
-  }, [uniqueNodes]);
+  // Mock shot clips for demo - will be replaced by real data
+  const shotClips = useMemo<ShotClip[]>(() => {
+    return [
+      { id: 'shot_001', episodeNo: 1, sceneNo: 1, shotNo: 1, shotName: '开场全景', videoUrl: '', prompt: '电影级全景镜头，清晨的城市天际线', keyframeUrls: [], description: '第一集第一场开场镜头' },
+      { id: 'shot_002', episodeNo: 1, sceneNo: 1, shotNo: 2, shotName: '主角近景', videoUrl: '', prompt: '男主角面部特写，柔和的侧光', keyframeUrls: [], description: '主角登场特写' },
+      { id: 'shot_003', episodeNo: 1, sceneNo: 2, shotNo: 1, shotName: '街道跟拍', videoUrl: '', prompt: '手持跟拍，主角穿过繁忙街道', keyframeUrls: [], description: '街道追逐戏' },
+      { id: 'shot_004', episodeNo: 2, sceneNo: 1, shotNo: 1, shotName: '室内对话', videoUrl: '', prompt: '双人中景，暖色调室内灯光', keyframeUrls: [], description: '办公室对话场景' },
+    ];
+  }, []);
 
-  const filteredMaterialAssets = useMemo(() => {
-      return materialAssets.filter(item => {
-          if (materialTab === 'favorite') return item.isFavorite;
-          if (materialTab === 'image') return item.type === 'image';
-          if (materialTab === 'video') return item.type === 'video';
-          return true;
-      });
-  }, [materialAssets, materialTab]);
+  const filteredShotClips = useMemo(() => {
+    return shotClips.filter(s => {
+      if (shotEpisode !== 'all' && s.episodeNo !== shotEpisode) return false;
+      return true;
+    });
+  }, [shotClips, shotEpisode]);
+
+  const episodes = useMemo(() => {
+    const set = new Set(shotClips.map(s => s.episodeNo));
+    return Array.from(set).sort((a, b) => a - b);
+  }, [shotClips]);
+
 
   const filteredAssetLibrary = useMemo(() => {
       const keyword = assetSearch.trim().toLowerCase();
@@ -199,7 +178,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         !panelRef.current.contains(target)
       ) {
         setActivePanel(null);
-        setAssetMenu(null);
+        
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -373,129 +352,204 @@ const Sidebar: React.FC<SidebarProps> = ({
     </div>
   );
 
-  const renderAssetLibraryPanel = () => {
-    const scopeTabs: { key: AssetLibraryScope | 'all'; label: string }[] = [
-      { key: 'project', label: '项目库' },
-      { key: 'public', label: '公共库' },
-      { key: 'all', label: '全部' },
+  const renderAssetMaterialPanel = () => {
+    const scopeTabs: { key: AssetLibraryScope | "all"; label: string }[] = [
+      { key: "project", label: "项目库" },
+      { key: "public", label: "公共库" },
+      { key: "all", label: "全部" },
     ];
-    const tabs: { key: AssetLibraryType | 'all'; label: string }[] = [
-      { key: 'all', label: '全部' },
-      { key: 'role', label: '角色' },
-      { key: 'scene', label: '场景' },
-      { key: 'prop', label: '道具' },
-    ];
+
     const typeLabel: Record<AssetLibraryType, string> = {
-      role: '角色',
-      scene: '场景',
-      prop: '道具',
+      role: "角色",
+      scene: "场景",
+      prop: "道具",
     };
 
     return (
       <div className="h-full flex flex-col gap-3">
-        <div className={`flex items-center gap-2 rounded-xl border px-3 py-2 ${isDark ? 'border-zinc-800 bg-zinc-950/40' : 'border-gray-200 bg-gray-50'}`}>
-          <Icons.Search size={15} className={textMuted} />
-          <input
-            value={assetSearch}
-            onChange={(event) => setAssetSearch(event.target.value)}
-            placeholder="搜索角色、场景、道具"
-            className={`min-w-0 flex-1 bg-transparent text-xs outline-none ${isDark ? 'text-zinc-100 placeholder:text-zinc-600' : 'text-gray-900 placeholder:text-gray-400'}`}
-          />
-        </div>
-
-        <div className={`grid grid-cols-3 gap-1 rounded-xl p-1 ${isDark ? 'bg-zinc-950/45' : 'bg-gray-100'}`}>
-          {scopeTabs.map(tab => (
+        {/* Top-level media type tabs */}
+        <div className={"grid grid-cols-2 gap-1 rounded-xl p-1 shrink-0 " + (isDark ? "bg-zinc-950/45" : "bg-gray-100")}>
+          {[
+            { key: "image" as const, label: "图片", icon: Icons.Image },
+            { key: "video" as const, label: "视频", icon: Icons.Video },
+          ].map(tab => (
             <button
               key={tab.key}
-              className={`h-8 rounded-lg text-xs font-semibold transition-all ${
-                assetScope === tab.key
-                  ? (isDark ? 'bg-blue-500/20 text-blue-300' : 'bg-white text-blue-600 shadow-sm')
-                  : (isDark ? 'text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200' : 'text-gray-500 hover:bg-white/70 hover:text-gray-800')
-              }`}
-              onClick={() => setAssetScope(tab.key)}
+              className={"h-9 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all " + (
+                mediaTab === tab.key
+                  ? (isDark ? "bg-blue-500/20 text-blue-300" : "bg-white text-blue-600 shadow-sm")
+                  : (isDark ? "text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200" : "text-gray-500 hover:bg-white/70 hover:text-gray-800")
+              )}
+              onClick={() => setMediaTab(tab.key)}
             >
+              <tab.icon size={14} />
               {tab.label}
             </button>
           ))}
         </div>
 
-        <div className="flex gap-1">
-          {tabs.map(tab => (
-            <button
-              key={tab.key}
-              className={`h-8 flex-1 rounded-lg text-xs font-semibold transition-all ${
-                assetTab === tab.key
-                  ? (isDark ? 'bg-blue-500/20 text-blue-300' : 'bg-blue-50 text-blue-600')
-                  : (isDark ? 'text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800')
-              }`}
-              onClick={() => setAssetTab(tab.key)}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+        {/* Image tab */}
+        {mediaTab === "image" && (
+          <div className="flex-1 flex flex-col gap-3 overflow-hidden">
+            <>
+                <div className="flex gap-1 shrink-0">
+                  {[
+                    { key: "role" as AssetLibraryType, label: "角色" },
+                    { key: "scene" as AssetLibraryType, label: "场景" },
+                    { key: "prop" as AssetLibraryType, label: "道具" },
+                  ].map(tab => (
+                    <button key={tab.key} className={"h-8 flex-1 rounded-lg text-xs font-semibold transition-all " + (
+                      assetTab === tab.key
+                        ? (isDark ? "bg-blue-500/20 text-blue-300" : "bg-blue-50 text-blue-600")
+                        : (isDark ? "text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200" : "text-gray-500 hover:bg-gray-100 hover:text-gray-800")
+                    )} onClick={() => setAssetTab(tab.key)}>{tab.label}</button>
+                  ))}
+                </div>
 
-        <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 space-y-3">
-          {filteredAssetLibrary.length === 0 ? (
-            <div className={`h-full flex flex-col items-center justify-center ${textMuted}`}>
-              <Icons.Database size={28} className="opacity-40" />
-              <p className="mt-3 text-sm font-medium">没有匹配资产</p>
-            </div>
-          ) : (
-            filteredAssetLibrary.map(asset => (
-              <div
-                key={asset.id}
-                draggable
-                onDragStart={(event) => {
-                  event.dataTransfer.setData('application/kc-asset', asset.id);
-                  event.dataTransfer.effectAllowed = 'copy';
-                }}
-                className={`group rounded-2xl border p-2 transition-all cursor-grab active:cursor-grabbing ${
-                  isDark ? 'border-zinc-800 bg-zinc-950/35 hover:border-zinc-700 hover:bg-zinc-900/70' : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
-                }`}
-              >
-                <div className="flex gap-3">
-                  <button
-                    className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl"
-                    onClick={() => onPreviewMedia(asset.previewUrl, 'image')}
-                    title="查看资产预览"
-                  >
-                    <img src={asset.previewUrl} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" decoding="async" />
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/15 transition-colors" />
-                  </button>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className={`truncate text-sm font-semibold ${textMain}`}>{asset.name}</span>
-                      <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold ${isDark ? 'bg-zinc-800 text-zinc-300' : 'bg-gray-100 text-gray-600'}`}>{asset.version}</span>
-                    </div>
-                    <div className={`mt-1 flex items-center gap-2 text-[10px] ${textMuted}`}>
-                      <span>{typeLabel[asset.type]}</span>
-                      <span className={`h-1 w-1 rounded-full ${isDark ? 'bg-zinc-700' : 'bg-gray-300'}`} />
-                      <span>{asset.updatedAt}</span>
-                    </div>
-                    <p className={`mt-2 line-clamp-2 text-[11px] leading-4 ${textSub}`}>{asset.description}</p>
-                  </div>
+                <div className={"flex items-center gap-2 rounded-xl border px-3 py-2 shrink-0 " + (isDark ? "border-zinc-800 bg-zinc-950/40" : "border-gray-200 bg-gray-50")}>
+                  <Icons.Search size={15} className={textMuted} />
+                  <input value={assetSearch} onChange={(e) => setAssetSearch(e.target.value)}
+                    placeholder="搜索角色、场景、道具"
+                    className={"min-w-0 flex-1 bg-transparent text-xs outline-none " + (isDark ? "text-zinc-100 placeholder:text-zinc-600" : "text-gray-900 placeholder:text-gray-400")} />
                 </div>
-                <div className="mt-2 flex items-center justify-between">
-                  <span className={`text-[10px] ${textMuted}`}>拖到画布或点击放入</span>
-                  <button
-                    className={`h-7 rounded-lg px-2.5 text-xs font-semibold transition-all ${
-                      isDark ? 'bg-blue-500/15 text-blue-300 hover:bg-blue-500/25' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'
-                    }`}
-                    onClick={() => onAddAssetToCanvas(asset)}
-                  >
-                    放到画布
-                  </button>
+
+                <div className={"grid grid-cols-3 gap-1 rounded-xl p-1 shrink-0 " + (isDark ? "bg-zinc-950/45" : "bg-gray-100")}>
+                  {scopeTabs.map(tab => (
+                    <button key={tab.key} className={"h-8 rounded-lg text-xs font-semibold transition-all " + (
+                      assetScope === tab.key
+                        ? (isDark ? "bg-blue-500/20 text-blue-300" : "bg-white text-blue-600 shadow-sm")
+                        : (isDark ? "text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200" : "text-gray-500 hover:bg-white/70 hover:text-gray-800")
+                    )} onClick={() => setAssetScope(tab.key)}>{tab.label}</button>
+                  ))}
                 </div>
+
+                <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 space-y-2">
+                  {filteredAssetLibrary.length === 0 ? (
+                    <div className={"h-full flex flex-col items-center justify-center " + textMuted}>
+                      <Icons.Database size={28} className="opacity-40" />
+                      <p className="mt-3 text-sm font-medium">没有匹配资产</p>
+                    </div>
+                  ) : (
+                    (() => {
+                      const parents = filteredAssetLibrary.filter((a: AssetLibraryItem) => !a.parentId);
+                      const getChildren = (parentId: string) => filteredAssetLibrary.filter((a: AssetLibraryItem) => a.parentId === parentId);
+                      return parents.map((asset: AssetLibraryItem) => {
+                        const children = getChildren(asset.id);
+                        return (
+                          <div key={asset.id}>
+                            <div draggable
+                              onDragStart={(event: React.DragEvent) => { event.dataTransfer.setData("application/kc-asset", asset.id); event.dataTransfer.effectAllowed = "copy"; }}
+                              className={"group rounded-2xl border p-2 transition-all cursor-grab active:cursor-grabbing " + (isDark ? "border-zinc-800 bg-zinc-950/35 hover:border-zinc-700 hover:bg-zinc-900/70" : "border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm")}
+                            >
+                              <div className="flex gap-3">
+                                <button className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl" onClick={() => onPreviewMedia(asset.previewUrl, "image")} title="查看资产预览">
+                                  <img src={asset.previewUrl} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" decoding="async" />
+                                </button>
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className={"truncate text-sm font-semibold " + textMain}>{asset.name}</span>
+                                    <span className={"shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold " + (isDark ? "bg-zinc-800 text-zinc-300" : "bg-gray-100 text-gray-600")}>{asset.version}</span>
+                                  </div>
+                                  {asset.voiceTimbre && (
+                                    <div className="mt-0.5 flex items-center gap-1 text-[10px]">
+                                      <Icons.Music size={10} className={textMuted} />
+                                      <span className={textMuted}>音色: {asset.voiceTimbre}</span>
+                                    </div>
+                                  )}
+                                  <div className={"mt-1 flex items-center gap-2 text-[10px] " + textMuted}>
+                                    <span>{typeLabel[asset.type]}</span>
+                                    <span className={"h-1 w-1 rounded-full " + (isDark ? "bg-zinc-700" : "bg-gray-300")} />
+                                    <span>{asset.updatedAt}</span>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="mt-2 flex items-center justify-between">
+                                <span className={"text-[10px] " + textMuted}>拖到画布或点击放入</span>
+                                <button className={"h-7 rounded-lg px-2.5 text-xs font-semibold transition-all " + (isDark ? "bg-blue-500/15 text-blue-300 hover:bg-blue-500/25" : "bg-blue-50 text-blue-600 hover:bg-blue-100")}
+                                  onClick={() => onAddAssetToCanvas(asset)}>放到画布</button>
+                              </div>
+                            </div>
+                            {children.length > 0 && (
+                              <div className="ml-4 mt-1 space-y-1 border-l-2 pl-3" style={{ borderColor: isDark ? "#3f3f46" : "#e5e7eb" }}>
+                                {children.map((child: AssetLibraryItem) => (
+                                  <div key={child.id} draggable
+                                    onDragStart={(event: React.DragEvent) => { event.dataTransfer.setData("application/kc-asset", child.id); event.dataTransfer.effectAllowed = "copy"; }}
+                                    className={"group rounded-xl border p-1.5 transition-all cursor-grab text-xs " + (isDark ? "border-zinc-800 bg-zinc-950/25 hover:border-zinc-700" : "border-gray-200 bg-white hover:border-gray-300")}
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <img src={child.previewUrl} className="h-8 w-8 rounded-lg object-cover" loading="lazy" />
+                                      <span className={"truncate font-medium " + textMain}>{child.name}</span>
+                                      {child.voiceTimbre && <span className={"text-[10px] " + textMuted}>{child.voiceTimbre}</span>}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      });
+                    })()
+                  )}
+                </div>
+              </>
+          </div>
+        )}
+
+        {/* Video tab */}
+        {mediaTab === "video" && (
+          <div className="flex-1 flex flex-col gap-3 overflow-hidden">
+            <div className="flex gap-2 shrink-0">
+              <select className={"h-8 flex-1 rounded-lg text-xs px-2 outline-none " + (isDark ? "bg-zinc-800 border-zinc-700 text-zinc-200" : "bg-gray-100 border-gray-200 text-gray-700")}
+                value={String(shotEpisode)} onChange={(e) => setShotEpisode(e.target.value === "all" ? "all" : Number(e.target.value))}>
+                <option value="all">全部集数</option>
+                {episodes.map((ep: number) => <option key={ep} value={String(ep)}>第{ep} 集</option>)}
+              </select>
+              <div className={"flex items-center rounded-xl border px-3 " + (isDark ? "border-zinc-800 bg-zinc-950/40" : "border-gray-200 bg-gray-50")}>
+                <Icons.Search size={14} className={textMuted} />
+                <input className={"w-24 bg-transparent text-xs outline-none " + (isDark ? "text-zinc-100 placeholder:text-zinc-600" : "text-gray-900 placeholder:text-gray-400")} placeholder="搜索镜次" />
               </div>
-            ))
-          )}
-        </div>
+            </div>
+            <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 space-y-2">
+              {filteredShotClips.length === 0 ? (
+                <div className={"h-full flex flex-col items-center justify-center " + textMuted}>
+                  <Icons.Clapperboard size={28} className="opacity-40" />
+                  <p className="mt-3 text-sm font-medium">暂无分镜视频片段</p>
+                  <p className="text-xs mt-1">空间管理中添加分镜后显示</p>
+                </div>
+              ) : (
+                filteredShotClips.map((clip: ShotClip) => (
+                  <div key={clip.id} draggable
+                    onDragStart={(event: React.DragEvent) => { event.dataTransfer.setData("application/kc-shot-clip", JSON.stringify(clip)); event.dataTransfer.effectAllowed = "copy"; }}
+                    className={"group rounded-2xl border p-3 transition-all cursor-grab active:cursor-grabbing " + (isDark ? "border-zinc-800 bg-zinc-950/35 hover:border-zinc-700 hover:bg-zinc-900/70" : "border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm")}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className={"rounded-md px-1.5 py-0.5 text-[10px] font-bold " + (isDark ? "bg-purple-500/20 text-purple-300" : "bg-purple-100 text-purple-700")}>
+                            第{clip.episodeNo}集 第{clip.sceneNo}场 第{String(clip.shotNo).padStart(2, "0")}镜</span>
+                        </div>
+                        <p className={"mt-1.5 text-sm font-semibold truncate " + textMain}>{clip.shotName}</p>
+                        {clip.prompt && <p className={"mt-1 text-[11px] line-clamp-2 " + textSub}>{clip.prompt}</p>}
+                      </div>
+                      <button className={"h-8 rounded-lg px-2.5 text-xs font-semibold transition-all shrink-0 ml-2 " + (isDark ? "bg-blue-500/15 text-blue-300 hover:bg-blue-500/25" : "bg-blue-50 text-blue-600 hover:bg-blue-100")}
+                        onClick={() => { onAddAssetToCanvas?.({ id: clip.id, type: "role", name: clip.shotName, version: "v1", updatedAt: "", previewUrl: "", description: clip.description || "" }); }}>
+                        放到画布
+                      </button>
+                    </div>
+                    <div className={"mt-2 flex items-center gap-3 text-[10px] " + textMuted}>
+                      {clip.audioUrl && <span className="flex items-center gap-1"><Icons.Music size={10} />音频</span>}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
       </div>
     );
   };
 
-  const renderAssetsPanel = () => {
+  const [promptCategory, setPromptCategory] = useState<string>('全部');  const renderAssetsPanel = () => {
     const materialTabs: { key: typeof materialTab; label: string; count: number }[] = [
       { key: 'all', label: '全部', count: materialAssets.length },
       { key: 'image', label: '图片', count: materialAssets.filter(item => item.type === 'image').length },
@@ -552,7 +606,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               onContextMenu={(event) => {
                 event.preventDefault();
                 event.stopPropagation();
-                setAssetMenu({ x: event.clientX, y: event.clientY, item });
+                null /* was setAssetMenu */({ x: event.clientX, y: event.clientY, item });
               }}
             >
               <div
@@ -780,13 +834,9 @@ const Sidebar: React.FC<SidebarProps> = ({
         title = '项目';
         content = renderProjectPanel();
         break;
-      case 'ASSET_LIBRARY':
-        title = '资产库';
-        content = renderAssetLibraryPanel();
-        break;
-      case 'ASSETS':
-        title = '素材库';
-        content = renderAssetsPanel();
+      case 'ASSET_MATERIAL':
+        title = '资产素材库';
+        content = renderAssetMaterialPanel();
         break;
       case 'PROMPT_LIBRARY':
         title = '提示词库';
@@ -797,7 +847,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     return (
       <div 
         ref={panelRef}
-        className={`fixed left-[76px] top-1/2 -translate-y-1/2 ${activePanel === 'ASSETS' || activePanel === 'ASSET_LIBRARY' || activePanel === 'PROMPT_LIBRARY' ? 'w-80 h-[70vh]' : 'w-64 max-h-[80vh]'} ${bgMain} backdrop-blur-xl border ${borderColor} rounded-2xl z-[190] flex flex-col shadow-xl animate-in slide-in-from-left-2 duration-200`}
+        className={`fixed left-[76px] top-1/2 -translate-y-1/2 ${activePanel === 'ASSET_MATERIAL' || activePanel === 'PROMPT_LIBRARY' ? 'w-80 h-[70vh]' : 'w-64 max-h-[80vh]'} ${bgMain} backdrop-blur-xl border ${borderColor} rounded-2xl z-[190] flex flex-col shadow-xl animate-in slide-in-from-left-2 duration-200`}
       >
         {/* Panel Header */}
         <div className={`px-4 py-3 border-b ${borderColor} flex items-center justify-between shrink-0`}>
@@ -831,8 +881,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         
         <SidebarButton icon={Icons.Clock} panel="HISTORY" tooltip="生成历史" />
         <SidebarButton icon={Icons.Coins} tooltip="积分看板" onClick={onOpenCreditDashboard} />
-        <SidebarButton icon={Icons.Database} panel="ASSET_LIBRARY" tooltip="资产库" />
-        <SidebarButton icon={Icons.Images} panel="ASSETS" tooltip="素材库" />
+        <SidebarButton icon={Icons.Database} panel="ASSET_MATERIAL" tooltip="资产素材库" />
         <SidebarButton icon={Icons.Library} panel="PROMPT_LIBRARY" tooltip="提示词库" />
         <SidebarButton icon={Icons.Upload} tooltip="导入素材" onClick={onImportAsset} />
         
@@ -848,39 +897,39 @@ const Sidebar: React.FC<SidebarProps> = ({
         >
           <button
             className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2.5 rounded-lg ${isDark ? 'text-gray-300 hover:bg-zinc-800 hover:text-white' : 'text-gray-700 hover:bg-gray-100 hover:text-black'}`}
-            onClick={() => { onAddMaterialToCanvas(assetMenu.item); setAssetMenu(null); }}
+            onClick={() => { onAddMaterialToCanvas(assetMenu.item);  }}
           >
             <Icons.ImagePlus size={14} /> 添加到画布
           </button>
           <button
             className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2.5 rounded-lg ${isDark ? 'text-gray-300 hover:bg-zinc-800 hover:text-white' : 'text-gray-700 hover:bg-gray-100 hover:text-black'}`}
-            onClick={() => { onToggleMaterialFavorite(assetMenu.item.nodeId, assetMenu.item.url, assetMenu.item.type); setAssetMenu(null); }}
+            onClick={() => { onToggleMaterialFavorite(assetMenu.item.nodeId, assetMenu.item.url, assetMenu.item.type);  }}
           >
             <Icons.Star size={14} fill={assetMenu.item.isFavorite ? 'currentColor' : 'none'} /> {assetMenu.item.isFavorite ? '取消收藏' : '收藏'}
           </button>
           <div className={`h-px my-1 mx-2 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`} />
           <button
             className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2.5 rounded-lg ${isDark ? 'text-gray-300 hover:bg-zinc-800 hover:text-white' : 'text-gray-700 hover:bg-gray-100 hover:text-black'}`}
-            onClick={() => { onOpenSaveResult(assetMenu.item.nodeId); setAssetMenu(null); }}
+            onClick={() => { onOpenSaveResult(assetMenu.item.nodeId);  }}
           >
             <Icons.Database size={14} /> 存入项目/更新资产
           </button>
           <button
             className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2.5 rounded-lg ${isDark ? 'text-gray-300 hover:bg-zinc-800 hover:text-white' : 'text-gray-700 hover:bg-gray-100 hover:text-black'}`}
-            onClick={() => { onSaveAsset(assetMenu.item.url, assetMenu.item.type, assetMenu.item.title); setAssetMenu(null); }}
+            onClick={() => { onSaveAsset(assetMenu.item.url, assetMenu.item.type, assetMenu.item.title);  }}
           >
             <Icons.Save size={14} /> 保存到本地
           </button>
           <button
             className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2.5 rounded-lg ${isDark ? 'text-gray-300 hover:bg-zinc-800 hover:text-white' : 'text-gray-700 hover:bg-gray-100 hover:text-black'}`}
-            onClick={() => { onCopyAsset(assetMenu.item.url, assetMenu.item.type); setAssetMenu(null); }}
+            onClick={() => { onCopyAsset(assetMenu.item.url, assetMenu.item.type);  }}
           >
             <Icons.Copy size={14} /> 复制
           </button>
           <div className={`h-px my-1 mx-2 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`} />
           <button
             className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2.5 rounded-lg text-red-400 ${isDark ? 'hover:bg-red-500/10 hover:text-red-300' : 'hover:bg-red-50 hover:text-red-600'}`}
-            onClick={() => { onDeleteAsset(assetMenu.item.nodeId, assetMenu.item.url, assetMenu.item.type); setAssetMenu(null); }}
+            onClick={() => { onDeleteAsset(assetMenu.item.nodeId, assetMenu.item.url, assetMenu.item.type);  }}
           >
             <Icons.Trash2 size={14} /> 删除
           </button>

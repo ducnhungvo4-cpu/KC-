@@ -95,6 +95,11 @@ export interface AssetLibraryItem {
   updatedAt: string;
   previewUrl: string;
   description: string;
+  parentId?: string;  // parent asset for hierarchy
+  voiceTimbre?: string; // voice timbre for role assets
+  episodeNo?: number;
+  sceneNo?: number;
+  shotNo?: number;
 }
 
 export interface MultiAngleOptions {
@@ -134,6 +139,21 @@ export interface MaterialLibraryItem {
   text?: string;
   isFavorite?: boolean;
 }
+
+export interface ShotClip {
+  id: string;
+  episodeNo: number;
+  sceneNo: number;
+  shotNo: number;
+  shotName: string;
+  videoUrl: string;
+  prompt?: string;
+  keyframeUrls: string[];
+  audioUrl?: string;
+  description?: string;
+}
+
+export type AddToAssetType = 'role' | 'scene' | 'prop' | 'keyframe' | 'shot_clip';
 
 export interface Connection {
   id: string;

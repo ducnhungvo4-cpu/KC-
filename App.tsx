@@ -1,7 +1,7 @@
 
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import Sidebar from './components/Sidebar';
-import { AssetLibraryItem, AssetLibraryType, CanvasPermission, CanvasPermissionRole, InputMedia, MaterialLibraryItem, MultiAngleOptions, NodeData, ProjectCanvasItem, Connection, CanvasTransform, Point, DragMode, NodeType } from './types';
+import { AssetLibraryItem, AssetLibraryType, CanvasPermission, CanvasPermissionRole, InputMedia, MaterialLibraryItem, MultiAngleOptions, NodeData, ProjectCanvasItem, Connection, CanvasTransform, Point, DragMode, NodeType, AddToAssetType, ShotClip } from './types';
 import BaseNode from './components/Nodes/BaseNode';
 import { NodeContent } from './components/Nodes/NodeContent';
 import { Icons } from './components/Icons';
@@ -392,6 +392,7 @@ const CanvasWithSidebar: React.FC = () => {
   const [isStorageOpen, setIsStorageOpen] = useState(false);
   const [isExportImportOpen, setIsExportImportOpen] = useState(false);
   const [isWelcomeOpen, setIsWelcomeOpen] = useState(() => !hasShownWelcome());
+  const [assetLibraryPopup, setAssetLibraryPopup] = useState<{ nodeId: string; nodeType: string } | null>(null);
   const [storageDirName, setStorageDirName] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'failed'>('idle');
 
@@ -931,6 +932,23 @@ const CanvasWithSidebar: React.FC = () => {
 
       setNodes(prev => [...prev, newNode]);
       setSelectedNodeIds(new Set([newNode.id]));
+  };
+
+  const handleAddToAssetLibrary = (nodeId: string) => {
+    const node = nodes.find(n => n.id === nodeId);
+    if (!node) return;
+    const nodeType = node.videoSrc ? 'video' : 'image';
+    setAssetLibraryPopup({ nodeId, nodeType });
+  };
+
+  const handleAssetLibraryPopupClose = () => setAssetLibraryPopup(null);
+
+  const handleAddToAssetLibraryConfirm = (type: AddToAssetType, assetId?: string, assetName?: string) => {
+    const node = assetLibraryPopup ? nodes.find(n => n.id === assetLibraryPopup.nodeId) : null;
+    if (node) {
+      updateNodeData(node.id, { source: 'asset_library', sourceRefId: assetId || '' });
+    }
+    setAssetLibraryPopup(null);
   };
 
   const handleAddAssetToCanvas = (asset: AssetLibraryItem, position?: Point) => {
@@ -4128,6 +4146,57 @@ const CanvasWithSidebar: React.FC = () => {
 
   return (
     <div className="w-full h-screen overflow-hidden flex relative font-sans text-gray-800">
+      {/* 添加到资产素材库 Popup */}
+      {assetLibraryPopup && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={handleAssetLibraryPopupClose}>
+          <div className={`rounded-2xl border shadow-2xl w-[400px] max-h-[500px] overflow-hidden ${isDark ? 'bg-zinc-900 border-zinc-700' : 'bg-white border-gray-200'}`} onClick={e => e.stopPropagation()}>
+            <div className={`px-5 py-4 border-b ${isDark ? 'border-zinc-800' : 'border-gray-100'} flex items-center justify-between`}>
+              <h3 className={`text-base font-bold ${isDark ? 'text-zinc-100' : 'text-gray-900'}`}>添加到资产素材库</h3>
+              <button onClick={handleAssetLibraryPopupClose} className={`p-1.5 rounded-lg ${isDark ? 'hover:bg-zinc-800 text-zinc-400' : 'hover:bg-gray-100 text-gray-500'}`}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+            <div className="p-5 space-y-3 overflow-y-auto max-h-[420px]">
+              {assetLibraryPopup.nodeType === 'image' ? (
+                <>
+                  <p className={`text-sm font-semibold ${isDark ? 'text-zinc-300' : 'text-gray-700'}`}>图片节点 — 选择添加方式</p>
+                  <div className="space-y-2">
+                    <p className={`text-xs font-semibold ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>资产</p>
+                    {(['role', 'scene', 'prop'] as const).map(type => (
+                      <button key={type} className={`w-full text-left p-3 rounded-xl border transition-all ${isDark ? 'border-zinc-800 hover:border-zinc-600 hover:bg-zinc-800/50' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}`}
+                        onClick={() => handleAddToAssetLibraryConfirm(type)}>
+                        <span className={`text-sm font-semibold ${isDark ? 'text-zinc-100' : 'text-gray-900'}`}>
+                          {type === 'role' ? '角色' : type === 'scene' ? '场景' : '道具'}
+                        </span>
+                        <span className={`block text-xs mt-0.5 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>筛选/搜索后精确添加到对应资产</span>
+                      </button>
+                    ))}
+                    <button className={`w-full text-left p-3 rounded-xl border transition-all ${isDark ? 'border-zinc-800 hover:border-zinc-600 hover:bg-zinc-800/50' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}`}
+                      onClick={() => handleAddToAssetLibraryConfirm('role', '', 'new')}>
+                      <span className={`text-sm font-semibold ${isDark ? 'text-green-300' : 'text-green-600'}`}>+ 新建资产</span>
+                      <span className={`block text-xs mt-0.5 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>选择类型并命名后添加到资产库</span>
+                    </button>
+                  </div>
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className={`text-sm font-semibold ${isDark ? 'text-zinc-300' : 'text-gray-700'}`}>视频节点 — 添加到分镜视频</p>
+                  <div className="space-y-2">
+                    <button className={`w-full text-left p-3 rounded-xl border transition-all ${isDark ? 'border-zinc-800 hover:border-zinc-600 hover:bg-zinc-800/50' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}`}
+                      onClick={() => handleAddToAssetLibraryConfirm('shot_clip')}>
+                      <span className={`text-sm font-semibold ${isDark ? 'text-zinc-100' : 'text-gray-900'}`}>添加到分镜片段</span>
+                      <span className={`block text-xs mt-0.5 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>按集/镜次进行筛选后添加</span>
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
         <WelcomeModal
             isOpen={isWelcomeOpen}
             onClose={() => setIsWelcomeOpen(false)}
@@ -4410,6 +4479,7 @@ const CanvasWithSidebar: React.FC = () => {
                         onPortMouseUp={handlePortMouseUp}
                         onResizeStart={(e) => handleResizeStart(e, node.id)}
                         onAttachInput={triggerAttachInput}
+                onAddToAssetLibrary={handleAddToAssetLibrary}
                         scale={transform.k}
                         isDark={isDark}
                     >

@@ -314,11 +314,6 @@ export const StartEndToVideoNode: React.FC<StartEndToVideoNodeProps> = ({
                     <Icons.Upload size={16} />
                     <span>上传</span>
                 </button>
-                <button className={`h-9 px-3 rounded-xl text-sm font-semibold flex items-center gap-2 transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onSaveResult?.(data.id)} title="保存到项目素材或更新资产">
-                    <Icons.Save size={16} />
-                    <span>保存</span>
-                </button>
-                <div className={`w-px h-6 mx-1 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`} />
                 <button className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onDownload?.(data.id)} title="下载">
                     <Icons.Download size={17} />
                 </button>
@@ -329,7 +324,7 @@ export const StartEndToVideoNode: React.FC<StartEndToVideoNodeProps> = ({
         )}
 
         {/* Control Panel */}
-        {isSelectedAndStable && showControls && !hasResult && (
+        {isSelectedAndStable && showControls && (
           <div className="absolute top-full left-1/2 min-w-[520px] pt-4 z-[70] pointer-events-auto" style={panelTransform} onMouseDown={(e) => e.stopPropagation()}>
                {renderFrameThumbnails()}
                {!hasValidInputs && (
