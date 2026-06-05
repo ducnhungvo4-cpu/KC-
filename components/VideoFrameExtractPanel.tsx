@@ -204,7 +204,7 @@ export const VideoFrameExtractPanel: React.FC<VideoFrameExtractPanelProps> = ({
             <button onClick={() => seekTo(currentTime + MIN_FRAME_STEP)} className={`w-8 h-8 rounded-lg flex items-center justify-center ${isDark ? 'text-zinc-400 hover:text-white hover:bg-zinc-800' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200'}`} title="下一帧 (→)">
               <Icons.SkipForward size={14} />
             </button>
-            <button onClick={() => onMaximize} className={`w-8 h-8 rounded-lg flex items-center justify-center ${isDark ? 'text-zinc-400 hover:text-white hover:bg-zinc-800' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200'}`} title="全屏">
+            <button className={`w-8 h-8 rounded-lg flex items-center justify-center ${isDark ? 'text-zinc-400 hover:text-white hover:bg-zinc-800' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200'}`} title="全屏">
               <Icons.Maximize2 size={14} />
             </button>
           </div>

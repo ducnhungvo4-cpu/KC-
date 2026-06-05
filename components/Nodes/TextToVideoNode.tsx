@@ -233,43 +233,6 @@ export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
                              </button>
                          </div>
                      </div>
-                      
-                      {/* Inline prompt + config bar - always visible when content exists */}
-                      <div className={`absolute bottom-0 left-0 right-0 p-2 ${isDark ? 'bg-gradient-to-t from-black/90 via-black/70 to-transparent' : 'bg-gradient-to-t from-white/90 via-white/70 to-transparent'}`}>
-                          <textarea
-                              className={`w-full bg-transparent border-0 text-xs leading-relaxed resize-none outline-none min-h-[28px] ${isDark ? 'text-zinc-100 placeholder:text-zinc-500' : 'text-gray-900 placeholder:text-gray-400'}`}
-                              placeholder="描述你想要生成的视频场景..."
-                              value={data.prompt || ''}
-                              onChange={(e) => updateData(data.id, { prompt: e.target.value })}
-                              rows={1}
-                              onWheel={(e) => e.stopPropagation()}
-                          />
-                          <div className="flex items-center gap-1.5 mt-1">
-                              <span className={`text-[10px] px-1.5 py-0.5 rounded ${isDark ? 'bg-zinc-800 text-zinc-400' : 'bg-gray-100 text-gray-500'}`}>
-                                  {displayResValue || '720p'}
-                              </span>
-                              <span className={`text-[10px] px-1.5 py-0.5 rounded ${isDark ? 'bg-zinc-800 text-zinc-400' : 'bg-gray-100 text-gray-500'}`}>
-                                  {data.duration || '5s'}
-                              </span>
-                              <span className={`text-[10px] px-1.5 py-0.5 rounded ${isDark ? 'bg-zinc-800 text-zinc-400' : 'bg-gray-100 text-gray-500'}`}>
-                                  {data.aspectRatio || '16:9'}
-                              </span>
-                              <div className="flex-1" />
-                              <button
-                                  onClick={() => onGenerate(data.id)}
-                                  disabled={data.isLoading}
-                                  className={`h-6 px-3 rounded-lg text-[10px] font-semibold flex items-center gap-1 transition-all ${
-                                      data.isLoading
-                                          ? 'bg-gray-400 text-white cursor-not-allowed'
-                                          : 'bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-500 hover:to-purple-400 text-white'
-                                  }`}
-                              >
-                                  {data.isLoading ? <Icons.Loader2 className="animate-spin" size={10}/> : <Icons.Wand2 size={10} />}
-                                  <span>{data.isLoading ? `${Math.floor(progress)}%` : '生成'}</span>
-                              </button>
-                          </div>
-                      </div>
-
                  </>
             ) : (
                 <div className={`w-full h-full flex flex-col items-center justify-center ${emptyStateTextColor}`}>
