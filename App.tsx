@@ -362,6 +362,12 @@ const CanvasWithSidebar: React.FC = () => {
   const [editingSubCanvasId, setEditingSubCanvasId] = useState<string | null>(null);
   const [editingSubCanvasName, setEditingSubCanvasName] = useState('');
   const [isSubCanvasListOpen, setIsSubCanvasListOpen] = useState(false);
+  const [nodes, setNodes] = useState<NodeData[]>([]);
+  const [connections, setConnections] = useState<Connection[]>([]);
+  const [transform, setTransform] = useState<CanvasTransform>({ x: 0, y: 0, k: 1 });
+  const [selectedNodeIds, setSelectedNodeIds] = useState<Set<string>>(new Set());
+  const [dragMode, setDragMode] = useState<DragMode | 'RESIZE_NODE' | 'SELECT'>('NONE');
+  const dragModeRef = useRef(dragMode);
 
   const getSubCanvasStorageKey = (projectId: string) => `${KC_SUB_CANVAS_STORAGE_PREFIX}${projectId}`;
 
@@ -578,12 +584,6 @@ const CanvasWithSidebar: React.FC = () => {
   const [projectGroupFilter, setProjectGroupFilter] = useState('全部项目组');
   const [projectTypeFilter, setProjectTypeFilter] = useState('全部项目类型');
   const [projectSearchQuery, setProjectSearchQuery] = useState('');
-  const [nodes, setNodes] = useState<NodeData[]>([]);
-  const [connections, setConnections] = useState<Connection[]>([]);
-  const [transform, setTransform] = useState<CanvasTransform>({ x: 0, y: 0, k: 1 });
-  const [selectedNodeIds, setSelectedNodeIds] = useState<Set<string>>(new Set());
-  const [dragMode, setDragMode] = useState<DragMode | 'RESIZE_NODE' | 'SELECT'>('NONE');
-  const dragModeRef = useRef(dragMode);
   
   // New Workflow Dialog State
   const [showNewWorkflowDialog, setShowNewWorkflowDialog] = useState(false);
