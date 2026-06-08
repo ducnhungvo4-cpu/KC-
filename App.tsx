@@ -522,7 +522,6 @@ const CanvasWithSidebar: React.FC = () => {
   
   const workflowInputRef = useRef<HTMLInputElement>(null);
   const assetInputRef = useRef<HTMLInputElement>(null);
-  const replaceImageRef = useRef<HTMLInputElement>(null);
   const attachInputRef = useRef<HTMLInputElement>(null);
   const nodeToReplaceRef = useRef<string | null>(null);
   const nodeToAttachInputRef = useRef<string | null>(null);
@@ -1575,18 +1574,25 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
   };
 
   const triggerReplaceImage = (nodeId: string) => {
-      nodeToReplaceRef.current = nodeId;
       const node = nodes.find(n => n.id === nodeId);
-      if (replaceImageRef.current && node) {
-          const cat = NODE_MEDIA_CATEGORY[node.type];
-          const acceptMap: Record<MediaCategory, string> = {
-              image: 'image/*',
-              video: 'video/*',
-              text: 'audio/*',
-          };
-          replaceImageRef.current.accept = acceptMap[cat] ?? 'image/*,video/*,audio/*';
-          replaceImageRef.current.click();
-      }
+      if (!node) return;
+      const cat = NODE_MEDIA_CATEGORY[node.type];
+      const acceptMap: Record<MediaCategory, string> = {
+          image: 'image/*',
+          video: 'video/*',
+          text: 'audio/*',
+      };
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = acceptMap[cat] ?? 'image/*,video/*,audio/*';
+      nodeToReplaceRef.current = nodeId;
+      input.onchange = (ev) => {
+          const syntheticEvent = { target: ev.target } as React.ChangeEvent<HTMLInputElement>;
+          handleReplaceImage(syntheticEvent);
+          input.remove();
+      };
+      document.body.appendChild(input);
+      input.click();
   };
 
   const handleReplaceImage = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1642,7 +1648,6 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
            reader.readAsDataURL(file);
           }
       }
-      if (replaceImageRef.current) replaceImageRef.current.value = '';
       nodeToReplaceRef.current = null;
   };
 
@@ -3418,7 +3423,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
         />
         <input type="file" ref={workflowInputRef} hidden accept=".aistudio-flow,.json" onChange={handleLoadWorkflow} />
         <input type="file" ref={assetInputRef} hidden accept="image/*,video/*,.txt,.md,.markdown,text/plain" onChange={handleImportAsset} />
-        <input type="file" ref={replaceImageRef} hidden accept="image/*,video/*,audio/*" onChange={handleReplaceImage} />
+
         <input type="file" ref={attachInputRef} hidden accept="image/*,video/*,.txt,.md,text/plain" onChange={handleAttachInputAsset} />
         <div 
             ref={containerRef}
