@@ -373,19 +373,17 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
         </div>
 
         {isSelectedAndStable && showControls && hasResult && (
-            <div className="absolute bottom-full left-1/2 mb-4 z-[75] flex flex-col items-center gap-2 pointer-events-none" style={panelTransform}>
+            <div className="absolute bottom-full left-1/2 mb-px z-[75] flex flex-col items-center gap-2 pointer-events-none" style={panelTransform}>
                 {/* Multi-grid dropdown */}
                 {/* Main toolbar */}
                 <div className={`pointer-events-auto flex items-center gap-1.5 rounded-2xl border px-3 py-2 shadow-2xl backdrop-blur-xl ${isDark ? 'bg-[#202020]/95 border-zinc-700 text-zinc-100' : 'bg-white/95 border-gray-200 text-gray-900'}`} onMouseDown={(e) => e.stopPropagation()}>
                     <button className={`h-9 px-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-colors ${isAngleEditorOpen ? (isDark ? 'bg-cyan-500/15 text-cyan-200' : 'bg-cyan-50 text-cyan-700') : (isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100')}`} onClick={() => { setIsAngleEditorOpen(true); setIsLightingOpen(false); setIsHdRestoreOpen(false); }} title="多角度控制">
                         <Icons.RefreshCw size={16} />
                         <span>多角度</span>
-                        {renderCreditBadge(multiAngleCredits, 'cyan')}
                     </button>
                     <button className={`h-9 px-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-colors ${isLightingOpen ? (isDark ? 'bg-amber-500/15 text-amber-300' : 'bg-amber-50 text-amber-700') : (isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100')}`} onClick={() => { setIsLightingOpen(true); setIsAngleEditorOpen(false); setIsHdRestoreOpen(false); }} title="调整灯光方向和类型">
                         <Icons.Sun size={16} />
                         <span>打光</span>
-                        {renderCreditBadge(lightingCredits, 'amber')}
                     </button>
                     <button className={`h-9 px-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onOutpaint?.(data.id)} title="向外扩展画面边界">
                         <Icons.Maximize2 size={16} />
@@ -398,7 +396,6 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
                     <button className={`h-9 px-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-colors ${isHdRestoreOpen ? (isDark ? 'bg-violet-500/15 text-violet-200' : 'bg-violet-50 text-violet-700') : (isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100')}`} onClick={() => { setIsHdRestoreOpen(true); setIsAngleEditorOpen(false); setIsLightingOpen(false); }} title="一键提升图片分辨率">
                         <Icons.TrendingUp size={16} />
                         <span>一键高清</span>
-                        {renderCreditBadge(hdRestoreCredits, 'violet')}
                     </button>
                     <button className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onUpload?.(data.id)} title="上传">
                         <Icons.Upload size={17} />
