@@ -197,11 +197,13 @@ const KC_SUB_CANVAS_STORAGE_PREFIX = 'KC_CANVAS_SUB_CANVASES_';
 type SubCanvasWorkspaceSnapshot = {
     canvases: ProjectCanvasItem[];
     activeId: string;
-    states: Record<string, {
-        nodes: NodeData[];
-        connections: Connection[];
-        transform: CanvasTransform;
-    }>;
+    states: Record<string, SubCanvasState>;
+};
+
+type SubCanvasState = {
+    nodes: NodeData[];
+    connections: Connection[];
+    transform: CanvasTransform;
 };
 
 const normalizeProjectSummary = (project: ProjectDashboardItem): ProjectDashboardItem => ({
@@ -369,6 +371,24 @@ const CanvasWithSidebar: React.FC = () => {
   const [dragMode, setDragMode] = useState<DragMode | 'RESIZE_NODE' | 'SELECT'>('NONE');
   const dragModeRef = useRef(dragMode);
 
+  const getEmptySubCanvasState = (): SubCanvasState => ({
+      nodes: [],
+      connections: [],
+      transform: { x: 0, y: 0, k: 1 },
+  });
+
+  const loadSubCanvasState = (state?: Partial<SubCanvasState>) => {
+      const fallback = getEmptySubCanvasState();
+      setNodes(Array.isArray(state?.nodes) ? state.nodes : fallback.nodes);
+      setConnections(Array.isArray(state?.connections) ? state.connections : fallback.connections);
+      setTransform(state?.transform || fallback.transform);
+      setSelectedNodeIds(new Set());
+      setSelectedConnectionId(null);
+      setSelectionBox(null);
+      setContextMenu(null);
+      setQuickAddMenu(null);
+  };
+
   const getSubCanvasStorageKey = (projectId: string) => `${KC_SUB_CANVAS_STORAGE_PREFIX}${projectId}`;
 
   const createDefaultSubCanvas = (projectId: string, nodeCount = 0): ProjectCanvasItem => ({
@@ -443,11 +463,7 @@ const CanvasWithSidebar: React.FC = () => {
       const activeState = saved.states[activeId];
       setSubCanvases(saved.canvases);
       setActiveSubCanvasId(activeId);
-      if (activeState) {
-        setNodes(activeState.nodes || []);
-        setConnections(activeState.connections || []);
-        setTransform(activeState.transform || { x: 0, y: 0, k: 1 });
-      }
+      loadSubCanvasState(activeState);
       return;
     }
 
@@ -477,21 +493,19 @@ const CanvasWithSidebar: React.FC = () => {
 
   const handleSwitchSubCanvas = (canvasId: string) => {
     if (canvasId === activeSubCanvasId || !currentProject) return;
-    persistCurrentSubCanvasWorkspace();
-    const workspace = readSubCanvasWorkspace(currentProject.id);
-    const nextState = workspace?.states?.[canvasId];
+    const nextCanvases = subCanvases.map(canvas => canvas.id === activeSubCanvasId
+      ? { ...canvas, nodeCount: nodes.length, lastSavedAt: '刚刚' }
+      : canvas
+    );
+    const snapshot = getCurrentSubCanvasWorkspace({
+      canvases: nextCanvases,
+      activeId: canvasId,
+    });
+    const nextState = snapshot?.states?.[canvasId];
+    if (snapshot) writeSubCanvasWorkspace(currentProject.id, snapshot);
+    setSubCanvases(nextCanvases);
     setActiveSubCanvasId(canvasId);
-    if (nextState) {
-      setNodes(nextState.nodes || []);
-      setConnections(nextState.connections || []);
-      setTransform(nextState.transform || { x: 0, y: 0, k: 1 });
-    } else {
-      setNodes([]);
-      setConnections([]);
-      setTransform({ x: 0, y: 0, k: 1 });
-    }
-    setSelectedNodeIds(new Set());
-    setSelectedConnectionId(null);
+    loadSubCanvasState(nextState);
     setIsSubCanvasListOpen(false);
   };
 
@@ -535,11 +549,7 @@ const CanvasWithSidebar: React.FC = () => {
     });
     setSubCanvases(nextCanvases);
     setActiveSubCanvasId(newCanvas.id);
-    setNodes([]);
-    setConnections([]);
-    setTransform({ x: 0, y: 0, k: 1 });
-    setSelectedNodeIds(new Set());
-    setSelectedConnectionId(null);
+    loadSubCanvasState();
     setIsSubCanvasListOpen(false);
   };
 
@@ -567,12 +577,7 @@ const CanvasWithSidebar: React.FC = () => {
     setSubCanvases(nextCanvases);
     setActiveSubCanvasId(nextActiveId);
     if (canvasId === activeSubCanvasId) {
-      const nextState = nextStates[nextActiveId];
-      setNodes(nextState?.nodes || []);
-      setConnections(nextState?.connections || []);
-      setTransform(nextState?.transform || { x: 0, y: 0, k: 1 });
-      setSelectedNodeIds(new Set());
-      setSelectedConnectionId(null);
+      loadSubCanvasState(nextStates[nextActiveId]);
     }
     if (editingSubCanvasId === canvasId) {
       setEditingSubCanvasId(null);
@@ -3957,34 +3962,34 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                             <button
                                 type="button"
                                 onClick={() => setIsSubCanvasListOpen(!isSubCanvasListOpen)}
-                                className={`flex items-center gap-1.5 text-[11px] font-medium px-2 py-0.5 rounded-lg transition-colors ${isDark ? 'text-zinc-400 hover:text-white hover:bg-white/5' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`}
+                                className={`flex items-center gap-1.5 rounded-lg border px-2 py-0.5 text-[11px] font-semibold shadow-sm transition-all ${isDark ? 'border-blue-400/10 bg-blue-400/5 text-blue-200/80 hover:border-blue-300/30 hover:bg-blue-400/10 hover:text-blue-100' : 'border-blue-100 bg-blue-50/70 text-blue-700 hover:border-blue-200 hover:bg-blue-100/80 hover:text-blue-800'}`}
                             >
                                 <Icons.LayoutGrid size={12} />
                                 <span className="max-w-[200px] truncate">{activeSubCanvas?.name || '选择画布'}</span>
                                 <Icons.ChevronDown size={10} />
                             </button>
                             {isSubCanvasListOpen && (
-                                <div className={`absolute top-full left-0 mt-1 flex h-[calc(100vh-118px)] min-h-[240px] max-h-[610px] w-[304px] flex-col rounded-xl border p-1.5 shadow-2xl z-[210] backdrop-blur-xl ${isDark ? 'bg-[#101114]/96 border-zinc-700/80' : 'bg-white/96 border-gray-200'}`} onMouseDown={(e) => e.stopPropagation()}>
+                                <div className={`absolute top-full left-0 mt-2 flex h-[calc(100vh-118px)] min-h-[240px] max-h-[610px] w-[312px] flex-col rounded-2xl border p-2 shadow-[0_24px_80px_rgba(2,6,23,0.32)] z-[210] backdrop-blur-2xl ${isDark ? 'bg-[#0c1118]/95 border-blue-300/15 ring-1 ring-white/10' : 'bg-white/95 border-blue-100 ring-1 ring-blue-50'}`} onMouseDown={(e) => e.stopPropagation()}>
                                     {/* New Canvas Button - Prominent, at top */}
                                     <button
                                         type="button"
-                                        className={`mb-3 h-10 w-full rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition-all ${isDark ? 'bg-blue-500/15 text-blue-400 hover:bg-blue-500/25 border border-blue-500/30' : 'bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200'}`}
+                                        className={`mb-3 h-10 w-full rounded-xl text-xs font-semibold flex items-center justify-center gap-2 border shadow-sm transition-all ${isDark ? 'border-blue-400/30 bg-gradient-to-r from-blue-500/20 to-cyan-400/10 text-blue-100 hover:border-blue-300/50 hover:from-blue-500/30 hover:to-cyan-400/20' : 'border-blue-200 bg-gradient-to-r from-blue-50 to-cyan-50 text-blue-700 hover:border-blue-300 hover:from-blue-100 hover:to-cyan-100'}`}
                                         onClick={handleCreateSubCanvas}
                                     >
                                         <Icons.Plus size={13} strokeWidth={2.5} />
                                         新建子画布
                                     </button>
-                                    <div className={`h-px mb-3 ${isDark ? 'bg-zinc-700/80' : 'bg-gray-200'}`} />
-                                    <div className={`px-2 pb-1.5 text-[10px] font-semibold ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>子画布</div>
+                                    <div className={`h-px mb-3 ${isDark ? 'bg-gradient-to-r from-transparent via-blue-300/20 to-transparent' : 'bg-gradient-to-r from-transparent via-blue-100 to-transparent'}`} />
+                                    <div className={`px-2 pb-1.5 text-[10px] font-bold tracking-wide ${isDark ? 'text-blue-100/45' : 'text-blue-500/55'}`}>子画布</div>
                                     <div className="space-y-1">
                                         {subCanvases.map(canvas => (
-                                            <div key={canvas.id} className={`group flex h-10 items-center gap-1.5 rounded-lg px-2 transition-colors ${activeSubCanvasId === canvas.id ? (isDark ? 'bg-blue-500/10' : 'bg-blue-50') : (isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50')}`}>
+                                            <div key={canvas.id} className={`group flex h-10 items-center gap-1.5 rounded-xl border px-2 transition-all ${activeSubCanvasId === canvas.id ? (isDark ? 'border-blue-400/25 bg-blue-400/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]' : 'border-blue-200 bg-blue-50 shadow-sm') : (isDark ? 'border-transparent hover:border-white/10 hover:bg-white/5' : 'border-transparent hover:border-gray-200 hover:bg-gray-50')}`}>
                                                 <button
                                                     type="button"
                                                     className="flex min-w-0 flex-1 items-center gap-2 text-left"
                                                     onClick={() => handleSwitchSubCanvas(canvas.id)}
                                                 >
-                                                    <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${activeSubCanvasId === canvas.id ? 'bg-blue-400' : (isDark ? 'bg-zinc-600' : 'bg-gray-300')}`} />
+                                                    <span className={`h-3 w-1.5 rounded-full shrink-0 ${activeSubCanvasId === canvas.id ? (isDark ? 'bg-cyan-300 shadow-[0_0_12px_rgba(103,232,249,0.55)]' : 'bg-blue-500') : (isDark ? 'bg-zinc-700' : 'bg-gray-300')}`} />
                                                     {editingSubCanvasId === canvas.id ? (
                                                         <input
                                                             value={editingSubCanvasName}
@@ -4000,13 +4005,13 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                                                             onClick={(e) => e.stopPropagation()}
                                                         />
                                                     ) : (
-                                                        <span className={`truncate text-xs font-medium ${activeSubCanvasId === canvas.id ? (isDark ? 'text-blue-300' : 'text-blue-700') : (isDark ? 'text-zinc-300' : 'text-gray-700')}`}>{canvas.name}</span>
+                                                        <span className={`truncate text-xs font-semibold ${activeSubCanvasId === canvas.id ? (isDark ? 'text-blue-100' : 'text-blue-800') : (isDark ? 'text-zinc-300' : 'text-gray-700')}`}>{canvas.name}</span>
                                                     )}
                                                 </button>
                                                 <div className="flex shrink-0 items-center gap-0.5 opacity-60 transition-opacity group-hover:opacity-100">
                                                     <button
                                                         type="button"
-                                                        className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${isDark ? 'hover:bg-zinc-700 text-zinc-400 hover:text-white' : 'hover:bg-gray-200 text-gray-500 hover:text-gray-800'}`}
+                                                        className={`w-6 h-6 rounded-lg flex items-center justify-center transition-colors ${isDark ? 'text-zinc-400 hover:bg-blue-400/10 hover:text-blue-100' : 'text-gray-500 hover:bg-blue-100 hover:text-blue-700'}`}
                                                         onClick={(e) => { e.stopPropagation(); setEditingSubCanvasId(canvas.id); setEditingSubCanvasName(canvas.name); }}
                                                         title="修改子画布名称"
                                                     >
@@ -4014,7 +4019,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                                                     </button>
                                                     <button
                                                         type="button"
-                                                        className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${subCanvases.length <= 1 ? 'cursor-not-allowed opacity-35' : (isDark ? 'text-zinc-500 hover:bg-red-500/10 hover:text-red-300' : 'text-gray-400 hover:bg-red-50 hover:text-red-600')}`}
+                                                        className={`w-6 h-6 rounded-lg flex items-center justify-center transition-colors ${subCanvases.length <= 1 ? 'cursor-not-allowed opacity-35' : (isDark ? 'text-zinc-500 hover:bg-red-500/10 hover:text-red-300' : 'text-gray-400 hover:bg-red-50 hover:text-red-600')}`}
                                                         onClick={(e) => { e.stopPropagation(); handleDeleteSubCanvas(canvas.id); }}
                                                         disabled={subCanvases.length <= 1}
                                                         title={subCanvases.length <= 1 ? '至少保留一个子画布' : '删除子画布'}

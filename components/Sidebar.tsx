@@ -239,13 +239,13 @@ const Sidebar: React.FC<SidebarProps> = ({
   };
 
   // 样式
-  const bgMain = isDark ? 'bg-[#18181b]/95' : 'bg-white/95';
-  const borderColor = isDark ? 'border-zinc-800' : 'border-gray-200';
+  const bgMain = isDark ? 'bg-[#111318]/95' : 'bg-white/95';
+  const borderColor = isDark ? 'border-white/10' : 'border-gray-200';
   const textMain = isDark ? 'text-white' : 'text-gray-900';
   const textSub = isDark ? 'text-gray-400' : 'text-gray-500';
   const textMuted = isDark ? 'text-gray-600' : 'text-gray-400';
   const hoverBg = isDark ? 'hover:bg-white/5' : 'hover:bg-gray-100';
-  const activeBg = isDark ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-50 text-blue-600';
+  const activeBg = isDark ? 'bg-blue-400/10 text-blue-200 ring-1 ring-blue-300/20' : 'bg-blue-50 text-blue-700 ring-1 ring-blue-100';
 
   // 侧边栏按钮
   const SidebarButton = ({ 
@@ -414,13 +414,13 @@ const Sidebar: React.FC<SidebarProps> = ({
     };
     const typeIcons: Record<AssetLibraryType, typeof Icons.User> = { role: Icons.User, scene: Icons.Image, prop: Icons.Box };
     const typeColors: Record<AssetLibraryType, string> = {
-      role: isDark ? "bg-blue-500/15 text-blue-300 ring-1 ring-blue-500/25" : "bg-blue-50 text-blue-600 ring-1 ring-blue-200",
-      scene: isDark ? "bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/25" : "bg-amber-50 text-amber-600 ring-1 ring-amber-200",
-      prop: isDark ? "bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/25" : "bg-emerald-50 text-emerald-600 ring-1 ring-emerald-200",
+      role: isDark ? "bg-gradient-to-r from-blue-500/20 to-cyan-400/10 text-blue-100 ring-1 ring-blue-300/25 shadow-sm" : "bg-gradient-to-r from-blue-50 to-cyan-50 text-blue-700 ring-1 ring-blue-200 shadow-sm",
+      scene: isDark ? "bg-gradient-to-r from-amber-500/20 to-yellow-400/10 text-amber-100 ring-1 ring-amber-300/25 shadow-sm" : "bg-gradient-to-r from-amber-50 to-yellow-50 text-amber-700 ring-1 ring-amber-200 shadow-sm",
+      prop: isDark ? "bg-gradient-to-r from-emerald-500/20 to-teal-400/10 text-emerald-100 ring-1 ring-emerald-300/25 shadow-sm" : "bg-gradient-to-r from-emerald-50 to-teal-50 text-emerald-700 ring-1 ring-emerald-200 shadow-sm",
     };
     const addButtonClass = isDark
-      ? "border border-zinc-700/70 bg-zinc-900/60 text-zinc-300 hover:border-blue-500/50 hover:text-blue-200"
-      : "border border-gray-200 bg-white text-gray-600 hover:border-blue-300 hover:text-blue-700";
+      ? "border border-blue-300/15 bg-blue-300/10 text-blue-100/80 hover:border-blue-300/35 hover:bg-blue-300/15 hover:text-blue-100"
+      : "border border-blue-100 bg-blue-50/70 text-blue-700 hover:border-blue-200 hover:bg-blue-100";
     const toggleExpanded = (assetId: string) => {
       setExpandedAssetIds(prev => {
         const next = new Set(prev);
@@ -449,26 +449,26 @@ const Sidebar: React.FC<SidebarProps> = ({
         return next;
       });
     };
-    const selectButtonClass = (selected: boolean) => `h-6 w-6 shrink-0 rounded-md border flex items-center justify-center transition-colors ${
+    const selectButtonClass = (selected: boolean) => `h-6 w-6 shrink-0 rounded-[9px] border flex items-center justify-center transition-all ${
       selected
-        ? (isDark ? 'border-blue-400 bg-blue-500/20 text-blue-300' : 'border-blue-500 bg-blue-50 text-blue-600')
-        : (isDark ? 'border-zinc-700 text-zinc-600 hover:text-zinc-300 hover:border-zinc-500' : 'border-gray-200 text-gray-300 hover:text-gray-600 hover:border-gray-300')
+        ? (isDark ? 'border-cyan-300/60 bg-cyan-300/15 text-cyan-100 shadow-[0_0_16px_rgba(103,232,249,0.2)]' : 'border-blue-500 bg-blue-50 text-blue-600 shadow-sm')
+        : (isDark ? 'border-white/10 bg-white/5 text-zinc-600 hover:border-blue-300/30 hover:text-blue-100' : 'border-gray-200 bg-white text-gray-300 hover:text-gray-600 hover:border-blue-200')
     }`;
 
     return (
       <div className="h-full flex flex-col gap-3">
         {/* Top-level media type tabs */}
-        <div className={"flex p-0.5 rounded-xl shrink-0 " + (isDark ? "bg-zinc-900/80" : "bg-gray-100")}>
+        <div className={"flex rounded-2xl border p-1 shrink-0 shadow-inner " + (isDark ? "border-white/10 bg-black/20" : "border-gray-200 bg-gray-50")}>
           {[
             { key: "image" as const, label: "图片资产", icon: Icons.Image },
             { key: "video" as const, label: "分镜视频", icon: Icons.Video },
           ].map(tab => (
             <button
               key={tab.key}
-              className={"h-9 flex-1 rounded-[10px] text-xs font-semibold flex items-center justify-center gap-1.5 transition-all duration-200 " + (
+              className={"h-9 flex-1 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all duration-200 " + (
                 mediaTab === tab.key
-                  ? (isDark ? "bg-zinc-700/80 text-white shadow-sm" : "bg-white text-gray-900 shadow-sm")
-                  : (isDark ? "text-zinc-500 hover:text-zinc-300" : "text-gray-400 hover:text-gray-600")
+                  ? (isDark ? "bg-gradient-to-r from-blue-500/20 to-cyan-400/10 text-blue-100 ring-1 ring-blue-300/20 shadow-sm" : "bg-white text-blue-700 ring-1 ring-blue-100 shadow-sm")
+                  : (isDark ? "text-zinc-500 hover:bg-white/5 hover:text-zinc-200" : "text-gray-400 hover:bg-white hover:text-gray-600")
               )}
               onClick={() => { setMediaTab(tab.key); setSelectedAssetIds(new Set()); setSelectedShotClipIds(new Set()); }}
             >
@@ -488,7 +488,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 const isActive = assetTab === key;
                 return (
                   <button key={key} className={"h-8 flex-1 rounded-[10px] text-xs font-semibold flex items-center justify-center gap-1.5 transition-all duration-200 " + (
-                    isActive ? typeColors[key] : (isDark ? "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/60" : "text-gray-400 hover:text-gray-600 hover:bg-gray-50")
+                    isActive ? typeColors[key] : (isDark ? "text-zinc-500 hover:text-zinc-200 hover:bg-white/5" : "text-gray-400 hover:text-gray-600 hover:bg-gray-50")
                   )} onClick={() => { setAssetTab(key); setAssetSearch(''); setSelectedAssetIds(new Set()); }}>
                     <Icon size={12} />
                     {typeLabel[key]}
@@ -498,7 +498,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             </div>
 
             {/* Search */}
-            <div className={"flex items-center gap-2.5 rounded-xl border px-3 py-2 shrink-0 transition-colors focus-within:border-blue-500/40 " + (isDark ? "border-zinc-800 bg-zinc-900/50" : "border-gray-200 bg-gray-50/80")}>
+            <div className={"flex items-center gap-2.5 rounded-2xl border px-3 py-2 shrink-0 shadow-inner transition-all focus-within:border-blue-300/45 focus-within:ring-2 focus-within:ring-blue-400/10 " + (isDark ? "border-white/10 bg-black/20" : "border-gray-200 bg-gray-50/80")}>
               <Icons.Search size={14} className={textMuted} />
               <input value={assetSearch} onChange={(e) => setAssetSearch(e.target.value)}
                 placeholder={`在项目库中搜索${typeLabel[assetTab]}...`}
@@ -509,12 +509,12 @@ const Sidebar: React.FC<SidebarProps> = ({
             </div>
 
             {selectedAssetIds.size > 0 && (
-              <div className={`flex items-center justify-between rounded-xl border px-3 py-2 text-xs ${isDark ? 'border-blue-500/30 bg-blue-500/10 text-blue-200' : 'border-blue-200 bg-blue-50 text-blue-700'}`}>
+              <div className={`flex items-center justify-between rounded-2xl border px-3 py-2 text-xs shadow-sm ${isDark ? 'border-blue-300/25 bg-blue-400/10 text-blue-100' : 'border-blue-200 bg-blue-50 text-blue-700'}`}>
                 <span>已选择 {selectedAssetIds.size} 个资产</span>
                 <div className="flex items-center gap-2">
                   <button className="font-semibold hover:opacity-80" onClick={() => setSelectedAssetIds(new Set())}>清空</button>
                   <button
-                    className={`h-7 rounded-lg px-3 font-semibold ${isDark ? 'bg-blue-500 text-white hover:bg-blue-400' : 'bg-blue-600 text-white hover:bg-blue-500'}`}
+                    className={`h-7 rounded-xl px-3 font-semibold shadow-sm ${isDark ? 'bg-blue-400 text-slate-950 hover:bg-cyan-300' : 'bg-blue-600 text-white hover:bg-blue-500'}`}
                     onClick={() => {
                       Array.from(selectedAssetIds).forEach(assetId => {
                         const asset = assetLibrary.find(item => item.id === assetId);
@@ -563,7 +563,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                       return (
                         <div
                           key={asset.id}
-                          className={"overflow-hidden rounded-xl border transition-all duration-200 " + (isDark ? "border-zinc-800/80 bg-zinc-900/35" : "border-gray-200 bg-white")}
+                          className={"overflow-hidden rounded-2xl border transition-all duration-200 " + (isDark ? "border-white/10 bg-white/[0.035] shadow-[0_16px_40px_rgba(2,6,23,0.18)] hover:border-blue-300/20 hover:bg-white/[0.055]" : "border-gray-200 bg-white shadow-sm hover:border-blue-100 hover:shadow-md")}
                         >
                           <div
                             draggable
@@ -579,7 +579,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                               >
                                 {selectedAssetIds.has(asset.id) && <Icons.Check size={13} />}
                               </button>
-                              <img src={asset.previewUrl} className="h-20 w-24 rounded-lg object-cover shrink-0 ring-1 ring-black/10" loading="lazy" />
+                              <img src={asset.previewUrl} className="h-20 w-24 rounded-xl object-cover shrink-0 ring-1 ring-black/10 shadow-sm" loading="lazy" />
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-center justify-between gap-2">
                                   <button
@@ -593,7 +593,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                                     <button
                                       type="button"
                                       onClick={() => toggleExpanded(asset.id)}
-                                      className={"h-7 w-7 shrink-0 rounded-lg flex items-center justify-center " + (isDark ? "text-zinc-400 hover:bg-zinc-800 hover:text-white" : "text-gray-500 hover:bg-gray-100 hover:text-gray-900")}
+                                      className={"h-7 w-7 shrink-0 rounded-xl flex items-center justify-center " + (isDark ? "text-zinc-400 hover:bg-blue-400/10 hover:text-blue-100" : "text-gray-500 hover:bg-blue-50 hover:text-blue-700")}
                                       aria-label={isExpanded ? '收起子形象' : '展开子形象'}
                                     >
                                       <Icons.ChevronDown size={16} className={"transition-transform " + (isExpanded ? "rotate-180" : "")} />
@@ -618,15 +618,15 @@ const Sidebar: React.FC<SidebarProps> = ({
                           </div>
 
                           {hasChildren && isExpanded && (
-                            <div className={"relative ml-6 border-l pl-3 pb-2 " + (isDark ? "border-zinc-700/70" : "border-gray-200")}>
+                            <div className={"relative ml-6 border-l pl-3 pb-2 " + (isDark ? "border-blue-300/15" : "border-blue-100")}>
                               {(visibleChildren.length ? visibleChildren : children).map((child: AssetLibraryItem) => (
                                 <div
                                   key={child.id}
                                   draggable
                                   onDragStart={(event: React.DragEvent) => startAssetDrag(event, child.id)}
-                                  className={"relative flex items-center gap-3 rounded-lg border-b py-2 pr-2 cursor-grab active:cursor-grabbing " + (isDark ? "border-zinc-800/70 hover:bg-zinc-800/35" : "border-gray-100 hover:bg-gray-50")}
+                                  className={"relative flex items-center gap-3 rounded-xl border-b py-2 pr-2 cursor-grab active:cursor-grabbing " + (isDark ? "border-white/10 hover:bg-white/5" : "border-gray-100 hover:bg-gray-50")}
                                 >
-                                  <span className={"absolute -left-3 top-1/2 h-px w-3 " + (isDark ? "bg-zinc-700/70" : "bg-gray-200")} />
+                                  <span className={"absolute -left-3 top-1/2 h-px w-3 " + (isDark ? "bg-blue-300/20" : "bg-blue-100")} />
                                   <button
                                     type="button"
                                     className={selectButtonClass(selectedAssetIds.has(child.id))}
@@ -635,7 +635,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                                   >
                                     {selectedAssetIds.has(child.id) && <Icons.Check size={13} />}
                                   </button>
-                                  <img src={child.previewUrl} className="h-16 w-20 rounded-lg object-cover shrink-0 ring-1 ring-black/10" loading="lazy" />
+                                  <img src={child.previewUrl} className="h-16 w-20 rounded-xl object-cover shrink-0 ring-1 ring-black/10 shadow-sm" loading="lazy" />
                                   <div className="min-w-0 flex-1">
                                     <div className={"truncate text-xs font-bold " + textMain}>{child.name}</div>
                                     {child.voiceTimbre && (
@@ -664,7 +664,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                       <div key={asset.id}>
                         <div draggable
                           onDragStart={(event: React.DragEvent) => startAssetDrag(event, asset.id)}
-                          className={"group/card rounded-xl border p-3 transition-all duration-200 cursor-grab active:cursor-grabbing " + (isDark ? "border-zinc-800/70 bg-zinc-900/30 hover:bg-zinc-800/60 hover:border-zinc-700" : "border-gray-100 bg-white hover:bg-gray-50 hover:border-gray-200 hover:shadow-sm")}
+                          className={"group/card rounded-2xl border p-3 transition-all duration-200 cursor-grab active:cursor-grabbing " + (isDark ? "border-white/10 bg-white/[0.035] hover:border-blue-300/20 hover:bg-white/[0.055] shadow-[0_14px_34px_rgba(2,6,23,0.16)]" : "border-gray-100 bg-white hover:bg-gray-50 hover:border-blue-100 hover:shadow-md")}
                         >
                           <div className="flex items-center gap-3">
                             <button
@@ -675,14 +675,14 @@ const Sidebar: React.FC<SidebarProps> = ({
                             >
                               {selectedAssetIds.has(asset.id) && <Icons.Check size={13} />}
                             </button>
-                            <img src={asset.previewUrl} className="h-10 w-10 rounded-lg object-cover shrink-0 ring-1 ring-black/10" loading="lazy" />
+                            <img src={asset.previewUrl} className="h-10 w-10 rounded-xl object-cover shrink-0 ring-1 ring-black/10 shadow-sm" loading="lazy" />
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-1.5">
                                 <span className={"truncate text-sm font-semibold " + textMain}>{asset.name}</span>
                                 <span className={"text-[10px] font-medium shrink-0 " + textMuted}>{asset.version}</span>
                               </div>
                               {asset.voiceTimbre && (
-                                <span className={"inline-flex items-center gap-1 mt-0.5 text-[10px] rounded-md px-1.5 py-0.5 " + (isDark ? "bg-amber-500/12 text-amber-300" : "bg-amber-50 text-amber-700")}>
+                                <span className={"inline-flex items-center gap-1 mt-0.5 text-[10px] rounded-md px-1.5 py-0.5 " + (isDark ? "bg-amber-500/10 text-amber-300" : "bg-amber-50 text-amber-700")}>
                                   <Icons.Mic size={9} />
                                   {asset.voiceTimbre}
                                 </span>
@@ -701,11 +701,11 @@ const Sidebar: React.FC<SidebarProps> = ({
                           </div>
                         </div>
                         {children.length > 0 && (
-                          <div className={"ml-4 mt-1 space-y-1 border-l-2 pl-3 " + (isDark ? "border-zinc-800/50" : "border-gray-200/80")}>
+                          <div className={"ml-4 mt-1 space-y-1 border-l-2 pl-3 " + (isDark ? "border-blue-300/10" : "border-blue-100")}>
                             {children.map((child: AssetLibraryItem) => (
                               <div key={child.id} draggable
                                 onDragStart={(event: React.DragEvent) => startAssetDrag(event, child.id)}
-                                className={"group/card rounded-lg border p-2 transition-all duration-200 cursor-grab active:cursor-grabbing " + (isDark ? "border-zinc-800/50 hover:bg-zinc-800/40 hover:border-zinc-700" : "border-gray-100 bg-gray-50/50 hover:bg-white hover:border-gray-200")}
+                                className={"group/card rounded-xl border p-2 transition-all duration-200 cursor-grab active:cursor-grabbing " + (isDark ? "border-white/10 bg-white/[0.025] hover:bg-white/[0.055] hover:border-blue-300/20" : "border-gray-100 bg-gray-50/50 hover:bg-white hover:border-blue-100")}
                               >
                                 <div className="flex items-center gap-2">
                                   <button
@@ -716,7 +716,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                                   >
                                     {selectedAssetIds.has(child.id) && <Icons.Check size={13} />}
                                   </button>
-                                  <img src={child.previewUrl} className="h-8 w-8 rounded-lg object-cover shrink-0 ring-1 ring-black/10" loading="lazy" />
+                                  <img src={child.previewUrl} className="h-8 w-8 rounded-xl object-cover shrink-0 ring-1 ring-black/10 shadow-sm" loading="lazy" />
                                   <span className={"truncate text-xs font-medium flex-1 " + textMain}>{child.name}</span>
                                   {child.voiceTimbre && (
                                     <span className={"text-[10px] shrink-0 " + textMuted} title={child.voiceTimbre}>
