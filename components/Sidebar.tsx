@@ -12,6 +12,7 @@ interface SidebarProps {
   onOpenExportImport: () => void;
   nodes: NodeData[];
   onPreviewMedia: (url: string, type: 'image' | 'video') => void;
+  onPreviewText: (title: string, text: string) => void;
   onSaveAsset: (url: string, type: 'image' | 'video', title: string) => void;
   onOpenSaveResult: (nodeId: string) => void;
   onCopyAsset: (url: string, type: 'image' | 'video') => void;
@@ -25,6 +26,7 @@ interface SidebarProps {
 }
 
 type ActivePanel = 'ADD' | 'HISTORY' | 'ASSET_MATERIAL' | 'PROJECT' | null;
+type HistoryTab = 'image' | 'video' | 'text' | 'audio';
 
 
 const HistoryItem = memo(({ node, type, onClick, isDark }: { node: NodeData, type: 'image' | 'video', onClick: () => void, isDark: boolean }) => {
@@ -61,6 +63,33 @@ const HistoryItem = memo(({ node, type, onClick, isDark }: { node: NodeData, typ
     );
 });
 
+const TextHistoryItem = memo(({ node, text, onClick, isDark }: { node: NodeData, text: string, onClick: () => void, isDark: boolean }) => (
+    <button
+        className={`rounded-xl border p-3 text-left transition-all ${isDark ? 'border-zinc-800 bg-zinc-900/45 hover:border-zinc-700 hover:bg-zinc-800/70' : 'border-gray-100 bg-white hover:border-gray-200 hover:bg-gray-50'}`}
+        onClick={onClick}
+    >
+        <div className="flex items-center gap-2">
+            <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${isDark ? 'bg-zinc-800 text-zinc-300' : 'bg-gray-100 text-gray-600'}`}>
+                <Icons.FileText size={16} />
+            </span>
+            <span className={`min-w-0 truncate text-xs font-semibold ${isDark ? 'text-zinc-100' : 'text-gray-900'}`}>{node.title || '文本历史'}</span>
+        </div>
+        <p className={`mt-2 line-clamp-4 text-[11px] leading-5 ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>{text}</p>
+    </button>
+));
+
+const AudioHistoryItem = memo(({ node, isDark }: { node: NodeData, isDark: boolean }) => (
+    <div className={`rounded-xl border p-3 transition-all ${isDark ? 'border-zinc-800 bg-zinc-900/45' : 'border-gray-100 bg-white'}`}>
+        <div className="mb-2 flex items-center gap-2">
+            <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${isDark ? 'bg-amber-500/10 text-amber-300' : 'bg-amber-50 text-amber-600'}`}>
+                <Icons.Music size={16} />
+            </span>
+            <span className={`min-w-0 truncate text-xs font-semibold ${isDark ? 'text-zinc-100' : 'text-gray-900'}`}>{node.title || '音频历史'}</span>
+        </div>
+        <audio src={node.audioSrc} controls className="h-8 w-full" />
+    </div>
+));
+
 const createShotClipPreview = (label: string, accent = '#475569', background = '#111827') => {
     const svg = `
       <svg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180">
@@ -94,6 +123,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onOpenExportImport,
   nodes,
   onPreviewMedia,
+  onPreviewText,
   onSaveAsset,
   onOpenSaveResult,
   onCopyAsset,
@@ -106,7 +136,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   isDark = true
 }) => {
   const [activePanel, setActivePanel] = useState<ActivePanel>(null);
-  const [historyTab, setHistoryTab] = useState<'image' | 'video'>('image');
+  const [historyTab, setHistoryTab] = useState<HistoryTab>('image');
   const assetScope = 'project';
   const [assetTab, setAssetTab] = useState<AssetLibraryType>('role');
   const [assetSearch, setAssetSearch] = useState('');
@@ -134,6 +164,14 @@ const Sidebar: React.FC<SidebarProps> = ({
   
   const videoNodes = useMemo(() => 
       uniqueNodes.filter(n => n.videoSrc && !n.isLoading), 
+  [uniqueNodes]);
+
+  const textNodes = useMemo(() =>
+      uniqueNodes.filter(n => n.type === NodeType.CREATIVE_DESC && !n.isLoading && (n.optimizedPrompt || n.prompt)),
+  [uniqueNodes]);
+
+  const audioNodes = useMemo(() =>
+      uniqueNodes.filter(n => n.audioSrc && !n.isLoading),
   [uniqueNodes]);
 
   // Mock shot clips for demo - will be replaced by real data
@@ -804,6 +842,14 @@ const Sidebar: React.FC<SidebarProps> = ({
 
     // 生成历史面板 - 独立的大面板
     if (activePanel === 'HISTORY') {
+      const historyMeta: Record<HistoryTab, { label: string; icon: any; count: number; emptyLabel: string }> = {
+        image: { label: '图片', icon: Icons.Image, count: imageNodes.length, emptyLabel: '图片' },
+        video: { label: '视频', icon: Icons.Video, count: videoNodes.length, emptyLabel: '视频' },
+        text: { label: '文字', icon: Icons.FileText, count: textNodes.length, emptyLabel: '文字' },
+        audio: { label: '音频', icon: Icons.Music, count: audioNodes.length, emptyLabel: '音频' },
+      };
+      const activeHistoryMeta = historyMeta[historyTab];
+
       return (
         <div 
           ref={panelRef}
@@ -828,42 +874,37 @@ const Sidebar: React.FC<SidebarProps> = ({
           {/* Tabs */}
           <div className={`px-4 pt-4 shrink-0`}>
             <div className={`flex p-1 rounded-xl ${isDark ? 'bg-zinc-900' : 'bg-gray-100'}`}>
-              <button 
-                className={`flex-1 py-2.5 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-2 ${
-                  historyTab === 'image' 
-                    ? (isDark ? 'bg-zinc-700 text-white shadow-sm' : 'bg-white text-gray-900 shadow-sm') 
-                    : textSub
-                }`}
-                onClick={() => setHistoryTab('image')}
-              >
-                <Icons.Image size={14} />
-                图片 ({imageNodes.length})
-              </button>
-              <button 
-                className={`flex-1 py-2.5 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-2 ${
-                  historyTab === 'video' 
-                    ? (isDark ? 'bg-zinc-700 text-white shadow-sm' : 'bg-white text-gray-900 shadow-sm') 
-                    : textSub
-                }`}
-                onClick={() => setHistoryTab('video')}
-              >
-                <Icons.Video size={14} />
-                视频 ({videoNodes.length})
-              </button>
+              {(Object.keys(historyMeta) as HistoryTab[]).map(tab => {
+                const Icon = historyMeta[tab].icon;
+                return (
+                  <button
+                    key={tab}
+                    className={`flex-1 py-2.5 text-[11px] font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                      historyTab === tab
+                        ? (isDark ? 'bg-zinc-700 text-white shadow-sm' : 'bg-white text-gray-900 shadow-sm')
+                        : textSub
+                    }`}
+                    onClick={() => setHistoryTab(tab)}
+                  >
+                    <Icon size={13} />
+                    {historyMeta[tab].label} ({historyMeta[tab].count})
+                  </button>
+                );
+              })}
             </div>
           </div>
 
           {/* Content Grid */}
           <div className="flex-1 p-4 overflow-y-auto custom-scrollbar">
-            {(historyTab === 'image' ? imageNodes : videoNodes).length === 0 ? (
+            {activeHistoryMeta.count === 0 ? (
               <div className={`flex flex-col items-center justify-center h-full ${textMuted}`}>
                 <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-4 ${isDark ? 'bg-zinc-800' : 'bg-gray-100'}`}>
-                  {historyTab === 'image' ? <Icons.Image size={28} className="opacity-40" /> : <Icons.Video size={28} className="opacity-40" />}
+                  <activeHistoryMeta.icon size={28} className="opacity-40" />
                 </div>
                 <p className="text-sm font-medium">暂无生成历史</p>
-                <p className={`text-xs mt-1 ${textMuted}`}>生成的{historyTab === 'image' ? '图片' : '视频'}将显示在这里</p>
+                <p className={`text-xs mt-1 ${textMuted}`}>生成的{activeHistoryMeta.emptyLabel}将显示在这里</p>
               </div>
-            ) : (
+            ) : historyTab === 'image' || historyTab === 'video' ? (
               <div className="grid grid-cols-2 gap-3">
                 {(historyTab === 'image' ? imageNodes : videoNodes).map(node => (
                   <HistoryItem 
@@ -878,14 +919,35 @@ const Sidebar: React.FC<SidebarProps> = ({
                   />
                 ))}
               </div>
+            ) : historyTab === 'text' ? (
+              <div className="space-y-3">
+                {textNodes.map(node => {
+                  const text = node.optimizedPrompt || node.prompt || '';
+                  return (
+                    <TextHistoryItem
+                      key={node.id}
+                      node={node}
+                      text={text}
+                      isDark={isDark}
+                      onClick={() => onPreviewText(node.title || '文本历史', text)}
+                    />
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {audioNodes.map(node => (
+                  <AudioHistoryItem key={node.id} node={node} isDark={isDark} />
+                ))}
+              </div>
             )}
           </div>
 
           {/* Footer Stats */}
           <div className={`px-4 py-3 border-t ${borderColor} shrink-0`}>
             <div className={`flex items-center justify-between text-xs ${textMuted}`}>
-              <span>共 {(historyTab === 'image' ? imageNodes : videoNodes).length} 项</span>
-              <span>{historyTab === 'image' ? '图片' : '视频'}历史</span>
+              <span>共 {activeHistoryMeta.count} 项</span>
+              <span>{activeHistoryMeta.label}历史</span>
             </div>
           </div>
         </div>

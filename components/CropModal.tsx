@@ -180,7 +180,6 @@ export const CropModal: React.FC<CropModalProps> = ({
   const bgCard = isDark ? 'bg-[#18181b] border-zinc-700 text-white' : 'bg-white border-gray-200 text-gray-900';
   const panelBg = isDark ? 'bg-zinc-900/70 border-zinc-700' : 'bg-gray-50 border-gray-200';
   const textSub = isDark ? 'text-zinc-400' : 'text-gray-500';
-  const inputClass = isDark ? 'bg-zinc-900 border-zinc-700 text-white' : 'bg-white border-gray-200 text-gray-900';
 
   return (
     <div
@@ -305,14 +304,6 @@ export const CropModal: React.FC<CropModalProps> = ({
                     />
                   </label>
                 ))}
-              </div>
-            </div>
-
-            <div className={`rounded-xl border p-4 ${panelBg}`}>
-              <div className="text-xs font-bold uppercase tracking-wider mb-3">输出尺寸</div>
-              <div className={`grid grid-cols-2 gap-2 text-xs ${textSub}`}>
-                <div className={`rounded-lg border px-3 py-2 ${inputClass}`}>{cropPixels.width || '-'} px</div>
-                <div className={`rounded-lg border px-3 py-2 ${inputClass}`}>{cropPixels.height || '-'} px</div>
               </div>
             </div>
 

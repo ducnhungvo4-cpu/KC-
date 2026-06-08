@@ -192,6 +192,17 @@ const CURRENT_USER_NAME = '导演A';
 
 const KC_PROJECT_STORAGE_PREFIX = 'KC_CANVAS_PROJECT_';
 const KC_PROJECT_SUMMARIES_KEY = 'KC_CANVAS_PROJECT_SUMMARIES';
+const KC_SUB_CANVAS_STORAGE_PREFIX = 'KC_CANVAS_SUB_CANVASES_';
+
+type SubCanvasWorkspaceSnapshot = {
+    canvases: ProjectCanvasItem[];
+    activeId: string;
+    states: Record<string, {
+        nodes: NodeData[];
+        connections: Connection[];
+        transform: CanvasTransform;
+    }>;
+};
 
 const normalizeProjectSummary = (project: ProjectDashboardItem): ProjectDashboardItem => ({
     ...project,
@@ -352,43 +363,151 @@ const CanvasWithSidebar: React.FC = () => {
   const [editingSubCanvasName, setEditingSubCanvasName] = useState('');
   const [isSubCanvasListOpen, setIsSubCanvasListOpen] = useState(false);
 
-  // Initialize sub-canvases when entering a project
+  const getSubCanvasStorageKey = (projectId: string) => `${KC_SUB_CANVAS_STORAGE_PREFIX}${projectId}`;
+
+  const createDefaultSubCanvas = (projectId: string, nodeCount = 0): ProjectCanvasItem => ({
+      id: 'canvas-001',
+      projectId,
+      name: '主画布',
+      owner: '我',
+      permissionRole: 'owner',
+      status: 'active',
+      nodeCount,
+      assetCount: 0,
+      lastSavedAt: '刚刚',
+      createdAt: new Date().toISOString().split('T')[0],
+  });
+
+  const readSubCanvasWorkspace = (projectId: string): SubCanvasWorkspaceSnapshot | null => {
+      if (typeof window === 'undefined') return null;
+      try {
+          const saved = localStorage.getItem(getSubCanvasStorageKey(projectId));
+          if (!saved) return null;
+          const parsed = JSON.parse(saved) as SubCanvasWorkspaceSnapshot;
+          if (!Array.isArray(parsed.canvases) || parsed.canvases.length === 0) return null;
+          return {
+              canvases: parsed.canvases,
+              activeId: parsed.activeId || parsed.canvases[0].id,
+              states: parsed.states || {},
+          };
+      } catch {
+          return null;
+      }
+  };
+
+  const writeSubCanvasWorkspace = (projectId: string, snapshot: SubCanvasWorkspaceSnapshot) => {
+      if (typeof window === 'undefined') return;
+      localStorage.setItem(getSubCanvasStorageKey(projectId), JSON.stringify(snapshot));
+  };
+
+  const getCurrentSubCanvasWorkspace = (nextOverrides: Partial<SubCanvasWorkspaceSnapshot> = {}): SubCanvasWorkspaceSnapshot | null => {
+      if (!currentProject || !activeSubCanvasId) return null;
+      const previous = readSubCanvasWorkspace(currentProject.id);
+      const currentStates = previous?.states || {};
+      const canvases = nextOverrides.canvases || subCanvases;
+      const activeId = nextOverrides.activeId || activeSubCanvasId;
+      const states = {
+          ...currentStates,
+          [activeSubCanvasId]: {
+              nodes,
+              connections,
+              transform,
+          },
+          ...(nextOverrides.states || {}),
+      };
+      return { canvases, activeId, states };
+  };
+
+  const persistCurrentSubCanvasWorkspace = (overrides: Partial<SubCanvasWorkspaceSnapshot> = {}) => {
+      if (!currentProject) return;
+      const snapshot = getCurrentSubCanvasWorkspace(overrides);
+      if (snapshot) writeSubCanvasWorkspace(currentProject.id, snapshot);
+  };
+
   useEffect(() => {
-    if (currentProject) {
-      const demoSubCanvases: ProjectCanvasItem[] = [
-        { id: 'canvas-001', projectId: currentProject.id, name: '主画布', owner: '我', permissionRole: 'owner', status: 'active', nodeCount: nodes.length, assetCount: 0, lastSavedAt: '刚刚', createdAt: '2026-06-01' },
-        { id: 'canvas-002', projectId: currentProject.id, name: '分镜草稿', owner: '我', permissionRole: 'owner', status: 'draft', nodeCount: 0, assetCount: 0, lastSavedAt: '2分钟前', createdAt: '2026-06-02' },
-        { id: 'canvas-003', projectId: currentProject.id, name: '角色设计', owner: '导演A', permissionRole: 'editor', status: 'active', nodeCount: 5, assetCount: 3, lastSavedAt: '1小时前', createdAt: '2026-06-03' },
-        { id: 'canvas-004', projectId: currentProject.id, name: '场景概念', owner: '我', permissionRole: 'owner', status: 'draft', nodeCount: 2, assetCount: 1, lastSavedAt: '昨天', createdAt: '2026-06-04' },
-      ];
-      setSubCanvases(demoSubCanvases);
-      setActiveSubCanvasId(demoSubCanvases[0].id);
-    } else {
+    if (!currentProject) {
       setSubCanvases([]);
       setActiveSubCanvasId('');
+      return;
     }
+
+    const saved = readSubCanvasWorkspace(currentProject.id);
+    if (saved) {
+      const activeId = saved.canvases.some(canvas => canvas.id === saved.activeId) ? saved.activeId : saved.canvases[0].id;
+      const activeState = saved.states[activeId];
+      setSubCanvases(saved.canvases);
+      setActiveSubCanvasId(activeId);
+      if (activeState) {
+        setNodes(activeState.nodes || []);
+        setConnections(activeState.connections || []);
+        setTransform(activeState.transform || { x: 0, y: 0, k: 1 });
+      }
+      return;
+    }
+
+    const defaultCanvas = createDefaultSubCanvas(currentProject.id, nodes.length);
+    setSubCanvases([defaultCanvas]);
+    setActiveSubCanvasId(defaultCanvas.id);
+    writeSubCanvasWorkspace(currentProject.id, {
+      canvases: [defaultCanvas],
+      activeId: defaultCanvas.id,
+      states: {
+        [defaultCanvas.id]: { nodes, connections, transform },
+      },
+    });
   }, [currentProject?.id]);
 
+  useEffect(() => {
+    if (!currentProject || !activeSubCanvasId || subCanvases.length === 0) return;
+    const timer = window.setTimeout(() => {
+      const nextCanvases = subCanvases.map(canvas => canvas.id === activeSubCanvasId
+        ? { ...canvas, nodeCount: nodes.length, lastSavedAt: '刚刚' }
+        : canvas
+      );
+      persistCurrentSubCanvasWorkspace({ canvases: nextCanvases });
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [currentProject?.id, activeSubCanvasId, subCanvases, nodes, connections, transform]);
+
   const handleSwitchSubCanvas = (canvasId: string) => {
-    if (canvasId === activeSubCanvasId) return;
-    // Save current nodes to active canvas (in a real system this would persist)
+    if (canvasId === activeSubCanvasId || !currentProject) return;
+    persistCurrentSubCanvasWorkspace();
+    const workspace = readSubCanvasWorkspace(currentProject.id);
+    const nextState = workspace?.states?.[canvasId];
     setActiveSubCanvasId(canvasId);
-    // In real system: load nodes for the new canvas
-    // For demo: keep current nodes
+    if (nextState) {
+      setNodes(nextState.nodes || []);
+      setConnections(nextState.connections || []);
+      setTransform(nextState.transform || { x: 0, y: 0, k: 1 });
+    } else {
+      setNodes([]);
+      setConnections([]);
+      setTransform({ x: 0, y: 0, k: 1 });
+    }
+    setSelectedNodeIds(new Set());
+    setSelectedConnectionId(null);
     setIsSubCanvasListOpen(false);
   };
 
   const handleRenameSubCanvas = (canvasId: string, newName: string) => {
-    if (!newName.trim()) return;
-    setSubCanvases(prev => prev.map(c => c.id === canvasId ? { ...c, name: newName.trim() } : c));
+    const trimmed = newName.trim();
+    if (!trimmed) {
+      setEditingSubCanvasId(null);
+      return;
+    }
+    const nextCanvases = subCanvases.map(c => c.id === canvasId ? { ...c, name: trimmed } : c);
+    setSubCanvases(nextCanvases);
+    persistCurrentSubCanvasWorkspace({ canvases: nextCanvases });
     setEditingSubCanvasId(null);
   };
 
   const handleCreateSubCanvas = () => {
+    if (!currentProject) return;
+    persistCurrentSubCanvasWorkspace();
     const newCanvas: ProjectCanvasItem = {
       id: 'canvas-' + Date.now(),
-      projectId: currentProject?.id || '',
-      name: '新画布',
+      projectId: currentProject.id,
+      name: `新画布 ${subCanvases.length + 1}`,
       owner: '我',
       permissionRole: 'owner',
       status: 'draft',
@@ -397,12 +516,29 @@ const CanvasWithSidebar: React.FC = () => {
       lastSavedAt: '刚刚',
       createdAt: new Date().toISOString().split('T')[0],
     };
-    setSubCanvases(prev => [...prev, newCanvas]);
+    const nextCanvases = [...subCanvases, newCanvas];
+    const previous = readSubCanvasWorkspace(currentProject.id);
+    writeSubCanvasWorkspace(currentProject.id, {
+      canvases: nextCanvases,
+      activeId: newCanvas.id,
+      states: {
+        ...(previous?.states || {}),
+        [activeSubCanvasId]: { nodes, connections, transform },
+        [newCanvas.id]: { nodes: [], connections: [], transform: { x: 0, y: 0, k: 1 } },
+      },
+    });
+    setSubCanvases(nextCanvases);
     setActiveSubCanvasId(newCanvas.id);
+    setNodes([]);
+    setConnections([]);
+    setTransform({ x: 0, y: 0, k: 1 });
+    setSelectedNodeIds(new Set());
+    setSelectedConnectionId(null);
     setIsSubCanvasListOpen(false);
   };
 
   const handleDeleteSubCanvas = (canvasId: string) => {
+    if (!currentProject) return;
     if (subCanvases.length <= 1) {
       window.alert('至少保留一个子画布。');
       return;
@@ -411,13 +547,27 @@ const CanvasWithSidebar: React.FC = () => {
     if (!target) return;
     if (!window.confirm(`确定删除子画布「${target.name}」吗？`)) return;
 
-    setSubCanvases(prev => {
-      const next = prev.filter(canvas => canvas.id !== canvasId);
-      if (canvasId === activeSubCanvasId) {
-        setActiveSubCanvasId(next[0]?.id || '');
-      }
-      return next;
+    const previous = getCurrentSubCanvasWorkspace();
+    const nextCanvases = subCanvases.filter(canvas => canvas.id !== canvasId);
+    const nextActiveId = canvasId === activeSubCanvasId ? nextCanvases[0].id : activeSubCanvasId;
+    const nextStates = { ...(previous?.states || {}) };
+    delete nextStates[canvasId];
+    writeSubCanvasWorkspace(currentProject.id, {
+      canvases: nextCanvases,
+      activeId: nextActiveId,
+      states: nextStates,
     });
+
+    setSubCanvases(nextCanvases);
+    setActiveSubCanvasId(nextActiveId);
+    if (canvasId === activeSubCanvasId) {
+      const nextState = nextStates[nextActiveId];
+      setNodes(nextState?.nodes || []);
+      setConnections(nextState?.connections || []);
+      setTransform(nextState?.transform || { x: 0, y: 0, k: 1 });
+      setSelectedNodeIds(new Set());
+      setSelectedConnectionId(null);
+    }
     if (editingSubCanvasId === canvasId) {
       setEditingSubCanvasId(null);
       setEditingSubCanvasName('');
@@ -544,6 +694,7 @@ const CanvasWithSidebar: React.FC = () => {
   
   const workflowInputRef = useRef<HTMLInputElement>(null);
   const assetInputRef = useRef<HTMLInputElement>(null);
+  const replaceImageRef = useRef<HTMLInputElement>(null);
   const attachInputRef = useRef<HTMLInputElement>(null);
   const nodeToReplaceRef = useRef<string | null>(null);
   const nodeToAttachInputRef = useRef<string | null>(null);
@@ -1597,36 +1748,17 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
 
   const triggerReplaceImage = (nodeId: string) => {
       const node = nodes.find(n => n.id === nodeId);
-      if (!node) return;
+      if (!node || !replaceImageRef.current) return;
+      nodeToReplaceRef.current = nodeId;
       const cat = NODE_MEDIA_CATEGORY[node.type];
       const acceptMap: Record<MediaCategory, string> = {
           image: '.png,.jpg,.jpeg,.gif,.webp,.bmp,.svg,image/*',
           video: '.mp4,.webm,.mov,.avi,.mkv,.flv,.wmv,video/*',
           text: '.mp3,.wav,.ogg,.aac,.m4a,.flac,audio/*',
       };
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.setAttribute('accept', acceptMap[cat] ?? '*/*');
-      nodeToReplaceRef.current = nodeId;
-      input.addEventListener('change', () => {
-          const file = input.files?.[0];
-          if (file) {
-              const typeOk =
-                  (cat === 'image' && file.type.startsWith('image/')) ||
-                  (cat === 'video' && file.type.startsWith('video/')) ||
-                  (cat === 'text' && file.type.startsWith('audio/'));
-              if (!typeOk) {
-                  const labelMap: Record<MediaCategory, string> = { image: '图片', video: '视频', text: '音频' };
-                  alert(`当前节点只能上传${labelMap[cat]}文件`);
-                  input.remove();
-                  return;
-              }
-          }
-          handleReplaceImage({ target: input } as unknown as React.ChangeEvent<HTMLInputElement>);
-          input.remove();
-      });
-      document.body.appendChild(input);
-      input.click();
+      replaceImageRef.current.setAttribute('accept', acceptMap[cat] ?? '*/*');
+      replaceImageRef.current.value = '';
+      replaceImageRef.current.click();
   };
 
   const handleReplaceImage = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1635,6 +1767,19 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
       if (file && nodeId) {
           const node = nodes.find(n => n.id === nodeId);
           if (!node) { /* noop */ }
+          // 校验文件类型是否匹配节点类别，不匹配则拒绝
+          const _cat = node ? NODE_MEDIA_CATEGORY[node.type] : undefined;
+          const _typeOk = !node ||
+              (_cat === 'image' && file.type.startsWith('image/')) ||
+              (_cat === 'video' && file.type.startsWith('video/')) ||
+              (_cat === 'text' && file.type.startsWith('audio/'));
+          if (!_typeOk) {
+              const _labels: Record<string, string> = { image: '图片', video: '视频', text: '音频' };
+              alert('当前节点只能上传' + (_labels[_cat!] || '') + '文件');
+              if (replaceImageRef.current) replaceImageRef.current.value = '';
+              nodeToReplaceRef.current = null;
+              return;
+          }
           else if (file.type.startsWith('video/') && NODE_MEDIA_CATEGORY[node.type] === 'video') {
               const url = URL.createObjectURL(file);
               const video = document.createElement('video');
@@ -3438,6 +3583,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
           onOpenExportImport={() => setIsExportImportOpen(true)}
           nodes={[...nodes, ...deletedNodes]}
           onPreviewMedia={handleHistoryPreview}
+          onPreviewText={(title, text) => setPreviewText({ title, text })}
           onSaveAsset={saveAssetFile}
           onOpenSaveResult={openSaveResultModal}
           onCopyAsset={copyAssetToClipboard}
@@ -3451,7 +3597,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
         />
         <input type="file" ref={workflowInputRef} hidden accept=".aistudio-flow,.json" onChange={handleLoadWorkflow} />
         <input type="file" ref={assetInputRef} hidden accept="image/*,video/*,.txt,.md,.markdown,text/plain" onChange={handleImportAsset} />
-
+        <input type="file" ref={replaceImageRef} hidden accept="*/*" onChange={handleReplaceImage} />
         <input type="file" ref={attachInputRef} hidden accept="image/*,video/*,.txt,.md,text/plain" onChange={handleAttachInputAsset} />
         <div 
             ref={containerRef}
