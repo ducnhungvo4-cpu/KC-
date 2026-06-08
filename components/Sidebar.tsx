@@ -147,12 +147,14 @@ const Sidebar: React.FC<SidebarProps> = ({
     ];
   }, []);
 
+  const formatShotClipName = (clip: ShotClip) => `${clip.episodeNo}集-片段${clip.shotNo}-V${clip.shotNo}`;
+
   const filteredShotClips = useMemo(() => {
     return shotClips.filter(s => {
       if (shotEpisode !== 'all' && s.episodeNo !== shotEpisode) return false;
       if (shotSearch.trim()) {
         const kw = shotSearch.trim().toLowerCase();
-        const match = `${s.shotName} ${s.description || ''} ${s.prompt || ''} ${s.episodeNo} ${s.shotNo}`.toLowerCase().includes(kw);
+        const match = `${formatShotClipName(s)} ${s.shotName} ${s.description || ''} ${s.prompt || ''} ${s.episodeNo} ${s.shotNo}`.toLowerCase().includes(kw);
         if (!match) return false;
       }
       return true;
@@ -748,7 +750,9 @@ const Sidebar: React.FC<SidebarProps> = ({
                   <p className="text-[11px] mt-1 opacity-60">从空间管理导入分镜后显示</p>
                 </div>
               ) : (
-                filteredShotClips.map((clip: ShotClip) => (
+                filteredShotClips.map((clip: ShotClip) => {
+                  const displayName = formatShotClipName(clip);
+                  return (
                   <div key={clip.id} draggable
                     onDragStart={(event: React.DragEvent) => { event.dataTransfer.setData("application/kc-shot-clip", JSON.stringify(clip)); event.dataTransfer.effectAllowed = "copy"; }}
                     className={"group/card rounded-xl border p-2.5 transition-all duration-200 cursor-grab active:cursor-grabbing " + (isDark ? "border-zinc-800/70 bg-zinc-900/35 hover:bg-zinc-800/60 hover:border-zinc-700" : "border-gray-100 bg-white hover:bg-gray-50 hover:border-gray-200 hover:shadow-sm")}
@@ -764,7 +768,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                       </button>
                       <div className={"relative h-[78px] w-[138px] shrink-0 overflow-hidden rounded-lg ring-1 " + (isDark ? "ring-black/30 bg-zinc-950" : "ring-gray-200 bg-gray-100")}>
                         <img
-                          src={clip.keyframeUrls?.[0] || createShotClipPreview(clip.shotName)}
+                          src={clip.keyframeUrls?.[0] || createShotClipPreview(displayName)}
                           className="h-full w-full object-cover transition-transform duration-500 group-hover/card:scale-105"
                           loading="lazy"
                         />
@@ -775,7 +779,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                         </div>
                       </div>
                       <div className="flex min-w-0 flex-1 flex-col justify-between self-stretch py-1">
-                        <div className={"truncate text-sm font-bold leading-6 " + textMain}>{clip.shotName}</div>
+                        <div className={"truncate text-sm font-bold leading-6 " + textMain}>{displayName}</div>
                         <button
                           className={"h-9 w-full rounded-lg text-xs font-semibold transition-colors " + addButtonClass}
                           onClick={(e) => { e.stopPropagation(); onAddShotClipToCanvas?.(clip); setActivePanel(null); }}
@@ -785,7 +789,8 @@ const Sidebar: React.FC<SidebarProps> = ({
                       </div>
                     </div>
                   </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>

@@ -366,11 +366,6 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
                         <Icons.TrendingUp size={16} />
                         <span>一键高清</span>
                     </button>
-                    <button className={`h-9 px-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onAddToAssetLibrary?.(data.id)} title="添加到资产素材库">
-                        <Icons.Database size={16} />
-                        <span>添加到资产库</span>
-                    </button>
-                    <div className={`w-px h-6 mx-1 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`} />
                     <button className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onUpload?.(data.id)} title="上传">
                         <Icons.Upload size={17} />
                     </button>

@@ -275,7 +275,7 @@ export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
                 </button>
                 <button className={`h-9 px-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onEnhanceVideo?.(data.id)} title="帧插值提升帧率 / 超分辨率提升画质">
                     <Icons.TrendingUp size={16} />
-                    <span>增分</span>
+                    <span>高清修复</span>
                 </button>
                 <button className={`h-9 px-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onExtractFrames?.(data.id)} title="逐帧浏览视频并抽取为图片">
                     <Icons.Frame size={16} />
@@ -285,11 +285,6 @@ export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
                     <Icons.VolumeX size={16} />
                     <span>去BGM</span>
                 </button>
-                <button className={`h-9 px-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onAddToAssetLibrary?.(data.id)} title="添加到素材库">
-                    <Icons.Database size={16} />
-                    <span>添加到素材库</span>
-                </button>
-                <div className={`w-px h-6 mx-1 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`} />
                 <button className={`h-9 px-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onUpload?.(data.id)} title="上传替换当前视频">
                     <Icons.Upload size={16} />
                     <span>上传</span>

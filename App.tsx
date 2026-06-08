@@ -402,6 +402,28 @@ const CanvasWithSidebar: React.FC = () => {
     setIsSubCanvasListOpen(false);
   };
 
+  const handleDeleteSubCanvas = (canvasId: string) => {
+    if (subCanvases.length <= 1) {
+      window.alert('至少保留一个子画布。');
+      return;
+    }
+    const target = subCanvases.find(canvas => canvas.id === canvasId);
+    if (!target) return;
+    if (!window.confirm(`确定删除子画布「${target.name}」吗？`)) return;
+
+    setSubCanvases(prev => {
+      const next = prev.filter(canvas => canvas.id !== canvasId);
+      if (canvasId === activeSubCanvasId) {
+        setActiveSubCanvasId(next[0]?.id || '');
+      }
+      return next;
+    });
+    if (editingSubCanvasId === canvasId) {
+      setEditingSubCanvasId(null);
+      setEditingSubCanvasName('');
+    }
+  };
+
   const activeSubCanvas = subCanvases.find(c => c.id === activeSubCanvasId);
   const [projectGroupFilter, setProjectGroupFilter] = useState('全部项目组');
   const [projectTypeFilter, setProjectTypeFilter] = useState('全部项目类型');
@@ -2626,7 +2648,6 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                                           {statusText[project.status]}
                                       </div>
                                       <h2 className="mt-3 truncate text-lg font-bold">{project.name}</h2>
-                                      <p className={`mt-1 truncate text-sm ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>{project.id} / {project.directorGroup}</p>
                                   </div>
                                   <Icons.ChevronRight size={20} className={`mt-1 transition-transform group-hover:translate-x-1 ${isDark ? 'text-zinc-600' : 'text-gray-400'}`} />
                               </div>
@@ -2646,7 +2667,6 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                               </div>
                               <div className={`mt-4 flex items-center justify-between text-xs ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>
                                   <span>{project.canvasName}</span>
-                                  <span>{project.lastSavedAt}</span>
                               </div>
                           </button>
                       ))}
@@ -2743,12 +2763,8 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                               <div className="flex h-full flex-col justify-between gap-5">
                                   <div className="min-w-0">
                                       <h2 className="truncate text-base font-bold leading-6">{project.name}</h2>
-                                      <p className={`mt-2 truncate text-sm ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>{project.directorGroup}</p>
                                   </div>
-                                  <div className={`flex items-center justify-between gap-2 text-xs ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>
-                                      <span>最后快照</span>
-                                      <span className="truncate font-medium">{project.lastSavedAt}</span>
-                                  </div>
+                                  <Icons.ChevronRight size={18} className={`transition-transform group-hover:translate-x-1 ${isDark ? 'text-zinc-600' : 'text-gray-400'}`} />
                               </div>
                           </button>
                       ))}
@@ -3788,7 +3804,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                                     <div className={`px-2 pb-1.5 text-[10px] font-semibold ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>子画布</div>
                                     <div className="space-y-1">
                                         {subCanvases.map(canvas => (
-                                            <div key={canvas.id} className={`group flex h-9 items-center gap-2 rounded-lg px-2 transition-colors ${activeSubCanvasId === canvas.id ? (isDark ? 'bg-blue-500/10' : 'bg-blue-50') : (isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50')}`}>
+                                            <div key={canvas.id} className={`group flex h-10 items-center gap-1.5 rounded-lg px-2 transition-colors ${activeSubCanvasId === canvas.id ? (isDark ? 'bg-blue-500/10' : 'bg-blue-50') : (isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50')}`}>
                                                 <button
                                                     className="flex min-w-0 flex-1 items-center gap-2 text-left"
                                                     onClick={() => handleSwitchSubCanvas(canvas.id)}
@@ -3805,19 +3821,30 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                                                             }}
                                                             autoFocus
                                                             className={`min-w-0 flex-1 bg-transparent text-xs font-medium outline-none border-b ${isDark ? 'text-white border-blue-400' : 'text-gray-900 border-blue-500'}`}
+                                                            onMouseDown={(e) => e.stopPropagation()}
                                                             onClick={(e) => e.stopPropagation()}
                                                         />
                                                     ) : (
                                                         <span className={`truncate text-xs font-medium ${activeSubCanvasId === canvas.id ? (isDark ? 'text-blue-300' : 'text-blue-700') : (isDark ? 'text-zinc-300' : 'text-gray-700')}`}>{canvas.name}</span>
                                                     )}
                                                 </button>
-                                                <button
-                                                    className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 opacity-0 group-hover:opacity-100 transition-opacity ${isDark ? 'hover:bg-zinc-700 text-zinc-400' : 'hover:bg-gray-200 text-gray-500'}`}
-                                                    onClick={(e) => { e.stopPropagation(); setEditingSubCanvasId(canvas.id); setEditingSubCanvasName(canvas.name); }}
-                                                    title="编辑名称"
-                                                >
-                                                    <Icons.Edit3 size={11} />
-                                                </button>
+                                                <div className="flex shrink-0 items-center gap-0.5 opacity-60 transition-opacity group-hover:opacity-100">
+                                                    <button
+                                                        className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${isDark ? 'hover:bg-zinc-700 text-zinc-400 hover:text-white' : 'hover:bg-gray-200 text-gray-500 hover:text-gray-800'}`}
+                                                        onClick={(e) => { e.stopPropagation(); setEditingSubCanvasId(canvas.id); setEditingSubCanvasName(canvas.name); }}
+                                                        title="修改子画布名称"
+                                                    >
+                                                        <Icons.Edit3 size={11} />
+                                                    </button>
+                                                    <button
+                                                        className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${subCanvases.length <= 1 ? 'cursor-not-allowed opacity-35' : (isDark ? 'text-zinc-500 hover:bg-red-500/10 hover:text-red-300' : 'text-gray-400 hover:bg-red-50 hover:text-red-600')}`}
+                                                        onClick={(e) => { e.stopPropagation(); handleDeleteSubCanvas(canvas.id); }}
+                                                        disabled={subCanvases.length <= 1}
+                                                        title={subCanvases.length <= 1 ? '至少保留一个子画布' : '删除子画布'}
+                                                    >
+                                                        <Icons.Trash2 size={11} />
+                                                    </button>
+                                                </div>
                                             </div>
                                         ))}
                                     </div>
@@ -3854,22 +3881,6 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                         <span className="tabular-nums">{getUserCreditStats().available}</span>
                     </button>
                     
-                    {/* Download */}
-                    <button
-                        onClick={() => handleSaveProject()}
-                        title={saveStatus === 'saved' ? '已保存' : '保存项目'}
-                        className={`flex h-9 w-9 items-center justify-center rounded-xl text-sm font-medium transition-all ${
-                            saveStatus === 'saved'
-                                ? (isDark ? 'text-emerald-400 hover:bg-emerald-500/10' : 'text-emerald-600 hover:bg-emerald-50')
-                                : saveStatus === 'failed'
-                                    ? (isDark ? 'text-red-400 hover:bg-red-500/10' : 'text-red-600 hover:bg-red-50')
-                                    : (isDark ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100')
-                        }`}
-                    >
-                        {saveStatus === 'saving' ? <Icons.Loader2 size={15} className="animate-spin" /> : <Icons.Save size={15} />}
-                        <span className="sr-only">{saveStatus === 'saved' ? '已保存' : '保存项目'}</span>
-                    </button>
-
                     <div className={`w-px h-5 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`} />
 
                     {/* Download backup */}
@@ -3910,17 +3921,6 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                         <span>{isDark ? '暗色' : '亮色'}</span>
                     </button>
                     
-                    {/* Clear */}
-                    <button
-                        onClick={handleNewWorkflow}
-                        title="清空画布"
-                        className={`flex h-9 w-9 items-center justify-center rounded-xl text-sm font-medium transition-all ${
-                            isDark ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                        }`}
-                    >
-                        <Icons.Trash2 size={15} />
-                        <span className="sr-only">清空画布</span>
-                    </button>
                     <button
                         onClick={returnToProjectManagement}
                         className={`hidden items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-all ${
