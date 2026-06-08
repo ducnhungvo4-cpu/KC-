@@ -2176,6 +2176,11 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
     };
 
     const onWheel = (e: WheelEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target?.closest('textarea,input,select,[contenteditable="true"],[data-canvas-wheel-pass-through="true"]')) {
+        return;
+      }
+
       e.preventDefault();
       const rect = el.getBoundingClientRect();
       if (e.ctrlKey || e.metaKey) {
@@ -2459,16 +2464,31 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
     if (dragMode !== 'NONE') { setDragMode('NONE'); setTempConnection(null); connectionStartRef.current = null; setSuggestedNodes([]); setSelectionBox(null); }
   };
 
+  const nodeHasMedia = (node: NodeData): boolean =>
+      !!(node.imageSrc || node.videoSrc || node.audioSrc || (node.outputArtifacts && node.outputArtifacts.length > 0));
+
   // 校验一条 source→target 连线是否合法（与拖拽方向无关）。
   const canConnectNodes = (sourceId: string, targetId: string): boolean => {
       if (!sourceId || !targetId || sourceId === targetId) return false;
       const source = nodes.find(n => n.id === sourceId);
       const target = nodes.find(n => n.id === targetId);
       if (!source || !target) return false;
-      // 原始图片节点为纯输入素材，没有输入端口，不可作为下游目标。
       if (target.type === NodeType.ORIGINAL_IMAGE) return false;
+
       const sourceCategory = NODE_MEDIA_CATEGORY[source.type];
       const targetCategory = NODE_MEDIA_CATEGORY[target.type];
+
+      // 有素材后的连接限制：
+      // - 视频节点有素材 → 不能作为 target（禁止上游连入），作为 source 只能连视频节点
+      // - 图片节点有素材 → 作为 target 时上游只能是图片节点
+      // - 文字节点有素材 → 不能作为 target（禁止上游连入）
+      if (nodeHasMedia(target)) {
+          if (targetCategory === 'video') return false;
+          if (targetCategory === 'text') return false;
+          if (targetCategory === 'image' && sourceCategory !== 'image') return false;
+      }
+      if (nodeHasMedia(source) && sourceCategory === 'video' && targetCategory !== 'video') return false;
+
       return ALLOWED_SOURCE_CATEGORIES[targetCategory]?.includes(sourceCategory) ?? false;
   };
 
