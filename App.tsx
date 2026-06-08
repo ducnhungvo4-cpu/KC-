@@ -3974,7 +3974,8 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                                     <button
                                         type="button"
                                         className={`mb-3 h-10 w-full rounded-xl text-xs font-semibold flex items-center justify-center gap-2 border shadow-sm transition-all ${isDark ? 'border-blue-400/30 bg-gradient-to-r from-blue-500/20 to-cyan-400/10 text-blue-100 hover:border-blue-300/50 hover:from-blue-500/30 hover:to-cyan-400/20' : 'border-blue-200 bg-gradient-to-r from-blue-50 to-cyan-50 text-blue-700 hover:border-blue-300 hover:from-blue-100 hover:to-cyan-100'}`}
-                                        onClick={handleCreateSubCanvas}
+                                        onMouseDown={(e) => e.stopPropagation()}
+                                        onClick={(e) => { e.stopPropagation(); handleCreateSubCanvas(); }}
                                     >
                                         <Icons.Plus size={13} strokeWidth={2.5} />
                                         新建子画布
