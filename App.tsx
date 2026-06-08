@@ -3890,7 +3890,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
             )}
             
             {/* Top Left Project Name */}
-            <div className="absolute top-4 left-4 z-50">
+            <div className="absolute top-4 left-4 z-50" onMouseDown={(event) => event.stopPropagation()}>
                 <div className={`flex items-center gap-3 px-2.5 py-2 rounded-2xl backdrop-blur-xl border transition-all duration-300 ${
                     isDark 
                         ? 'bg-[#18181b]/90 border-zinc-800 shadow-xl' 
@@ -3929,6 +3929,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                         {/* Sub-canvas dropdown */}
                         <div className="relative mt-0.5">
                             <button
+                                type="button"
                                 onClick={() => setIsSubCanvasListOpen(!isSubCanvasListOpen)}
                                 className={`flex items-center gap-1.5 text-[11px] font-medium px-2 py-0.5 rounded-lg transition-colors ${isDark ? 'text-zinc-400 hover:text-white hover:bg-white/5' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`}
                             >
@@ -3940,6 +3941,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                                 <div className={`absolute top-full left-0 mt-1 flex h-[calc(100vh-118px)] min-h-[240px] max-h-[610px] w-[304px] flex-col rounded-xl border p-1.5 shadow-2xl z-[210] backdrop-blur-xl ${isDark ? 'bg-[#101114]/96 border-zinc-700/80' : 'bg-white/96 border-gray-200'}`} onMouseDown={(e) => e.stopPropagation()}>
                                     {/* New Canvas Button - Prominent, at top */}
                                     <button
+                                        type="button"
                                         className={`mb-3 h-10 w-full rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition-all ${isDark ? 'bg-blue-500/15 text-blue-400 hover:bg-blue-500/25 border border-blue-500/30' : 'bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200'}`}
                                         onClick={handleCreateSubCanvas}
                                     >
@@ -3952,6 +3954,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                                         {subCanvases.map(canvas => (
                                             <div key={canvas.id} className={`group flex h-10 items-center gap-1.5 rounded-lg px-2 transition-colors ${activeSubCanvasId === canvas.id ? (isDark ? 'bg-blue-500/10' : 'bg-blue-50') : (isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50')}`}>
                                                 <button
+                                                    type="button"
                                                     className="flex min-w-0 flex-1 items-center gap-2 text-left"
                                                     onClick={() => handleSwitchSubCanvas(canvas.id)}
                                                 >
@@ -3976,6 +3979,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                                                 </button>
                                                 <div className="flex shrink-0 items-center gap-0.5 opacity-60 transition-opacity group-hover:opacity-100">
                                                     <button
+                                                        type="button"
                                                         className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${isDark ? 'hover:bg-zinc-700 text-zinc-400 hover:text-white' : 'hover:bg-gray-200 text-gray-500 hover:text-gray-800'}`}
                                                         onClick={(e) => { e.stopPropagation(); setEditingSubCanvasId(canvas.id); setEditingSubCanvasName(canvas.name); }}
                                                         title="修改子画布名称"
@@ -3983,6 +3987,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                                                         <Icons.Edit3 size={11} />
                                                     </button>
                                                     <button
+                                                        type="button"
                                                         className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${subCanvases.length <= 1 ? 'cursor-not-allowed opacity-35' : (isDark ? 'text-zinc-500 hover:bg-red-500/10 hover:text-red-300' : 'text-gray-400 hover:bg-red-50 hover:text-red-600')}`}
                                                         onClick={(e) => { e.stopPropagation(); handleDeleteSubCanvas(canvas.id); }}
                                                         disabled={subCanvases.length <= 1}
@@ -4099,7 +4104,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
             {renderUserCreditPopover()}
             {/* Sub-canvas dropdown outside-click overlay */}
       {isSubCanvasListOpen && (
-        <div className="fixed inset-0 z-[200]" onClick={() => setIsSubCanvasListOpen(false)} />
+        <div className="fixed inset-0 z-40" onClick={() => setIsSubCanvasListOpen(false)} />
       )}
       {renderContextMenu()}
             {renderQuickAddMenu()}
