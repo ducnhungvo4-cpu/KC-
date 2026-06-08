@@ -1578,19 +1578,31 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
       if (!node) return;
       const cat = NODE_MEDIA_CATEGORY[node.type];
       const acceptMap: Record<MediaCategory, string> = {
-          image: 'image/*',
-          video: 'video/*',
-          text: 'audio/*',
+          image: '.png,.jpg,.jpeg,.gif,.webp,.bmp,.svg,image/*',
+          video: '.mp4,.webm,.mov,.avi,.mkv,.flv,.wmv,video/*',
+          text: '.mp3,.wav,.ogg,.aac,.m4a,.flac,audio/*',
       };
       const input = document.createElement('input');
       input.type = 'file';
-      input.accept = acceptMap[cat] ?? 'image/*,video/*,audio/*';
+      input.setAttribute('accept', acceptMap[cat] ?? '*/*');
       nodeToReplaceRef.current = nodeId;
-      input.onchange = (ev) => {
-          const syntheticEvent = { target: ev.target } as React.ChangeEvent<HTMLInputElement>;
-          handleReplaceImage(syntheticEvent);
+      input.addEventListener('change', () => {
+          const file = input.files?.[0];
+          if (file) {
+              const typeOk =
+                  (cat === 'image' && file.type.startsWith('image/')) ||
+                  (cat === 'video' && file.type.startsWith('video/')) ||
+                  (cat === 'text' && file.type.startsWith('audio/'));
+              if (!typeOk) {
+                  const labelMap: Record<MediaCategory, string> = { image: '图片', video: '视频', text: '音频' };
+                  alert(`当前节点只能上传${labelMap[cat]}文件`);
+                  input.remove();
+                  return;
+              }
+          }
+          handleReplaceImage({ target: input } as unknown as React.ChangeEvent<HTMLInputElement>);
           input.remove();
-      };
+      });
       document.body.appendChild(input);
       input.click();
   };
