@@ -1832,7 +1832,18 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
 
   const triggerAttachInput = (nodeId: string) => {
       nodeToAttachInputRef.current = nodeId;
-      attachInputRef.current?.click();
+      const node = nodes.find(n => n.id === nodeId);
+      if (attachInputRef.current && node) {
+          const cat = NODE_MEDIA_CATEGORY[node.type];
+          const acceptMap: Record<MediaCategory, string> = {
+              image: '.png,.jpg,.jpeg,.gif,.webp,.bmp,.svg,image/*',
+              video: '.mp4,.webm,.mov,.avi,.mkv,.flv,.wmv,video/*',
+              text: '.mp3,.wav,.ogg,.aac,.m4a,.flac,audio/*',
+          };
+          attachInputRef.current.setAttribute('accept', acceptMap[cat] ?? '*/*');
+          attachInputRef.current.value = '';
+          attachInputRef.current.click();
+      }
   };
 
   const addInputSourceNode = (targetId: string, source: NodeData) => {
@@ -1855,13 +1866,28 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
           return;
       }
 
-      const baseTitle = file.name || `本地素材_${new Date().toLocaleTimeString()}`;
       const target = nodes.find(n => n.id === targetId);
       if (!target) {
           if (attachInputRef.current) attachInputRef.current.value = '';
           nodeToAttachInputRef.current = null;
           return;
       }
+
+      // 校验文件类型是否匹配节点类别
+      const _cat = NODE_MEDIA_CATEGORY[target.type];
+      const _typeOk =
+          (_cat === 'image' && file.type.startsWith('image/')) ||
+          (_cat === 'video' && file.type.startsWith('video/')) ||
+          (_cat === 'text' && (file.type.startsWith('audio/') || file.type.startsWith('text/') || file.name.endsWith('.md') || file.name.endsWith('.txt')));
+      if (!_typeOk) {
+          const _labels: Record<string, string> = { image: '图片', video: '视频', text: '文本/音频' };
+          alert('当前节点只能上传' + (_labels[_cat] || '') + '文件');
+          if (attachInputRef.current) attachInputRef.current.value = '';
+          nodeToAttachInputRef.current = null;
+          return;
+      }
+
+      const baseTitle = file.name || `本地素材_${new Date().toLocaleTimeString()}`;
 
       if (file.type.startsWith('image/')) {
           const reader = new FileReader();
