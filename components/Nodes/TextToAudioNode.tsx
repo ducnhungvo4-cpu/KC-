@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { InputMedia, NodeData } from '../../types';
 import { Icons } from '../Icons';
 import { getVisibleModels, MODEL_REGISTRY } from '../../services/geminiService';
-import { LocalCustomDropdown, LocalEditableTitle, LocalInputThumbnails } from './Shared/LocalNodeComponents';
+import { LocalCustomDropdown, LocalEditableTitle, LocalInputThumbnails, LocalPromptTextarea } from './Shared/LocalNodeComponents';
 
 interface TextToAudioNodeProps {
   data: NodeData;
@@ -147,13 +147,14 @@ export const TextToAudioNode: React.FC<TextToAudioNodeProps> = ({
             />
           )}
           <div className={`${panelBg} rounded-[22px] border p-4 flex flex-col gap-4`}>
-            <textarea
-              className={`min-h-[124px] w-full resize-none bg-transparent text-lg leading-relaxed outline-none no-scrollbar ${inputText}`}
+            <LocalPromptTextarea
+              className={`min-h-[124px] w-full resize-none bg-transparent text-lg leading-relaxed outline-none ${inputText}`}
               placeholder="输入要合成的文本"
               value={prompt}
               maxLength={50000}
-              onChange={(event) => updateData(data.id, { prompt: clampText(event.target.value) })}
-              onWheel={(event) => event.stopPropagation()}
+              onChange={(value) => updateData(data.id, { prompt: clampText(value) })}
+              isDark={isDark}
+              expandedTitle="编辑音频文本"
             />
 
             <div className="flex flex-wrap items-center gap-2">

@@ -4,7 +4,7 @@ import { InputMedia, MultiAngleOptions, NodeData } from '../../types';
 import { Icons } from '../Icons';
 import { getModelConfig, MODEL_REGISTRY, getVisibleModels } from '../../services/geminiService';
 import { IMAGE_HANDLERS } from '../../services/mode/image/configurations';
-import { LocalEditableTitle, LocalCustomDropdown, LocalInputThumbnails, LocalMediaStack } from './Shared/LocalNodeComponents';
+import { LocalEditableTitle, LocalCustomDropdown, LocalInputThumbnails, LocalMediaStack, LocalPromptTextarea } from './Shared/LocalNodeComponents';
 
 interface TextToImageNodeProps {
   data: NodeData;
@@ -386,12 +386,13 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
                       {!hasResult && (
                       <>
                       {/* Prompt Input */}
-                      <textarea 
-                          className={`w-full border rounded-xl px-4 py-3 text-sm leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/20 min-h-[72px] no-scrollbar transition-all ${inputBg}`} 
-                          placeholder="描述你想要生成的图片..." 
-                          value={data.prompt || ''} 
-                          onChange={(e) => updateData(data.id, { prompt: e.target.value })} 
-                          onWheel={(e) => e.stopPropagation()} 
+                      <LocalPromptTextarea
+                          className={`w-full border rounded-xl px-4 py-3 text-sm leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/20 min-h-[72px] transition-all ${inputBg}`}
+                          placeholder="描述你想要生成的图片..."
+                          value={data.prompt || ''}
+                          onChange={(value) => updateData(data.id, { prompt: value })}
+                          isDark={isDark}
+                          expandedTitle="编辑图片提示词"
                       />
                       
                       {/* Parameters Row - All in one line */}
@@ -611,12 +612,13 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
                                   </div>
                               </div>
                               {showAnglePrompt && (
-                                  <textarea
-                                      className={`w-full border rounded-xl px-3 py-2 text-xs leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-cyan-500/20 min-h-[58px] no-scrollbar transition-all ${inputBg}`}
+                                  <LocalPromptTextarea
+                                      className={`w-full border rounded-xl px-3 py-2 text-xs leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-cyan-500/20 min-h-[58px] transition-all ${inputBg}`}
                                       placeholder="补充材质、光线、风格要求，例如：保持场景空间关系、电影感光线、不要改变建筑布局..."
                                       value={anglePrompt}
-                                      onChange={(event) => setAnglePrompt(event.target.value)}
-                                      onWheel={(event) => event.stopPropagation()}
+                                      onChange={setAnglePrompt}
+                                      isDark={isDark}
+                                      expandedTitle="编辑多角度补充提示词"
                                   />
                               )}
                               <div className="flex items-center justify-between">

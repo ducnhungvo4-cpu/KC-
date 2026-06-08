@@ -1,5 +1,6 @@
 ﻿
 import React, { useState, useEffect, useRef, memo } from 'react';
+import { createPortal } from 'react-dom';
 import { Icons } from '../../Icons';
 import { InputMedia, NodeData } from '../../../types';
 
@@ -179,6 +180,145 @@ export const LocalCustomDropdown = ({ options, value, onChange, isOpen, onToggle
                 </div>
             )}
         </div>
+    );
+};
+
+const useWheelScrollableTextarea = (ref: React.RefObject<HTMLTextAreaElement>) => {
+    useEffect(() => {
+        const el = ref.current;
+        if (!el) return;
+
+        const handleWheel = (event: WheelEvent) => {
+            event.stopPropagation();
+
+            if (document.activeElement !== el) return;
+
+            const maxScrollTop = el.scrollHeight - el.clientHeight;
+            if (maxScrollTop <= 0) return;
+
+            event.preventDefault();
+            const delta = event.deltaMode === WheelEvent.DOM_DELTA_LINE ? event.deltaY * 16 : event.deltaY;
+            el.scrollTop = Math.max(0, Math.min(maxScrollTop, el.scrollTop + delta));
+        };
+
+        el.addEventListener('wheel', handleWheel, { passive: false });
+        return () => el.removeEventListener('wheel', handleWheel);
+    }, [ref]);
+};
+
+export const LocalPromptTextarea: React.FC<{
+    value: string;
+    onChange: (value: string) => void;
+    placeholder?: string;
+    className?: string;
+    isDark?: boolean;
+    maxLength?: number;
+    expandedTitle?: string;
+}> = ({
+    value,
+    onChange,
+    placeholder,
+    className = '',
+    isDark = true,
+    maxLength,
+    expandedTitle = '编辑提示词',
+}) => {
+    const [isExpanded, setIsExpanded] = useState(false);
+    const compactRef = useRef<HTMLTextAreaElement>(null);
+    const expandedRef = useRef<HTMLTextAreaElement>(null);
+
+    useWheelScrollableTextarea(compactRef);
+    useWheelScrollableTextarea(expandedRef);
+
+    useEffect(() => {
+        if (!isExpanded) return;
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') setIsExpanded(false);
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        const timer = window.setTimeout(() => expandedRef.current?.focus(), 0);
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            window.clearTimeout(timer);
+        };
+    }, [isExpanded]);
+
+    const stopCanvasInteraction = (event: React.SyntheticEvent) => event.stopPropagation();
+    const modalBg = isDark ? 'bg-[#1b1b1b] border-zinc-700 text-zinc-100' : 'bg-white border-gray-200 text-gray-900';
+    const modalTextarea = isDark
+        ? 'bg-zinc-950/70 border-zinc-700 text-zinc-100 placeholder-zinc-500 focus:border-purple-500/60'
+        : 'bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400 focus:border-purple-400';
+    const iconButton = isDark
+        ? 'bg-zinc-800/90 text-zinc-400 hover:text-white hover:bg-zinc-700 border-zinc-700'
+        : 'bg-white/90 text-gray-500 hover:text-gray-900 hover:bg-gray-100 border-gray-200';
+
+    return (
+        <>
+            <div className="relative" data-canvas-wheel-pass-through="true">
+                <textarea
+                    ref={compactRef}
+                    className={`${className} pr-10 overflow-y-auto`}
+                    placeholder={placeholder}
+                    value={value}
+                    maxLength={maxLength}
+                    onChange={(event) => onChange(event.target.value)}
+                    onMouseDown={stopCanvasInteraction}
+                    onClick={stopCanvasInteraction}
+                    onWheelCapture={stopCanvasInteraction}
+                />
+                <button
+                    type="button"
+                    className={`absolute right-2 top-2 h-6 w-6 rounded-md border flex items-center justify-center transition-colors ${iconButton}`}
+                    title="展开编辑"
+                    onMouseDown={stopCanvasInteraction}
+                    onClick={(event) => {
+                        event.stopPropagation();
+                        setIsExpanded(true);
+                    }}
+                >
+                    <Icons.Maximize2 size={12} />
+                </button>
+            </div>
+            {isExpanded && createPortal(
+                <div
+                    className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-6"
+                    data-canvas-wheel-pass-through="true"
+                    onMouseDown={(event) => {
+                        event.stopPropagation();
+                        setIsExpanded(false);
+                    }}
+                    onWheelCapture={stopCanvasInteraction}
+                >
+                    <div
+                        className={`flex h-[min(640px,calc(100vh-48px))] w-[min(920px,calc(100vw-48px))] flex-col rounded-2xl border shadow-2xl ${modalBg}`}
+                        onMouseDown={stopCanvasInteraction}
+                        onClick={stopCanvasInteraction}
+                    >
+                        <div className={`flex h-12 shrink-0 items-center justify-between border-b px-4 ${isDark ? 'border-zinc-800' : 'border-gray-200'}`}>
+                            <span className="text-sm font-semibold">{expandedTitle}</span>
+                            <button
+                                type="button"
+                                className={`h-8 w-8 rounded-lg flex items-center justify-center transition-colors ${isDark ? 'text-zinc-400 hover:bg-zinc-800 hover:text-white' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`}
+                                title="关闭"
+                                onClick={() => setIsExpanded(false)}
+                            >
+                                <Icons.X size={16} />
+                            </button>
+                        </div>
+                        <textarea
+                            ref={expandedRef}
+                            className={`m-4 flex-1 resize-none rounded-xl border p-4 text-base leading-relaxed outline-none transition-colors overflow-y-auto custom-scrollbar ${modalTextarea}`}
+                            placeholder={placeholder}
+                            value={value}
+                            maxLength={maxLength}
+                            onChange={(event) => onChange(event.target.value)}
+                            onWheelCapture={stopCanvasInteraction}
+                        />
+                    </div>
+                </div>,
+                document.body
+            )}
+        </>
     );
 };
 

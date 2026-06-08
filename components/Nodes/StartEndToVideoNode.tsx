@@ -5,7 +5,7 @@ import { Icons } from '../Icons';
 import { getModelConfig, MODEL_REGISTRY, getVisibleModels } from '../../services/geminiService';
 import { VIDEO_HANDLERS } from '../../services/mode/video/configurations';
 import { getVideoConstraints, getAutoCorrectedVideoSettings } from '../../services/mode/video/rules';
-import { LocalEditableTitle, LocalCustomDropdown, LocalMediaStack } from './Shared/LocalNodeComponents';
+import { LocalEditableTitle, LocalCustomDropdown, LocalMediaStack, LocalPromptTextarea } from './Shared/LocalNodeComponents';
 
 interface StartEndToVideoNodeProps {
   data: NodeData;
@@ -337,12 +337,13 @@ export const StartEndToVideoNode: React.FC<StartEndToVideoNodeProps> = ({
                )}
               <div className={`${controlPanelBg} rounded-2xl p-4 flex flex-col gap-3 border`}>
                   {/* Prompt Input */}
-                  <textarea 
-                      className={`w-full border rounded-xl px-4 py-3 text-sm leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500/20 min-h-[72px] no-scrollbar transition-all ${inputBg}`} 
-                      placeholder="描述从首帧到尾帧的运动变化..." 
-                      value={data.prompt || ''} 
-                      onChange={(e) => updateData(data.id, { prompt: e.target.value })} 
-                      onWheel={(e) => e.stopPropagation()} 
+                  <LocalPromptTextarea
+                      className={`w-full border rounded-xl px-4 py-3 text-sm leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500/20 min-h-[72px] transition-all ${inputBg}`}
+                      placeholder="描述从首帧到尾帧的运动变化..."
+                      value={data.prompt || ''}
+                      onChange={(value) => updateData(data.id, { prompt: value })}
+                      isDark={isDark}
+                      expandedTitle="编辑首尾帧视频提示词"
                   />
                   
                   {/* Parameters Row - All in one line */}

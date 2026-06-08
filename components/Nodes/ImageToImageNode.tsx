@@ -4,7 +4,7 @@ import { InputMedia, NodeData } from '../../types';
 import { Icons } from '../Icons';
 import { getModelConfig, MODEL_REGISTRY, getVisibleModels } from '../../services/geminiService';
 import { IMAGE_HANDLERS } from '../../services/mode/image/configurations';
-import { LocalEditableTitle, LocalCustomDropdown, LocalInputThumbnails, LocalMediaStack } from './Shared/LocalNodeComponents';
+import { LocalEditableTitle, LocalCustomDropdown, LocalInputThumbnails, LocalMediaStack, LocalPromptTextarea } from './Shared/LocalNodeComponents';
 
 interface ImageToImageNodeProps {
   data: NodeData;
@@ -143,9 +143,14 @@ export const ImageToImageNode: React.FC<ImageToImageNodeProps> = ({
                      </div>
                  )}
                  <div className={`${controlPanelBg} rounded-2xl p-3 shadow-2xl flex flex-col gap-3 border`}>
-                      <div className="relative group/input">
-                          <textarea className={`w-full border rounded-xl p-3 text-[11px] leading-relaxed resize-none focus:outline-none min-h-[70px] no-scrollbar ${inputBg}`} placeholder="描述你想要的变化效果..." value={data.prompt || ''} onChange={(e) => updateData(data.id, { prompt: e.target.value })} onWheel={(e) => e.stopPropagation()} />
-                      </div>
+                      <LocalPromptTextarea
+                          className={`w-full border rounded-xl p-3 text-[11px] leading-relaxed resize-none focus:outline-none min-h-[70px] ${inputBg}`}
+                          placeholder="描述你想要的变化效果..."
+                          value={data.prompt || ''}
+                          onChange={(value) => updateData(data.id, { prompt: value })}
+                          isDark={isDark}
+                          expandedTitle="编辑图生图提示词"
+                      />
                       <div className="flex items-center justify-between gap-2 h-7">
                           <LocalCustomDropdown options={imageModels} value={data.model || 'Seedream 5.0'} onChange={(val: any) => updateData(data.id, { model: val })} isOpen={activeDropdown === 'model'} onToggle={() => setActiveDropdown(activeDropdown === 'model' ? null : 'model')} onClose={() => setActiveDropdown(null)} align="left" width="w-[120px]" isDark={isDark} />
                           <div className={`w-px h-3 ${dividerColor}`}></div>

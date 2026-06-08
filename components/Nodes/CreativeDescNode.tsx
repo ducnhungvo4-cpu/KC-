@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { InputMedia, NodeData } from '../../types';
 import { Icons } from '../Icons';
-import { LocalCustomDropdown, LocalInputThumbnails } from './Shared/LocalNodeComponents';
+import { LocalCustomDropdown, LocalInputThumbnails, LocalPromptTextarea } from './Shared/LocalNodeComponents';
 
 interface CreativeDescNodeProps {
   data: NodeData;
@@ -119,12 +119,13 @@ export const CreativeDescNode: React.FC<CreativeDescNodeProps> = ({
                 <div className="absolute top-full left-1/2 min-w-[760px] pt-7 z-[70] pointer-events-auto" style={panelTransform} onMouseDown={(event) => event.stopPropagation()}>
                     {inputMedia.length > 0 && <LocalInputThumbnails inputs={[]} items={inputMedia} ready={true} isDark={isDark} label="参考内容" onPreview={onPreviewReference} />}
                     <div className={`${panelBg} rounded-[22px] border p-4 flex flex-col gap-4`}>
-                        <textarea
-                            className={`w-full min-h-[96px] resize-none bg-transparent text-base leading-relaxed outline-none no-scrollbar ${inputText}`}
+                        <LocalPromptTextarea
+                            className={`w-full min-h-[96px] resize-none bg-transparent text-base leading-relaxed outline-none ${inputText}`}
                             placeholder="描述任何你想要生成的内容"
                             value={data.prompt || ''}
-                            onChange={(event) => updateData(data.id, { prompt: event.target.value })}
-                            onWheel={(event) => event.stopPropagation()}
+                            onChange={(value) => updateData(data.id, { prompt: value })}
+                            isDark={isDark}
+                            expandedTitle="编辑创意描述"
                         />
                         <div className="flex items-center gap-3">
                             <LocalCustomDropdown

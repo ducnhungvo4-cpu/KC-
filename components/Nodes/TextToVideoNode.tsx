@@ -5,7 +5,7 @@ import { Icons } from '../Icons';
 import { getModelConfig, MODEL_REGISTRY, getVisibleModels } from '../../services/geminiService';
 import { VIDEO_HANDLERS } from '../../services/mode/video/configurations';
 import { getVideoConstraints, getAutoCorrectedVideoSettings } from '../../services/mode/video/rules';
-import { LocalEditableTitle, LocalCustomDropdown, LocalInputThumbnails, LocalMediaStack } from './Shared/LocalNodeComponents';
+import { LocalEditableTitle, LocalCustomDropdown, LocalInputThumbnails, LocalMediaStack, LocalPromptTextarea } from './Shared/LocalNodeComponents';
 
 interface TextToVideoNodeProps {
   data: NodeData;
@@ -330,12 +330,13 @@ export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
                   )}
 
                   {/* Prompt Input */}
-                  <textarea
-                      className={`w-full border rounded-xl px-4 py-3 text-sm leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-purple-500/20 min-h-[72px] no-scrollbar transition-all ${inputBg}`}
+                  <LocalPromptTextarea
+                      className={`w-full border rounded-xl px-4 py-3 text-sm leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-purple-500/20 min-h-[72px] transition-all ${inputBg}`}
                       placeholder="描述你想要生成的视频场景..."
                       value={data.prompt || ''}
-                      onChange={(e) => updateData(data.id, { prompt: e.target.value })}
-                      onWheel={(e) => e.stopPropagation()}
+                      onChange={(value) => updateData(data.id, { prompt: value })}
+                      isDark={isDark}
+                      expandedTitle="编辑视频提示词"
                   />
                   
                   {/* Parameters Row - All in one line */}

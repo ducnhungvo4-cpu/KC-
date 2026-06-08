@@ -5,7 +5,7 @@ import { Icons } from '../Icons';
 import { getModelConfig, MODEL_REGISTRY, getVisibleModels } from '../../services/geminiService';
 import { VIDEO_HANDLERS } from '../../services/mode/video/configurations';
 import { getVideoConstraints, getAutoCorrectedVideoSettings } from '../../services/mode/video/rules';
-import { LocalEditableTitle, LocalCustomDropdown, LocalInputThumbnails, LocalMediaStack } from './Shared/LocalNodeComponents';
+import { LocalEditableTitle, LocalCustomDropdown, LocalInputThumbnails, LocalMediaStack, LocalPromptTextarea } from './Shared/LocalNodeComponents';
 
 interface ImageToVideoNodeProps {
   data: NodeData;
@@ -196,7 +196,14 @@ export const ImageToVideoNode: React.FC<ImageToVideoNodeProps> = ({
                    </div>
                )}
               <div className={`${controlPanelBg} rounded-2xl p-3 shadow-2xl flex flex-col gap-3 border`}>
-                  <textarea className={`w-full border rounded-xl p-3 text-[11px] leading-relaxed resize-none focus:outline-none min-h-[70px] no-scrollbar ${inputBg}`} placeholder="描述视频运动效果..." value={data.prompt || ''} onChange={(e) => updateData(data.id, { prompt: e.target.value })} onWheel={(e) => e.stopPropagation()} />
+                  <LocalPromptTextarea
+                      className={`w-full border rounded-xl p-3 text-[11px] leading-relaxed resize-none focus:outline-none min-h-[70px] ${inputBg}`}
+                      placeholder="描述视频运动效果..."
+                      value={data.prompt || ''}
+                      onChange={(value) => updateData(data.id, { prompt: value })}
+                      isDark={isDark}
+                      expandedTitle="编辑图生视频提示词"
+                  />
                   <div className="flex items-center justify-between gap-2 h-7">
                        <LocalCustomDropdown options={groupedVideoModels} value={data.model || 'Seedance 1.5 Pro'} onChange={(val: any) => updateData(data.id, { model: val })} isOpen={activeDropdown === 'model'} onToggle={() => setActiveDropdown(activeDropdown === 'model' ? null : 'model')} onClose={() => setActiveDropdown(null)} align="left" width="w-[130px]" isDark={isDark} />
                        <div className={`w-px h-3 ${dividerColor}`}></div>
