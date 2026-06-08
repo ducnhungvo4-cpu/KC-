@@ -1020,45 +1020,6 @@ const CanvasWithSidebar: React.FC = () => {
     const rect = containerRef.current?.getBoundingClientRect();
     const center = position || (rect ? screenToWorld(rect.width / 2, rect.height / 2) : { x: 0, y: 0 });
     
-    const keyframeNodes: NodeData[] = clip.keyframeUrls && clip.keyframeUrls.length > 0 
-      ? clip.keyframeUrls.map((url, i) => ({
-          id: generateId(),
-          type: NodeType.ORIGINAL_IMAGE,
-          x: center.x + (i * 320) - vw / 2,
-          y: center.y - vh - 100,
-          width: 280,
-          height: 200,
-          title: `${clip.shotName} - 关键帧${i + 1}`,
-          imageSrc: url,
-          aspectRatio: '16:9',
-          source: 'linear_pipeline',
-          shotId: clip.id,
-          episodeNo: clip.episodeNo,
-          sceneNo: clip.sceneNo,
-          shotNo: clip.shotNo,
-          shotName: clip.shotName,
-          projectId: currentProject?.id || DEMO_PROJECT_META.id,
-        }))
-      : [];
-
-    const audioNode: NodeData | null = clip.audioUrl ? {
-      id: generateId(),
-      type: NodeType.TEXT_TO_AUDIO,
-      x: center.x + vw + 40,
-      y: center.y - (clip.keyframeUrls && clip.keyframeUrls.length > 0 ? 0 : vh),
-      width: 260,
-      height: 180,
-      title: `${clip.shotName} - 音频`,
-      audioSrc: clip.audioUrl,
-      source: 'linear_pipeline',
-      shotId: clip.id,
-      episodeNo: clip.episodeNo,
-      sceneNo: clip.sceneNo,
-      shotNo: clip.shotNo,
-      shotName: clip.shotName,
-      projectId: currentProject?.id || DEMO_PROJECT_META.id,
-    } : null;
-
     const videoNode: NodeData = {
       id: generateId(),
       type: NodeType.TEXT_TO_VIDEO,
@@ -1071,21 +1032,14 @@ const CanvasWithSidebar: React.FC = () => {
       videoSrc: clip.videoUrl || undefined,
       model: 'Seedance 1.5 Pro',
       aspectRatio: '16:9',
-      source: 'linear_pipeline',
-      shotId: clip.id,
-      episodeNo: clip.episodeNo,
-      sceneNo: clip.sceneNo,
-      shotNo: clip.shotNo,
-      shotName: clip.shotName,
-      shotDescription: clip.description,
+      resolution: '720p',
+      duration: '5s',
+      source: 'material_library',
+      sourceRefId: clip.id,
       projectId: currentProject?.id || DEMO_PROJECT_META.id,
-      directorGroupName: currentProject?.directorGroup || DEMO_PROJECT_META.directorGroup,
     };
-
-    const newNodes: NodeData[] = [...keyframeNodes, videoNode];
-    if (audioNode) newNodes.push(audioNode);
     
-    setNodes(prev => [...prev, ...newNodes]);
+    setNodes(prev => [...prev, videoNode]);
   };
 
 const handlePaste = useCallback(async (e: ClipboardEvent) => {
@@ -1339,13 +1293,13 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
           // Image generation
           if (node.type === NodeType.TEXT_TO_IMAGE) {
             results = await generateImage(
-                node.prompt || '', node.aspectRatio, node.model, node.resolution, node.count || 1, inputs, node.promptOptimize 
+                node.prompt || '', node.aspectRatio, node.model, node.resolution, node.count || 1, inputs, false
             );
           }
           // Video generation 
           else if (node.type === NodeType.TEXT_TO_VIDEO) {
             results = await generateVideo(
-                node.prompt || '', inputs, node.aspectRatio, node.model, node.resolution, node.duration, node.count || 1, node.promptOptimize
+                node.prompt || '', inputs, node.aspectRatio, node.model, node.resolution, node.duration, node.count || 1, false
             );
           }
           // Start-End Frame to Video generation (首尾帧模式)
@@ -1355,7 +1309,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
             // 如果设置了 swapFrames，交换首尾帧顺序
             const orderedInputs = node.swapFrames && inputs.length >= 2 ? [inputs[1], inputs[0]] : inputs;
             results = await generateVideo(
-                node.prompt || '', orderedInputs, node.aspectRatio, modelWithFL, node.resolution, node.duration, node.count || 1, node.promptOptimize
+                node.prompt || '', orderedInputs, node.aspectRatio, modelWithFL, node.resolution, node.duration, node.count || 1, false
             );
           }
 
@@ -1622,78 +1576,66 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
 
   const triggerReplaceImage = (nodeId: string) => {
       nodeToReplaceRef.current = nodeId;
-      replaceImageRef.current?.click();
+      const node = nodes.find(n => n.id === nodeId);
+      if (replaceImageRef.current && node) {
+          const cat = NODE_MEDIA_CATEGORY[node.type];
+          const acceptMap: Record<MediaCategory, string> = {
+              image: 'image/*',
+              video: 'video/*',
+              text: 'audio/*',
+          };
+          replaceImageRef.current.accept = acceptMap[cat] ?? 'image/*,video/*,audio/*';
+          replaceImageRef.current.click();
+      }
   };
 
   const handleReplaceImage = (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       const nodeId = nodeToReplaceRef.current;
       if (file && nodeId) {
-          if (file.type.startsWith('video/')) {
+          const node = nodes.find(n => n.id === nodeId);
+          if (!node) { /* noop */ }
+          else if (file.type.startsWith('video/') && NODE_MEDIA_CATEGORY[node.type] === 'video') {
               const url = URL.createObjectURL(file);
               const video = document.createElement('video');
               video.preload = 'metadata';
               video.onloadedmetadata = () => {
-                  const node = nodes.find(n => n.id === nodeId);
-                  if (node) {
-                      const aspectRatio = getClosestAspectRatio(video.videoWidth, video.videoHeight, VIDEO_ASPECT_RATIOS);
-                      const nodeSize = getNodeSizeForAspectRatio(aspectRatio, VIDEO_NODE_BASE_HEIGHT);
-                      const currentArtifacts = node.outputArtifacts || [];
-                      const newArtifacts = [url, ...currentArtifacts];
-                      updateNodeData(nodeId, {
-                          type: NodeType.TEXT_TO_VIDEO,
-                          videoSrc: url,
-                          imageSrc: undefined,
-                          title: node.shotId ? node.title : file.name,
-                          width: nodeSize.width,
-                          height: nodeSize.height,
-                          aspectRatio,
-                          model: node.model || 'Seedance 1.5 Pro',
-                          resolution: node.resolution || '720p',
-                          duration: node.duration || '5s',
-                          outputArtifacts: newArtifacts
-                      });
-                  }
+                  const aspectRatio = getClosestAspectRatio(video.videoWidth, video.videoHeight, VIDEO_ASPECT_RATIOS);
+                  const nodeSize = getNodeSizeForAspectRatio(aspectRatio, VIDEO_NODE_BASE_HEIGHT);
+                  const newArtifacts = [url, ...(node.outputArtifacts || [])];
+                  updateNodeData(nodeId, {
+                      videoSrc: url,
+                      title: node.shotId ? node.title : file.name,
+                      width: nodeSize.width,
+                      height: nodeSize.height,
+                      aspectRatio,
+                      outputArtifacts: newArtifacts
+                  });
               };
               video.src = url;
-          } else if (file.type.startsWith('audio/')) {
+          } else if (file.type.startsWith('audio/') && NODE_MEDIA_CATEGORY[node.type] === 'text') {
               const url = URL.createObjectURL(file);
-              const node = nodes.find(n => n.id === nodeId);
-              if (node) {
-                  updateNodeData(nodeId, {
-                      type: NodeType.TEXT_TO_AUDIO,
-                      audioSrc: url,
-                      imageSrc: undefined,
-                      videoSrc: undefined,
-                      title: file.name || node.title,
-                      model: node.model || 'Minimax-speech-2.8-hd',
-                      outputArtifacts: [url, ...(node.outputArtifacts || [])],
-                  });
-              }
-          } else if (file.type.startsWith('image/')) {
+              updateNodeData(nodeId, {
+                  audioSrc: url,
+                  title: file.name || node.title,
+                  outputArtifacts: [url, ...(node.outputArtifacts || [])],
+              });
+          } else if (file.type.startsWith('image/') && NODE_MEDIA_CATEGORY[node.type] === 'image') {
            const reader = new FileReader();
            reader.onload = (event) => {
                const img = new Image();
                img.onload = () => {
-                   const node = nodes.find(n => n.id === nodeId);
-                   if (node) {
-                        const aspectRatio = getClosestAspectRatio(img.width, img.height, IMAGE_ASPECT_RATIOS);
-                        const { width, height } = getNodeSizeForAspectRatio(aspectRatio);
-                        const src = event.target?.result as string;
-                        const currentArtifacts = node.outputArtifacts || [];
-                        const newArtifacts = [src, ...currentArtifacts];
-                        updateNodeData(nodeId, { 
-                            type: NodeType.TEXT_TO_IMAGE,
-                            imageSrc: src,
-                            videoSrc: undefined,
-                            title: node.shotId ? node.title : (file.name || node.title),
-                            width, height,
-                            aspectRatio,
-                            model: node.model || 'Seedream 5.0',
-                            resolution: node.resolution || '1k',
-                            outputArtifacts: newArtifacts
-                        });
-                   }
+                    const aspectRatio = getClosestAspectRatio(img.width, img.height, IMAGE_ASPECT_RATIOS);
+                    const { width, height } = getNodeSizeForAspectRatio(aspectRatio);
+                    const src = event.target?.result as string;
+                    const newArtifacts = [src, ...(node.outputArtifacts || [])];
+                    updateNodeData(nodeId, {
+                        imageSrc: src,
+                        title: node.shotId ? node.title : (file.name || node.title),
+                        width, height,
+                        aspectRatio,
+                        outputArtifacts: newArtifacts
+                    });
                };
                img.src = event.target?.result as string;
            };
@@ -3472,7 +3414,14 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
             onDragOver={handleDragOver}
             onDrop={handleDrop}
         >
-            <div className="absolute origin-top-left will-change-transform" style={{ transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.k})` }}>
+            <div
+                className="absolute origin-top-left will-change-transform"
+                style={{
+                    transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.k})`,
+                    '--canvas-scale': transform.k,
+                    '--panel-inverse-scale': 1 / Math.max(transform.k, 0.1),
+                } as React.CSSProperties}
+            >
                 {/* Connection Lines - Rendered as absolute positioned divs with SVG */}
                 {connections.map(conn => {
                     const source = nodes.find(n => n.id === conn.sourceId);

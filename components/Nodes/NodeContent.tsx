@@ -68,7 +68,7 @@ export const NodeContent = memo(NodeContentComponent, (prev, next) => {
     if (prev.isSelecting !== next.isSelecting) return false;
     if (prev.isDark !== next.isDark) return false;
     // canvasScale intentionally NOT compared: zoom counter-scaling is handled by the
-    // --canvas-scale CSS var (see each node's panelTransform), so changing zoom must
+    // --panel-inverse-scale CSS var (see each node's panelTransform), so changing zoom must
     // never re-render heavy nodes (large base64 media stays off the gesture hot path).
 
     // Check Inputs

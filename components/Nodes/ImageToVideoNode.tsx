@@ -20,10 +20,11 @@ interface ImageToVideoNodeProps {
   onDownload?: (id: string) => void;
   isDark?: boolean;
   isSelecting?: boolean;
+  canvasScale?: number;
 }
 
 export const ImageToVideoNode: React.FC<ImageToVideoNodeProps> = ({
-    data, updateData, onGenerate, selected, showControls, inputs = [], inputMedia = [], onPreviewReference, onMaximize, onDownload, isDark = true, isSelecting
+    data, updateData, onGenerate, selected, showControls, inputs = [], inputMedia = [], onPreviewReference, onMaximize, onDownload, isDark = true, isSelecting, canvasScale = 1
 }) => {
     const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
     const [deferredInputs, setDeferredInputs] = useState(false);
@@ -33,6 +34,10 @@ export const ImageToVideoNode: React.FC<ImageToVideoNodeProps> = ({
 
     const isSelectedAndStable = selected && !isSelecting;
     const hasInputImage = inputs.length > 0;
+    const panelTransform: React.CSSProperties = {
+        transform: 'translateX(-50%) scale(var(--panel-inverse-scale, 1))',
+        transformOrigin: 'top center',
+    };
 
     const checkConfig = useCallback(() => {
          const mName = data.model || 'Agnes Video V2.0';
@@ -122,7 +127,6 @@ export const ImageToVideoNode: React.FC<ImageToVideoNodeProps> = ({
     const resOptions = rules.resolutions || ['720p'];
     const durOptions = rules.durations || ['5s'];
     const ratioOptions = rules.ratios || ['16:9'];
-    const canOptimize = !!rules.hasPromptExtend;
 
     // Constraints & Auto-Correction
     const constraints = getVideoConstraints(currentModel, data.resolution, data.duration, inputs.length);
@@ -183,7 +187,7 @@ export const ImageToVideoNode: React.FC<ImageToVideoNodeProps> = ({
         </div>
 
         {isSelectedAndStable && showControls && (
-          <div className="absolute top-full left-1/2 -translate-x-1/2 w-full min-w-[450px] pt-3 z-[70] pointer-events-auto" onMouseDown={(e) => e.stopPropagation()}>
+          <div className="absolute top-full left-1/2 w-full min-w-[450px] pt-3 z-[70] pointer-events-auto" style={panelTransform} onMouseDown={(e) => e.stopPropagation()}>
                {inputMedia.length > 0 && <LocalInputThumbnails inputs={inputs} items={inputMedia} ready={deferredInputs} isDark={isDark} label="参考图" onPreview={onPreviewReference} />}
                {!hasInputImage && (
                    <div className={`mb-2 px-3 py-2 rounded-lg border flex items-center gap-2 text-[10px] ${isDark ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' : 'bg-amber-50 border-amber-200 text-amber-600'}`}>
@@ -200,15 +204,6 @@ export const ImageToVideoNode: React.FC<ImageToVideoNodeProps> = ({
                           <LocalCustomDropdown icon={Icons.Crop} options={ratioOptions} value={data.aspectRatio || '16:9'} onChange={handleRatioChange} isOpen={activeDropdown === 'ratio'} onToggle={() => setActiveDropdown(activeDropdown === 'ratio' ? null : 'ratio')} onClose={() => setActiveDropdown(null)} disabledOptions={constraints.disabledRatios} isDark={isDark} />
                           <LocalCustomDropdown icon={Icons.Monitor} options={resOptions} value={displayResValue || '720p'} onChange={(val: any) => updateData(data.id, { resolution: val })} isOpen={activeDropdown === 'res'} onToggle={() => setActiveDropdown(activeDropdown === 'res' ? null : 'res')} onClose={() => setActiveDropdown(null)} disabledOptions={constraints.disabledRes} isDark={isDark} />
                           <LocalCustomDropdown icon={Icons.Clock} options={durOptions} value={data.duration || '5s'} onChange={(val: any) => updateData(data.id, { duration: val })} isOpen={activeDropdown === 'duration'} onToggle={() => setActiveDropdown(activeDropdown === 'duration' ? null : 'duration')} onClose={() => setActiveDropdown(null)} disabledOptions={constraints.disabledDurations} isDark={isDark} />
-
-                          <button
-                              className={`h-full px-2 rounded flex items-center justify-center transition-colors ${canOptimize ? (data.promptOptimize ? (isDark ? 'text-orange-400 bg-orange-500/10' : 'text-orange-600 bg-orange-50') : (isDark ? 'text-zinc-500 hover:text-gray-300 hover:bg-white/5' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100')) : (isDark ? 'text-zinc-700 opacity-50 cursor-not-allowed' : 'text-gray-200 opacity-50 cursor-not-allowed')}`} 
-                              onClick={() => canOptimize && updateData(data.id, { promptOptimize: !data.promptOptimize })}
-                              title={canOptimize ? `提示词优化: ${data.promptOptimize ? '开启' : '关闭'}` : '不支持提示词优化'}
-                              disabled={!canOptimize}
-                          >
-                              <Icons.Sparkles size={13} fill={data.promptOptimize && canOptimize ? "currentColor" : "none"} />
-                          </button>
                        </div>
                        <button 
                            onClick={() => onGenerate(data.id)} 

@@ -66,10 +66,10 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
     const lightPadRef = useRef<HTMLDivElement>(null);
 
     const isSelectedAndStable = selected && !isSelecting;
-    // Panel stays a constant screen size while zooming via the --canvas-scale CSS var,
+    // Panel stays a constant screen size while zooming via the --panel-inverse-scale CSS var,
     // so zoom no longer re-renders the node (heavy base64 media stays off the hot path).
     const panelTransform: React.CSSProperties = {
-        transform: 'translateX(-50%) scale(calc(1 / var(--canvas-scale, 1)))',
+        transform: 'translateX(-50%) scale(var(--panel-inverse-scale, 1))',
         transformOrigin: 'top center',
     };
 
@@ -104,7 +104,6 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
     const rules = handler.rules;
     const supportedResolutions = rules.resolutions || ['1k'];
     const supportedRatios = rules.ratios || ['1:1', '16:9'];
-    const canOptimize = !!rules.hasPromptExtend;
     const anglePresets = [
         { key: 'custom', label: '自定义', yaw: 0, pitch: 0, zoom: 'medium' as const },
         { key: 'fisheye', label: '鱼眼视角', yaw: 0, pitch: 0, zoom: 'wide' as const },
@@ -411,21 +410,6 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
                           <LocalCustomDropdown icon={Icons.Crop} options={supportedRatios} value={data.aspectRatio || '1:1'} onChange={handleRatioChange} isOpen={activeDropdown === 'ratio'} onToggle={() => setActiveDropdown(activeDropdown === 'ratio' ? null : 'ratio')} onClose={() => setActiveDropdown(null)} isDark={isDark} />
                           <LocalCustomDropdown icon={Icons.Monitor} options={supportedResolutions} value={data.resolution || '1k'} onChange={(val: any) => updateData(data.id, { resolution: val })} isOpen={activeDropdown === 'res'} onToggle={() => setActiveDropdown(activeDropdown === 'res' ? null : 'res')} onClose={() => setActiveDropdown(null)} disabledOptions={['1k', '2k', '4k'].filter(r => !supportedResolutions.includes(r))} isDark={isDark} />
                           <LocalCustomDropdown icon={Icons.Layers} options={[1, 2, 3, 4]} value={data.count || 1} onChange={(val: any) => updateData(data.id, { count: val })} isOpen={activeDropdown === 'count'} onToggle={() => setActiveDropdown(activeDropdown === 'count' ? null : 'count')} onClose={() => setActiveDropdown(null)} isDark={isDark} />
-                         <button 
-                             className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-all border ${
-                                  canOptimize 
-                                      ? (data.promptOptimize 
-                                          ? (isDark ? 'text-blue-400 bg-blue-500/20 border-blue-500/30' : 'text-blue-600 bg-blue-100 border-blue-200') 
-                                          : (isDark ? 'text-zinc-400 hover:text-white border-zinc-700 hover:border-zinc-600 hover:bg-zinc-700' : 'text-gray-400 hover:text-gray-600 border-gray-200 hover:bg-gray-100')
-                                        ) 
-                                      : (isDark ? 'text-zinc-600 border-zinc-800 opacity-40 cursor-not-allowed' : 'text-gray-300 border-gray-100 opacity-40 cursor-not-allowed')
-                              }`} 
-                              onClick={() => canOptimize && updateData(data.id, { promptOptimize: !data.promptOptimize })}
-                              title={canOptimize ? `提示词优化: ${data.promptOptimize ? '开启' : '关闭'}` : '此模型不支持提示词优化'}
-                              disabled={!canOptimize}
-                          >
-                              <Icons.Sparkles size={15} fill={data.promptOptimize && canOptimize ? "currentColor" : "none"} />
-                          </button>
                           {data.imageSrc && (
                               <div className="relative">
                                   <button

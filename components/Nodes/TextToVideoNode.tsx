@@ -43,10 +43,10 @@ export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
     const [videoModels, setVideoModels] = useState<string[]>([]);
 
     const isSelectedAndStable = selected && !isSelecting;
-    // Panel stays a constant screen size while zooming via the --canvas-scale CSS var,
+    // Panel stays a constant screen size while zooming via the --panel-inverse-scale CSS var,
     // so zoom no longer re-renders the node (heavy base64 media stays off the hot path).
     const panelTransform: React.CSSProperties = {
-        transform: 'translateX(-50%) scale(calc(1 / var(--canvas-scale, 1)))',
+        transform: 'translateX(-50%) scale(var(--panel-inverse-scale, 1))',
         transformOrigin: 'top center',
     };
 
@@ -140,7 +140,6 @@ export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
     const resOptions = rules.resolutions || ['720p'];
     const durOptions = rules.durations || ['5s'];
     const ratioOptions = rules.ratios || ['16:9'];
-    const canOptimize = !!rules.hasPromptExtend;
 
     // Constraints & Auto-Correction
     const constraints = getVideoConstraints(currentModel, data.resolution, data.duration, inputs.length);
@@ -355,22 +354,6 @@ export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
                       <LocalCustomDropdown icon={Icons.Crop} options={ratioOptions} value={data.aspectRatio || '16:9'} onChange={handleRatioChange} isOpen={activeDropdown === 'ratio'} onToggle={() => setActiveDropdown(activeDropdown === 'ratio' ? null : 'ratio')} onClose={() => setActiveDropdown(null)} disabledOptions={constraints.disabledRatios} isDark={isDark} />
                       <LocalCustomDropdown icon={Icons.Monitor} options={resOptions} value={displayResValue || '720p'} onChange={(val: any) => updateData(data.id, { resolution: val })} isOpen={activeDropdown === 'res'} onToggle={() => setActiveDropdown(activeDropdown === 'res' ? null : 'res')} onClose={() => setActiveDropdown(null)} disabledOptions={constraints.disabledRes} isDark={isDark} />
                       <LocalCustomDropdown icon={Icons.Clock} options={durOptions} value={data.duration || '5s'} onChange={(val: any) => updateData(data.id, { duration: val })} isOpen={activeDropdown === 'duration'} onToggle={() => setActiveDropdown(activeDropdown === 'duration' ? null : 'duration')} onClose={() => setActiveDropdown(null)} disabledOptions={constraints.disabledDurations} isDark={isDark} />
-                      <button
-                          className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-all border ${
-                              canOptimize 
-                                  ? (data.promptOptimize 
-                                      ? (isDark ? 'text-purple-400 bg-purple-500/20 border-purple-500/30' : 'text-purple-600 bg-purple-100 border-purple-200') 
-                                      : (isDark ? 'text-zinc-400 hover:text-white border-zinc-700 hover:border-zinc-600 hover:bg-zinc-700' : 'text-gray-400 hover:text-gray-600 border-gray-200 hover:bg-gray-100')
-                                    ) 
-                                  : (isDark ? 'text-zinc-600 border-zinc-800 opacity-40 cursor-not-allowed' : 'text-gray-300 border-gray-100 opacity-40 cursor-not-allowed')
-                          }`} 
-                          onClick={() => canOptimize && updateData(data.id, { promptOptimize: !data.promptOptimize })}
-                          title={canOptimize ? `提示词优化: ${data.promptOptimize ? '开启' : '关闭'}` : '此模型不支持提示词优化'}
-                          disabled={!canOptimize}
-                      >
-                          <Icons.Sparkles size={15} fill={data.promptOptimize && canOptimize ? "currentColor" : "none"} />
-                      </button>
-                       
                        {/* Spacer */}
                        <div className="flex-1" />
 

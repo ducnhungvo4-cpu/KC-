@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
+    "clean": "node -e \"const fs=require('fs'),path=require('path'); const clean=p=>{if(!fs.existsSync(p))return; for(const e of fs.readdirSync(p,{withFileTypes:true})){const f=path.join(p,e.name); if(e.isDirectory()){clean(f); fs.rmdirSync(f);} else fs.unlinkSync(f);}}; clean('dist');\"",
     "build": "npm run clean && vite build",
     "preview": "vite preview",
     "deploy:cloudflare": "npm run build && npx wrangler deploy",

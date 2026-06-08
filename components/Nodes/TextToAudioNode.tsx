@@ -41,10 +41,10 @@ export const TextToAudioNode: React.FC<TextToAudioNodeProps> = ({
   const hasResult = Boolean(data.audioSrc) && !data.isLoading;
   const prompt = data.prompt || '';
   const charCount = prompt.length;
-  // Panel stays a constant screen size while zooming via the --canvas-scale CSS var,
+  // Panel stays a constant screen size while zooming via the --panel-inverse-scale CSS var,
   // so zoom no longer re-renders the node (heavy base64 media stays off the hot path).
   const panelTransform: React.CSSProperties = {
-    transform: 'translateX(-50%) scale(calc(1 / var(--canvas-scale, 1)))',
+    transform: 'translateX(-50%) scale(var(--panel-inverse-scale, 1))',
     transformOrigin: 'top center',
   };
 

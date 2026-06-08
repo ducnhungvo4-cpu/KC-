@@ -19,10 +19,11 @@ interface ImageToImageNodeProps {
   onDownload?: (id: string) => void;
   isDark?: boolean;
   isSelecting?: boolean;
+  canvasScale?: number;
 }
 
 export const ImageToImageNode: React.FC<ImageToImageNodeProps> = ({
-    data, updateData, onGenerate, selected, showControls, inputs = [], inputMedia = [], onPreviewReference, onMaximize, onDownload, isDark = true, isSelecting
+    data, updateData, onGenerate, selected, showControls, inputs = [], inputMedia = [], onPreviewReference, onMaximize, onDownload, isDark = true, isSelecting, canvasScale = 1
 }) => {
     const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
     const [deferredInputs, setDeferredInputs] = useState(false);
@@ -31,6 +32,10 @@ export const ImageToImageNode: React.FC<ImageToImageNodeProps> = ({
 
     const isSelectedAndStable = selected && !isSelecting;
     const hasInputImage = inputs.length > 0;
+    const panelTransform: React.CSSProperties = {
+        transform: 'translateX(-50%) scale(var(--panel-inverse-scale, 1))',
+        transformOrigin: 'top center',
+    };
 
     const checkConfig = useCallback(() => {
          const mName = data.model || 'Seedream 5.0';
@@ -63,7 +68,6 @@ export const ImageToImageNode: React.FC<ImageToImageNodeProps> = ({
     const rules = handler.rules;
     const supportedResolutions = rules.resolutions || ['1k'];
     const supportedRatios = rules.ratios || ['1:1', '16:9'];
-    const canOptimize = !!rules.hasPromptExtend;
 
     const handleRatioChange = (ratio: string) => {
         const currentShort = Math.min(data.width, data.height);
@@ -130,7 +134,7 @@ export const ImageToImageNode: React.FC<ImageToImageNodeProps> = ({
         </div>
 
         {isSelectedAndStable && showControls && (
-            <div className="absolute top-full left-1/2 -translate-x-1/2 w-full min-w-[400px] pt-3 z-[70] pointer-events-auto" onMouseDown={(e) => e.stopPropagation()}>
+            <div className="absolute top-full left-1/2 w-full min-w-[400px] pt-3 z-[70] pointer-events-auto" style={panelTransform} onMouseDown={(e) => e.stopPropagation()}>
                   {inputMedia.length > 0 && <LocalInputThumbnails inputs={inputs} items={inputMedia} ready={deferredInputs} isDark={isDark} label="参考图" onPreview={onPreviewReference} />}
                  {!hasInputImage && (
                      <div className={`mb-2 px-3 py-2 rounded-lg border flex items-center gap-2 text-[10px] ${isDark ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' : 'bg-amber-50 border-amber-200 text-amber-600'}`}>
@@ -149,15 +153,6 @@ export const ImageToImageNode: React.FC<ImageToImageNodeProps> = ({
                               <LocalCustomDropdown icon={Icons.Crop} options={supportedRatios} value={data.aspectRatio || '1:1'} onChange={handleRatioChange} isOpen={activeDropdown === 'ratio'} onToggle={() => setActiveDropdown(activeDropdown === 'ratio' ? null : 'ratio')} onClose={() => setActiveDropdown(null)} isDark={isDark} />
                               <LocalCustomDropdown icon={Icons.Monitor} options={supportedResolutions} value={data.resolution || '1k'} onChange={(val: any) => updateData(data.id, { resolution: val })} isOpen={activeDropdown === 'res'} onToggle={() => setActiveDropdown(activeDropdown === 'res' ? null : 'res')} onClose={() => setActiveDropdown(null)} disabledOptions={['1k', '2k', '4k'].filter(r => !supportedResolutions.includes(r))} isDark={isDark} />
                               <LocalCustomDropdown icon={Icons.Layers} options={[1, 2, 3, 4]} value={data.count || 1} onChange={(val: any) => updateData(data.id, { count: val })} isOpen={activeDropdown === 'count'} onToggle={() => setActiveDropdown(activeDropdown === 'count' ? null : 'count')} onClose={() => setActiveDropdown(null)} isDark={isDark} />
-                              
-                              <button 
-                                  className={`h-full px-2 rounded flex items-center justify-center transition-colors ${canOptimize ? (data.promptOptimize ? (isDark ? 'text-purple-400 bg-purple-500/10' : 'text-purple-600 bg-purple-50') : (isDark ? 'text-zinc-500 hover:text-gray-300 hover:bg-white/5' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100')) : (isDark ? 'text-zinc-700 opacity-50 cursor-not-allowed' : 'text-gray-200 opacity-50 cursor-not-allowed')}`} 
-                                  onClick={() => canOptimize && updateData(data.id, { promptOptimize: !data.promptOptimize })}
-                                  title={canOptimize ? `提示词优化: ${data.promptOptimize ? '开启' : '关闭'}` : '不支持提示词优化'}
-                                  disabled={!canOptimize}
-                              >
-                                  <Icons.Sparkles size={13} fill={data.promptOptimize && canOptimize ? "currentColor" : "none"} />
-                              </button>
                           </div>
                           <button 
                               onClick={() => onGenerate(data.id)} 
