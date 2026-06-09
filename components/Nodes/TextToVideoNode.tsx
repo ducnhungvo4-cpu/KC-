@@ -17,6 +17,7 @@ interface TextToVideoNodeProps {
   inputMedia?: InputMedia[];
   onPreviewReference?: (item: InputMedia) => void;
   onMaximize?: (id: string) => void;
+  onPreviewMedia?: (url: string, type: 'image' | 'video') => void;
   onDownload?: (id: string) => void;
   onUpload?: (id: string) => void;
   onSaveResult?: (id: string) => void;
@@ -34,7 +35,7 @@ interface TextToVideoNodeProps {
 }
 
 export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
-    data, updateData, onGenerate, selected, showControls, inputs = [], inputMedia = [], onPreviewReference, onMaximize, onDownload, onUpload, onSaveResult, onExtractFrames, onExtractSingleFrame, onRemoveSubtitles, onEnhanceVideo, onRemoveBGM, onToggleFavoriteArtifact, isArtifactFavorited, onAddToAssetLibrary, isDark = true, isSelecting, canvasScale = 1
+    data, updateData, onGenerate, selected, showControls, inputs = [], inputMedia = [], onPreviewReference, onMaximize, onPreviewMedia, onDownload, onUpload, onSaveResult, onExtractFrames, onExtractSingleFrame, onRemoveSubtitles, onEnhanceVideo, onRemoveBGM, onToggleFavoriteArtifact, isArtifactFavorited, onAddToAssetLibrary, isDark = true, isSelecting, canvasScale = 1
 }) => {
     const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
     const [deferredInputs, setDeferredInputs] = useState(false);
@@ -205,6 +206,7 @@ export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
                          selected={selected}
                          onToggleFavorite={(src, type) => onToggleFavoriteArtifact?.(data.id, src, type)}
                          isFavorite={(src) => isArtifactFavorited?.(data.id, src) || false}
+                         onPreviewMedia={onPreviewMedia}
                      />
                      
                      {/* Hover Overlay with Title & Actions */}

@@ -15,6 +15,7 @@ interface NodeContentProps {
   showControls?: boolean;
   inputs?: string[];
   onMaximize?: (id: string) => void;
+  onPreviewMedia?: (url: string, type: 'image' | 'video') => void;
   onDownload?: (id: string) => void;
   onUpload?: (nodeId: string) => void;
   onSaveResult?: (nodeId: string) => void;

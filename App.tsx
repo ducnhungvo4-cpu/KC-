@@ -3977,6 +3977,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                             inputMedia={getInputMedia(node.id)}
                             onPreviewReference={handlePreviewReference}
                             onMaximize={handleMaximize}
+                            onPreviewMedia={handleHistoryPreview}
                             onDownload={handleDownload}
                             onUpload={triggerReplaceImage}
                             onSaveResult={openSaveResultModal}

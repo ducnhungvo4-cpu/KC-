@@ -16,6 +16,7 @@ interface TextToImageNodeProps {
   inputMedia?: InputMedia[];
   onPreviewReference?: (item: InputMedia) => void;
   onMaximize?: (id: string) => void;
+  onPreviewMedia?: (url: string, type: 'image' | 'video') => void;
   onDownload?: (id: string) => void;
   onUpload?: (id: string) => void;
   onSaveResult?: (id: string) => void;
@@ -33,7 +34,7 @@ interface TextToImageNodeProps {
 }
 
 export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
-    data, updateData, onGenerate, selected, showControls, inputs = [], inputMedia = [], onPreviewReference, onMaximize, onDownload, onUpload, onSaveResult, onCrop, onMultiAngle, onMultiGrid, onRepaint, onLighting, onPanorama, onToggleFavoriteArtifact, isArtifactFavorited, onAddToAssetLibrary, isDark = true, isSelecting, canvasScale = 1
+    data, updateData, onGenerate, selected, showControls, inputs = [], inputMedia = [], onPreviewReference, onMaximize, onPreviewMedia, onDownload, onUpload, onSaveResult, onCrop, onMultiAngle, onMultiGrid, onRepaint, onLighting, onPanorama, onToggleFavoriteArtifact, isArtifactFavorited, onAddToAssetLibrary, isDark = true, isSelecting, canvasScale = 1
 }) => {
     const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
     const [deferredInputs, setDeferredInputs] = useState(false);
@@ -324,6 +325,7 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
                          selected={selected}
                          onToggleFavorite={(src, type) => onToggleFavoriteArtifact?.(data.id, src, type)}
                          isFavorite={(src) => isArtifactFavorited?.(data.id, src) || false}
+                         onPreviewMedia={onPreviewMedia}
                      />
                      
                      {/* Hover Overlay with Title & Actions */}

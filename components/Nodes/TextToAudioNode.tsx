@@ -44,7 +44,7 @@ export const TextToAudioNode: React.FC<TextToAudioNodeProps> = ({
   const versionPanelRef = useRef<HTMLDivElement>(null);
   const audioArtifacts = data.outputArtifacts || [];
   const sortedAudioArtifacts = data.audioSrc ? [data.audioSrc, ...audioArtifacts.filter(item => item !== data.audioSrc)] : audioArtifacts;
-  const showVersionBadge = !data.isStackOpen && audioArtifacts.length > 1;
+  const showVersionBadge = !!selected && !data.isStackOpen && audioArtifacts.length > 1;
   // Panel stays a constant screen size while zooming via the --panel-inverse-scale CSS var,
   // so zoom no longer re-renders the node (heavy base64 media stays off the hot path).
   const panelTransform: React.CSSProperties = {
@@ -147,7 +147,7 @@ export const TextToAudioNode: React.FC<TextToAudioNodeProps> = ({
 
         {showVersionBadge && (
           <div
-            className="absolute top-3 right-3 z-30 flex cursor-pointer select-none items-center gap-1 rounded-full border border-white/10 bg-black/30 px-2 py-1 text-[10px] text-white shadow-lg backdrop-blur-md transition-colors hover:bg-black/50"
+            className="absolute left-1/2 top-3 z-30 flex -translate-x-1/2 cursor-pointer select-none items-center gap-1 rounded-full border border-white/10 bg-black/30 px-2 py-1 text-[10px] text-white shadow-lg backdrop-blur-md transition-colors hover:bg-black/50"
             onClick={(event) => {
               event.stopPropagation();
               updateData(data.id, { isStackOpen: true });
@@ -161,11 +161,11 @@ export const TextToAudioNode: React.FC<TextToAudioNodeProps> = ({
         )}
 
         {data.isStackOpen && (
-          <div ref={versionPanelRef} className={`absolute inset-0 z-[100] overflow-y-auto p-4 ${isDark ? 'bg-[#111]/95' : 'bg-white/95'} backdrop-blur-md`}>
-            <div className="mb-3 flex items-center justify-between">
+          <div ref={versionPanelRef} className={`absolute left-1/2 top-12 z-[100] w-[560px] max-w-[calc(100vw-48px)] -translate-x-1/2 rounded-2xl border p-3 shadow-2xl backdrop-blur-xl ${isDark ? 'border-zinc-700 bg-[#181818]/95' : 'border-gray-200 bg-white/95'}`} onMouseDown={(event) => event.stopPropagation()}>
+            <div className="mb-2 flex items-center justify-between">
               <span className={`text-sm font-semibold ${isDark ? 'text-zinc-100' : 'text-gray-900'}`}>音频版本</span>
               <button
-                className={`h-8 w-8 rounded-lg flex items-center justify-center ${isDark ? 'text-zinc-400 hover:bg-zinc-800 hover:text-white' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`}
+                className={`h-7 w-7 rounded-lg flex items-center justify-center ${isDark ? 'text-zinc-400 hover:bg-zinc-800 hover:text-white' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`}
                 onClick={(event) => {
                   event.stopPropagation();
                   updateData(data.id, { isStackOpen: false });
@@ -174,16 +174,17 @@ export const TextToAudioNode: React.FC<TextToAudioNodeProps> = ({
                 <Icons.X size={18} />
               </button>
             </div>
-            <div className="flex flex-col gap-2">
+            <div className="grid grid-cols-5 gap-2">
               {sortedAudioArtifacts.map((src, index) => {
                 const isMain = src === data.audioSrc;
                 return (
-                  <div key={src + index} className={`rounded-xl border p-3 ${isMain ? 'border-cyan-500/50' : (isDark ? 'border-zinc-800' : 'border-gray-200')} ${isDark ? 'bg-zinc-950/70' : 'bg-gray-50'}`}>
-                    <div className="mb-2 flex items-center justify-between gap-3">
-                      <span className={`text-[11px] font-semibold ${isMain ? 'text-cyan-300' : mutedText}`}>{isMain ? '当前' : `版本 ${index + 1}`}</span>
+                  <div key={src + index} className={`relative aspect-square rounded-xl border p-2 ${isMain ? 'border-cyan-500/70 ring-1 ring-cyan-400/30' : (isDark ? 'border-zinc-800' : 'border-gray-200')} ${isDark ? 'bg-zinc-950/70' : 'bg-gray-50'}`}>
+                    <div className="flex h-full flex-col items-center justify-center gap-2">
+                      <Icons.Volume2 size={22} className={isMain ? 'text-cyan-300' : mutedText} />
+                      <span className={`text-center text-[10px] font-semibold ${isMain ? 'text-cyan-300' : mutedText}`}>{isMain ? '当前' : `版本 ${index + 1}`}</span>
                       {!isMain && (
                         <button
-                          className={`h-6 rounded-md px-2 text-[11px] font-semibold ${isDark ? 'bg-zinc-800 text-zinc-200 hover:bg-zinc-700' : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'}`}
+                          className={`h-6 rounded-md px-2 text-[10px] font-semibold ${isDark ? 'bg-zinc-800 text-zinc-200 hover:bg-zinc-700' : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'}`}
                           onClick={(event) => {
                             event.stopPropagation();
                             updateData(data.id, { audioSrc: src, isStackOpen: false });
@@ -193,7 +194,6 @@ export const TextToAudioNode: React.FC<TextToAudioNodeProps> = ({
                         </button>
                       )}
                     </div>
-                    <audio src={src} controls className="w-full" onMouseDown={(event) => event.stopPropagation()} />
                   </div>
                 );
               })}
