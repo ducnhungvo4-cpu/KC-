@@ -370,6 +370,7 @@ const CanvasWithSidebar: React.FC = () => {
   const [selectedNodeIds, setSelectedNodeIds] = useState<Set<string>>(new Set());
   const [dragMode, setDragMode] = useState<DragMode | 'RESIZE_NODE' | 'SELECT'>('NONE');
   const dragModeRef = useRef(dragMode);
+  const blockedSubCanvasStorageKeysRef = useRef<Set<string>>(new Set());
 
   const getEmptySubCanvasState = (): SubCanvasState => ({
       nodes: [],
@@ -422,8 +423,18 @@ const CanvasWithSidebar: React.FC = () => {
   };
 
   const writeSubCanvasWorkspace = (projectId: string, snapshot: SubCanvasWorkspaceSnapshot) => {
-      if (typeof window === 'undefined') return;
-      localStorage.setItem(getSubCanvasStorageKey(projectId), JSON.stringify(snapshot));
+      if (typeof window === 'undefined') return false;
+      const storageKey = getSubCanvasStorageKey(projectId);
+      if (blockedSubCanvasStorageKeysRef.current.has(storageKey)) return false;
+      try {
+          localStorage.setItem(storageKey, JSON.stringify(snapshot));
+          return true;
+      } catch (error) {
+          console.error(error);
+          blockedSubCanvasStorageKeysRef.current.add(storageKey);
+          setSaveStatus('failed');
+          return false;
+      }
   };
 
   const getCurrentSubCanvasWorkspace = (nextOverrides: Partial<SubCanvasWorkspaceSnapshot> = {}): SubCanvasWorkspaceSnapshot | null => {
@@ -2083,6 +2094,33 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
       openProject(newProject);
   };
 
+  const deleteProject = (project: ProjectDashboardItem, event?: React.MouseEvent) => {
+      event?.stopPropagation();
+      const isDefaultProject = DEFAULT_PROJECTS.some(item => item.id === project.id);
+      if (isDefaultProject) {
+          window.alert('内置演示项目不能删除。');
+          return;
+      }
+      if (!window.confirm(`确定删除项目「${project.name}」吗？\n\n该操作会清除本机保存的项目画布和子画布数据。`)) return;
+
+      try {
+          const projectStorageKey = `${KC_PROJECT_STORAGE_PREFIX}${project.id}`;
+          const subCanvasStorageKey = getSubCanvasStorageKey(project.id);
+          localStorage.removeItem(projectStorageKey);
+          localStorage.removeItem(subCanvasStorageKey);
+          blockedSubCanvasStorageKeysRef.current.delete(subCanvasStorageKey);
+      } catch (error) {
+          console.error(error);
+      }
+
+      const nextProjects = projects.filter(item => item.id !== project.id);
+      persistProjectSummaries(nextProjects);
+      if (currentProject?.id === project.id) {
+          setCurrentProject(null);
+          clearCanvasState();
+      }
+  };
+
   const returnToProjectManagement = () => {
       handleSaveProject();
       setCurrentProject(null);
@@ -2940,18 +2978,37 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
 
                   <main className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
                       {visibleProjects.map(project => (
-                          <button
+                          <div
                               key={project.id}
+                              role="button"
+                              tabIndex={0}
                               onClick={() => openProject(project)}
-                              className={`group min-h-[138px] rounded-2xl border p-4 text-left transition-all ${isDark ? 'border-zinc-800 bg-[#16181c] hover:border-blue-500/45 hover:bg-[#1a1d23]' : 'border-gray-200 bg-white hover:border-blue-300 hover:shadow-md'}`}
+                              onKeyDown={(event) => {
+                                  if (event.key === 'Enter' || event.key === ' ') {
+                                      event.preventDefault();
+                                      openProject(project);
+                                  }
+                              }}
+                              className={`group relative min-h-[138px] cursor-pointer rounded-2xl border p-4 text-left transition-all ${isDark ? 'border-zinc-800 bg-[#16181c] hover:border-blue-500/45 hover:bg-[#1a1d23]' : 'border-gray-200 bg-white hover:border-blue-300 hover:shadow-md'}`}
                           >
+                              {!DEFAULT_PROJECTS.some(item => item.id === project.id) && (
+                                  <button
+                                      type="button"
+                                      onClick={(event) => deleteProject(project, event)}
+                                      className={`absolute right-3 top-3 z-10 flex h-7 w-7 items-center justify-center rounded-lg opacity-65 transition-all hover:opacity-100 ${isDark ? 'text-zinc-500 hover:bg-red-500/10 hover:text-red-300' : 'text-gray-400 hover:bg-red-50 hover:text-red-600'}`}
+                                      title="删除项目"
+                                      aria-label={`删除项目 ${project.name}`}
+                                  >
+                                      <Icons.Trash2 size={14} />
+                                  </button>
+                              )}
                               <div className="flex h-full flex-col justify-between gap-5">
-                                  <div className="min-w-0">
+                                  <div className="min-w-0 pr-8">
                                       <h2 className="truncate text-base font-bold leading-6">{project.name}</h2>
                                   </div>
                                   <Icons.ChevronRight size={18} className={`transition-transform group-hover:translate-x-1 ${isDark ? 'text-zinc-600' : 'text-gray-400'}`} />
                               </div>
-                          </button>
+                          </div>
                       ))}
                       {visibleProjects.length === 0 && (
                           <div className={`col-span-full rounded-2xl border p-8 text-center text-sm ${isDark ? 'border-zinc-800 bg-zinc-950/40 text-zinc-500' : 'border-gray-200 bg-white text-gray-500'}`}>
