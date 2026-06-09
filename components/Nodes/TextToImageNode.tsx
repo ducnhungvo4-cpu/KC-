@@ -412,12 +412,10 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
         )}
 
         {/* Control Panel */}
-        {isSelectedAndStable && showControls && (!hasResult || isAngleEditorOpen || isLightingOpen || isHdRestoreOpen) && (
+        {isSelectedAndStable && showControls && (
             <div className="absolute top-full left-1/2 min-w-[520px] pt-4 z-[70] pointer-events-auto" style={panelTransform} onMouseDown={(e) => e.stopPropagation()}>
-                 {!hasResult && inputMedia.length > 0 && <LocalInputThumbnails inputs={inputs} items={inputMedia} ready={deferredInputs} isDark={isDark} onPreview={onPreviewReference} />}
+                 {inputMedia.length > 0 && <LocalInputThumbnails inputs={inputs} items={inputMedia} ready={deferredInputs} isDark={isDark} onPreview={onPreviewReference} />}
                  <div className={`${controlPanelBg} rounded-2xl p-4 flex flex-col gap-3 border`}>
-                      {!hasResult && (
-                      <>
                       {/* Prompt Input */}
                       <LocalPromptTextarea
                           className={`w-full border rounded-xl px-4 py-3 text-sm leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/20 min-h-[72px] transition-all ${inputBg}`}
@@ -498,7 +496,7 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
                           <button 
                               onClick={() => onGenerate(data.id)} 
                               disabled={data.isLoading || !isConfigured}
-                              title={!isConfigured ? '请在设置中配置 API Key' : '开始生成'}
+                              title={!isConfigured ? '请在设置中配置 API Key' : (hasResult ? '基于当前参数生成一个新版本' : '开始生成')}
                               className={`shrink-0 h-8 px-4 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 whitespace-nowrap transition-all active:scale-[0.98] ${
                                   data.isLoading || !isConfigured 
                                       ? 'bg-gray-400 text-white cursor-not-allowed' 
@@ -506,11 +504,9 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
                               }`}
                           >
                               {data.isLoading ? <Icons.Loader2 className="animate-spin" size={15}/> : <Icons.Wand2 size={15} />}
-                          <span>{data.isLoading ? '生成中' : '生成'}</span>
+                          <span>{data.isLoading ? '生成中' : (hasResult ? '生成版本' : '生成')}</span>
                           </button>
                       </div>
-                      </>
-                      )}
                       {data.imageSrc && isAngleEditorOpen && (
                           <div className={`rounded-2xl border p-5 flex flex-col gap-4 ${isDark ? 'border-zinc-700 bg-[#202020]' : 'border-gray-200 bg-white shadow-xl'}`}>
                               <div className="flex items-center justify-between gap-3">

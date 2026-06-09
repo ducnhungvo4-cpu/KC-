@@ -364,7 +364,7 @@ export const StartEndToVideoNode: React.FC<StartEndToVideoNodeProps> = ({
                        <button 
                            onClick={() => onGenerate(data.id)} 
                            disabled={data.isLoading || !hasValidInputs}
-                           title={!hasValidInputs ? '需要连接首帧和尾帧' : '开始生成'}
+                           title={!hasValidInputs ? '需要连接首帧和尾帧' : (hasResult ? '基于当前参数生成一个新版本' : '开始生成')}
                            className={`shrink-0 h-8 px-4 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 whitespace-nowrap transition-all active:scale-[0.98] ${
                                data.isLoading || !hasValidInputs
                                    ? 'bg-gray-400 text-white cursor-not-allowed' 
@@ -372,7 +372,7 @@ export const StartEndToVideoNode: React.FC<StartEndToVideoNodeProps> = ({
                            }`}
                        >
                            {data.isLoading ? <Icons.Loader2 className="animate-spin" size={15}/> : <Icons.Wand2 size={15} />}
-                           <span>{data.isLoading ? `${Math.floor(progress)}%` : '生成'}</span>
+                           <span>{data.isLoading ? `${Math.floor(progress)}%` : (hasResult ? '生成版本' : '生成')}</span>
                        </button>
                   </div>
               </div>

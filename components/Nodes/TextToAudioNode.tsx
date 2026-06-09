@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { InputMedia, NodeData } from '../../types';
 import { Icons } from '../Icons';
 import { getVisibleModels, MODEL_REGISTRY } from '../../services/geminiService';
@@ -41,6 +41,10 @@ export const TextToAudioNode: React.FC<TextToAudioNodeProps> = ({
   const hasResult = Boolean(data.audioSrc) && !data.isLoading;
   const prompt = data.prompt || '';
   const charCount = prompt.length;
+  const versionPanelRef = useRef<HTMLDivElement>(null);
+  const audioArtifacts = data.outputArtifacts || [];
+  const sortedAudioArtifacts = data.audioSrc ? [data.audioSrc, ...audioArtifacts.filter(item => item !== data.audioSrc)] : audioArtifacts;
+  const showVersionBadge = !data.isStackOpen && audioArtifacts.length > 1;
   // Panel stays a constant screen size while zooming via the --panel-inverse-scale CSS var,
   // so zoom no longer re-renders the node (heavy base64 media stays off the hot path).
   const panelTransform: React.CSSProperties = {
@@ -58,6 +62,21 @@ export const TextToAudioNode: React.FC<TextToAudioNodeProps> = ({
     window.addEventListener('modelRegistryUpdated', updateModels);
     return () => window.removeEventListener('modelRegistryUpdated', updateModels);
   }, [updateModels]);
+
+  useEffect(() => {
+    if (!data.isStackOpen) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (versionPanelRef.current && !versionPanelRef.current.contains(event.target as Node)) {
+        updateData(data.id, { isStackOpen: false });
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [data.id, data.isStackOpen, updateData]);
+
+  useEffect(() => {
+    if (!selected && data.isStackOpen) updateData(data.id, { isStackOpen: false });
+  }, [selected, data.id, data.isStackOpen, updateData]);
 
   const voiceOptions = useMemo(() => ['male-qn-qingse', 'female-shaonv', 'male-qn-jingying'], []);
   const speedOptions = useMemo(() => [0.8, 1, 1.2], []);
@@ -122,6 +141,62 @@ export const TextToAudioNode: React.FC<TextToAudioNodeProps> = ({
                 <Icons.Volume2 size={15} />
                 <span>音频生成</span>
               </div>
+            </div>
+          </div>
+        )}
+
+        {showVersionBadge && (
+          <div
+            className="absolute top-3 right-3 z-30 flex cursor-pointer select-none items-center gap-1 rounded-full border border-white/10 bg-black/30 px-2 py-1 text-[10px] text-white shadow-lg backdrop-blur-md transition-colors hover:bg-black/50"
+            onClick={(event) => {
+              event.stopPropagation();
+              updateData(data.id, { isStackOpen: true });
+            }}
+          >
+            <Icons.Layers size={10} className="text-cyan-400" />
+            <span className="font-bold">版本</span>
+            <span className="font-bold tabular-nums">{audioArtifacts.length}</span>
+            <Icons.ChevronRight size={10} className="text-zinc-400" />
+          </div>
+        )}
+
+        {data.isStackOpen && (
+          <div ref={versionPanelRef} className={`absolute inset-0 z-[100] overflow-y-auto p-4 ${isDark ? 'bg-[#111]/95' : 'bg-white/95'} backdrop-blur-md`}>
+            <div className="mb-3 flex items-center justify-between">
+              <span className={`text-sm font-semibold ${isDark ? 'text-zinc-100' : 'text-gray-900'}`}>音频版本</span>
+              <button
+                className={`h-8 w-8 rounded-lg flex items-center justify-center ${isDark ? 'text-zinc-400 hover:bg-zinc-800 hover:text-white' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  updateData(data.id, { isStackOpen: false });
+                }}
+              >
+                <Icons.X size={18} />
+              </button>
+            </div>
+            <div className="flex flex-col gap-2">
+              {sortedAudioArtifacts.map((src, index) => {
+                const isMain = src === data.audioSrc;
+                return (
+                  <div key={src + index} className={`rounded-xl border p-3 ${isMain ? 'border-cyan-500/50' : (isDark ? 'border-zinc-800' : 'border-gray-200')} ${isDark ? 'bg-zinc-950/70' : 'bg-gray-50'}`}>
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                      <span className={`text-[11px] font-semibold ${isMain ? 'text-cyan-300' : mutedText}`}>{isMain ? '当前' : `版本 ${index + 1}`}</span>
+                      {!isMain && (
+                        <button
+                          className={`h-6 rounded-md px-2 text-[11px] font-semibold ${isDark ? 'bg-zinc-800 text-zinc-200 hover:bg-zinc-700' : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'}`}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            updateData(data.id, { audioSrc: src, isStackOpen: false });
+                          }}
+                        >
+                          设为当前
+                        </button>
+                      )}
+                    </div>
+                    <audio src={src} controls className="w-full" onMouseDown={(event) => event.stopPropagation()} />
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -228,7 +303,7 @@ export const TextToAudioNode: React.FC<TextToAudioNodeProps> = ({
                 }`}
                 onClick={() => onGenerate(data.id)}
                 disabled={data.isLoading || !prompt.trim()}
-                title={prompt.trim() ? '生成语音' : '请输入要合成的文本'}
+                title={prompt.trim() ? (hasResult ? '基于当前参数生成一个新版本' : '生成语音') : '请输入要合成的文本'}
               >
                 {data.isLoading ? <Icons.Loader2 size={20} className="animate-spin" /> : <Icons.ArrowUp size={23} />}
               </button>

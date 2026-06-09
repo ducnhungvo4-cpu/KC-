@@ -315,6 +315,20 @@ const getClosestAspectRatio = (width: number, height: number, options = IMAGE_AS
     }, options[0]);
 };
 
+const mergeArtifactVersions = (newArtifacts: string | string[], currentArtifact?: string, existingArtifacts: string[] = []) => {
+    const ordered = [
+        ...(Array.isArray(newArtifacts) ? newArtifacts : [newArtifacts]),
+        currentArtifact,
+        ...existingArtifacts,
+    ];
+    const seen = new Set<string>();
+    return ordered.filter((item): item is string => {
+        if (!item || seen.has(item)) return false;
+        seen.add(item);
+        return true;
+    });
+};
+
 // Helper for resizing imported media constraints
 const calculateImportDimensions = (naturalWidth: number, naturalHeight: number) => {
     const ratio = naturalWidth / naturalHeight;
@@ -1515,10 +1529,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
           }
 
           if (results.length > 0) {
-              const currentArtifacts = node.outputArtifacts || [];
-              if (node.imageSrc && !currentArtifacts.includes(node.imageSrc)) currentArtifacts.push(node.imageSrc);
-              if (node.videoSrc && !currentArtifacts.includes(node.videoSrc)) currentArtifacts.push(node.videoSrc);
-              const newArtifacts = [...results, ...currentArtifacts];
+              const newArtifacts = mergeArtifactVersions(results, node.imageSrc || node.videoSrc, node.outputArtifacts || []);
               
               const updates: Partial<NodeData> = { isLoading: false, errorMessage: undefined, outputArtifacts: newArtifacts, creditEstimate, creditStatus: 'confirmed' };
               
@@ -1825,7 +1836,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
               video.onloadedmetadata = () => {
                   const aspectRatio = getClosestAspectRatio(video.videoWidth, video.videoHeight, VIDEO_ASPECT_RATIOS);
                   const nodeSize = getNodeSizeForAspectRatio(aspectRatio, VIDEO_NODE_BASE_HEIGHT);
-                  const newArtifacts = [url, ...(node.outputArtifacts || [])];
+                  const newArtifacts = mergeArtifactVersions(url, node.videoSrc, node.outputArtifacts || []);
                   updateNodeData(nodeId, {
                       videoSrc: url,
                       title: node.shotId ? node.title : file.name,
@@ -1841,7 +1852,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
               updateNodeData(nodeId, {
                   audioSrc: url,
                   title: file.name || node.title,
-                  outputArtifacts: [url, ...(node.outputArtifacts || [])],
+                  outputArtifacts: mergeArtifactVersions(url, node.audioSrc, node.outputArtifacts || []),
               });
           } else if (file.type.startsWith('image/') && NODE_MEDIA_CATEGORY[node.type] === 'image') {
            const reader = new FileReader();
@@ -1851,13 +1862,14 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                     const aspectRatio = getClosestAspectRatio(img.width, img.height, IMAGE_ASPECT_RATIOS);
                     const { width, height } = getNodeSizeForAspectRatio(aspectRatio);
                     const src = event.target?.result as string;
-                    const newArtifacts = [src, ...(node.outputArtifacts || [])];
+                    const newArtifacts = mergeArtifactVersions(src, node.imageSrc, node.outputArtifacts || []);
                     updateNodeData(nodeId, {
                         imageSrc: src,
                         title: node.shotId ? node.title : (file.name || node.title),
                         width, height,
                         aspectRatio,
-                        outputArtifacts: newArtifacts
+                        outputArtifacts: newArtifacts,
+                        errorMessage: undefined,
                     });
                };
                img.src = event.target?.result as string;
