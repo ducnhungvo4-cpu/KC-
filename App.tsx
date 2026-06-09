@@ -364,6 +364,8 @@ const CanvasWithSidebar: React.FC = () => {
   const [editingSubCanvasId, setEditingSubCanvasId] = useState<string | null>(null);
   const [editingSubCanvasName, setEditingSubCanvasName] = useState('');
   const [isSubCanvasListOpen, setIsSubCanvasListOpen] = useState(false);
+  const [showSubCanvasNameDialog, setShowSubCanvasNameDialog] = useState(false);
+  const [pendingSubCanvasName, setPendingSubCanvasName] = useState('');
   const [nodes, setNodes] = useState<NodeData[]>([]);
   const [connections, setConnections] = useState<Connection[]>([]);
   const [transform, setTransform] = useState<CanvasTransform>({ x: 0, y: 0, k: 1 });
@@ -534,11 +536,21 @@ const CanvasWithSidebar: React.FC = () => {
 
   const handleCreateSubCanvas = () => {
     if (!currentProject) return;
+    setPendingSubCanvasName(`新画布 ${subCanvases.length + 1}`);
+    setShowSubCanvasNameDialog(true);
+  };
+
+  const handleConfirmCreateSubCanvas = () => {
+    const name = pendingSubCanvasName.trim();
+    if (!name || !currentProject) {
+      setShowSubCanvasNameDialog(false);
+      return;
+    }
     persistCurrentSubCanvasWorkspace();
     const newCanvas: ProjectCanvasItem = {
       id: 'canvas-' + Date.now(),
       projectId: currentProject.id,
-      name: `新画布 ${subCanvases.length + 1}`,
+      name,
       owner: '我',
       permissionRole: 'owner',
       status: 'draft',
@@ -562,6 +574,7 @@ const CanvasWithSidebar: React.FC = () => {
     setActiveSubCanvasId(newCanvas.id);
     loadSubCanvasState();
     setIsSubCanvasListOpen(false);
+    setShowSubCanvasNameDialog(false);
   };
 
   const handleDeleteSubCanvas = (canvasId: string) => {
@@ -4203,6 +4216,42 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
             {/* Sub-canvas dropdown outside-click overlay */}
       {isSubCanvasListOpen && (
         <div className="fixed inset-0 z-40" onClick={() => setIsSubCanvasListOpen(false)} />
+      )}
+      {/* Sub-canvas naming dialog */}
+      {showSubCanvasNameDialog && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center" onMouseDown={(e) => e.stopPropagation()}>
+          <div className="fixed inset-0 bg-black/40" onClick={() => setShowSubCanvasNameDialog(false)} />
+          <div className={`relative z-10 w-[320px] rounded-2xl border p-5 shadow-2xl ${isDark ? 'bg-[#181b22] border-zinc-700' : 'bg-white border-gray-200'}`}>
+            <div className={`text-sm font-semibold mb-3 ${isDark ? 'text-zinc-100' : 'text-gray-800'}`}>新建子画布</div>
+            <input
+              autoFocus
+              value={pendingSubCanvasName}
+              onChange={(e) => setPendingSubCanvasName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleConfirmCreateSubCanvas();
+                if (e.key === 'Escape') setShowSubCanvasNameDialog(false);
+              }}
+              placeholder="输入画布名称"
+              className={`w-full rounded-lg border px-3 py-2 text-sm outline-none transition-colors ${isDark ? 'bg-zinc-900 border-zinc-600 text-white placeholder-zinc-500 focus:border-blue-400' : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400 focus:border-blue-500'}`}
+            />
+            <div className="flex justify-end gap-2 mt-4">
+              <button
+                type="button"
+                onClick={() => setShowSubCanvasNameDialog(false)}
+                className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-colors ${isDark ? 'text-zinc-300 hover:bg-zinc-700' : 'text-gray-600 hover:bg-gray-100'}`}
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmCreateSubCanvas}
+                className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors ${isDark ? 'bg-blue-500 text-white hover:bg-blue-400' : 'bg-blue-600 text-white hover:bg-blue-500'}`}
+              >
+                确定
+              </button>
+            </div>
+          </div>
+        </div>
       )}
       {renderContextMenu()}
             {renderQuickAddMenu()}
