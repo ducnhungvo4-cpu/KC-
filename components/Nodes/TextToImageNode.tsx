@@ -384,7 +384,7 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
         </div>
 
         {isSelectedAndStable && showControls && hasResult && (
-            <div className="absolute bottom-full left-1/2 mb-px z-[75] flex flex-col items-center gap-2 pointer-events-none" style={panelTransform}>
+            <div className="absolute bottom-full left-1/2 mb-1 z-[75] flex flex-col items-center gap-2 pointer-events-none" style={panelTransform}>
                 {/* Multi-grid dropdown */}
                 {/* Main toolbar */}
                 <div className={`pointer-events-auto flex items-center gap-1.5 rounded-2xl border px-3 py-2 shadow-2xl backdrop-blur-xl ${isDark ? 'bg-[#202020]/95 border-zinc-700 text-zinc-100' : 'bg-white/95 border-gray-200 text-gray-900'}`} onMouseDown={(e) => e.stopPropagation()}>
