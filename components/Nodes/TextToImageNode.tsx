@@ -25,7 +25,6 @@ interface TextToImageNodeProps {
   onRepaint?: (id: string) => void;
   onLighting?: (id: string) => void;
   onPanorama?: (id: string) => void;
-  onOutpaint?: (id: string) => void;
   onToggleFavoriteArtifact?: (nodeId: string, url: string, type: 'image' | 'video') => void;
   isArtifactFavorited?: (nodeId: string, url: string) => boolean;
   isDark?: boolean;
@@ -34,7 +33,7 @@ interface TextToImageNodeProps {
 }
 
 export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
-    data, updateData, onGenerate, selected, showControls, inputs = [], inputMedia = [], onPreviewReference, onMaximize, onDownload, onUpload, onSaveResult, onCrop, onMultiAngle, onMultiGrid, onRepaint, onLighting, onPanorama, onOutpaint, onToggleFavoriteArtifact, isArtifactFavorited, onAddToAssetLibrary, isDark = true, isSelecting, canvasScale = 1
+    data, updateData, onGenerate, selected, showControls, inputs = [], inputMedia = [], onPreviewReference, onMaximize, onDownload, onUpload, onSaveResult, onCrop, onMultiAngle, onMultiGrid, onRepaint, onLighting, onPanorama, onToggleFavoriteArtifact, isArtifactFavorited, onAddToAssetLibrary, isDark = true, isSelecting, canvasScale = 1
 }) => {
     const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
     const [deferredInputs, setDeferredInputs] = useState(false);
@@ -355,11 +354,23 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
                  </>
              ) : (
                  <div className={`w-full h-full flex flex-col items-center justify-center ${emptyStateTextColor}`}>
-                     <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-4 ${emptyStateIconColor}`}>
-                         <Icons.Image size={28} className="opacity-60"/>
-                     </div>
-                     <span className="text-sm font-medium opacity-60">生图</span>
-                     <span className="text-xs opacity-40 mt-1">选中节点开始创作</span>
+                     {data.errorMessage ? (
+                         <>
+                             <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-4 ${isDark ? 'bg-red-500/10 text-red-300' : 'bg-red-50 text-red-600'}`}>
+                                 <Icons.AlertTriangle size={28} />
+                             </div>
+                             <span className={`text-sm font-semibold ${isDark ? 'text-red-200' : 'text-red-600'}`}>生成失败</span>
+                             <span className="max-w-[78%] text-center text-xs opacity-60 mt-2 line-clamp-2">{data.errorMessage}</span>
+                         </>
+                     ) : (
+                         <>
+                             <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-4 ${emptyStateIconColor}`}>
+                                 <Icons.Image size={28} className="opacity-60"/>
+                             </div>
+                             <span className="text-sm font-medium opacity-60">生图</span>
+                             <span className="text-xs opacity-40 mt-1">选中节点开始创作</span>
+                         </>
+                     )}
                  </div>
              )}
              
@@ -384,10 +395,6 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
                     <button className={`h-9 px-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-colors ${isLightingOpen ? (isDark ? 'bg-amber-500/15 text-amber-300' : 'bg-amber-50 text-amber-700') : (isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100')}`} onClick={() => { setIsLightingOpen(true); setIsAngleEditorOpen(false); setIsHdRestoreOpen(false); }} title="调整灯光方向和类型">
                         <Icons.Sun size={16} />
                         <span>打光</span>
-                    </button>
-                    <button className={`h-9 px-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onOutpaint?.(data.id)} title="向外扩展画面边界">
-                        <Icons.Maximize2 size={16} />
-                        <span>扩图</span>
                     </button>
                     <button className={`h-9 px-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onCrop?.(data.id)} title="按画幅裁切图片">
                         <Icons.Crop size={16} />

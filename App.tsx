@@ -1453,7 +1453,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
     const node = nodes.find(n => n.id === nodeId);
     if (!node) return;
     const creditEstimate = node.creditEstimate || getEstimatedCredits(node);
-    updateNodeData(nodeId, { isLoading: true, creditEstimate, creditStatus: 'reserved' });
+    updateNodeData(nodeId, { isLoading: true, errorMessage: undefined, creditEstimate, creditStatus: 'reserved' });
     
     const inputs = getInputImages(node.id);
     
@@ -1496,7 +1496,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
               if (node.videoSrc && !currentArtifacts.includes(node.videoSrc)) currentArtifacts.push(node.videoSrc);
               const newArtifacts = [...results, ...currentArtifacts];
               
-              const updates: Partial<NodeData> = { isLoading: false, outputArtifacts: newArtifacts, creditEstimate, creditStatus: 'confirmed' };
+              const updates: Partial<NodeData> = { isLoading: false, errorMessage: undefined, outputArtifacts: newArtifacts, creditEstimate, creditStatus: 'confirmed' };
               
               // Set output based on node type
               if (node.type === NodeType.TEXT_TO_IMAGE) {
@@ -1513,7 +1513,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
     } catch (e) {
       console.error(e);
       alert(`生成失败: ${(e as Error).message}`);
-      updateNodeData(nodeId, { isLoading: false, creditEstimate, creditStatus: 'refunded' });
+      updateNodeData(nodeId, { isLoading: false, errorMessage: (e as Error).message, creditEstimate, creditStatus: 'refunded' });
     }
   };
 
@@ -1688,7 +1688,36 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
           return;
       }
 
-      updateNodeData(nodeId, { isLoading: true });
+      const baseAspectRatio = options.aspectRatio && options.aspectRatio !== 'source'
+          ? options.aspectRatio
+          : (source.aspectRatio || '1:1');
+      const { width, height } = getNodeSizeForAspectRatio(baseAspectRatio);
+      const placeholderId = generateId();
+      const placeholderTitle = `多角度_${source.title}`.slice(0, 24);
+      const placeholderNode: NodeData = {
+          id: placeholderId,
+          type: NodeType.TEXT_TO_IMAGE,
+          x: source.x + source.width + 90,
+          y: source.y,
+          width,
+          height,
+          title: placeholderTitle,
+          aspectRatio: baseAspectRatio,
+          model: source.model || 'Seedream 5.0',
+          resolution: source.resolution || '1k',
+          count: 1,
+          prompt: options.prompt || source.prompt || '',
+          outputArtifacts: [],
+          isLoading: true,
+          errorMessage: undefined,
+          creditEstimate: 4,
+          creditStatus: 'reserved',
+      };
+
+      setNodes(prev => [...prev, placeholderNode]);
+      setConnections(prev => [...prev, { id: generateId(), sourceId: source.id, targetId: placeholderId }]);
+      setSelectedNodeIds(new Set([placeholderId]));
+
       try {
           const results = await generateMultiAngleImages(source.imageSrc, {
               ...options,
@@ -1696,46 +1725,26 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
           });
           if (!results.length) throw new Error("未返回多角度结果");
 
-          const baseAspectRatio = options.aspectRatio && options.aspectRatio !== 'source'
-              ? options.aspectRatio
-              : (source.aspectRatio || '1:1');
-          const { width, height } = getNodeSizeForAspectRatio(baseAspectRatio);
-          const gapX = width + 80;
-          const gapY = height + 70;
-          const newNodes = results.map((result, index) => {
-              const column = index % 3;
-              const row = Math.floor(index / 3);
-              const id = generateId();
-              const title = `${result.label || result.angle}_${source.title}`.slice(0, 24);
-              return {
-                  id,
-                  type: NodeType.TEXT_TO_IMAGE,
-                  x: source.x + source.width + 90 + column * gapX,
-                  y: source.y + row * gapY,
-                  width,
-                  height,
-                  title,
-                  imageSrc: result.url,
-                  aspectRatio: baseAspectRatio,
-                  model: source.model || 'Seedream 5.0',
-                  resolution: source.resolution || '1k',
-                  count: 1,
-                  prompt: result.prompt || options.prompt || source.prompt || '',
-                  outputArtifacts: [result.url]
-              } satisfies NodeData;
+          const primary = results[0];
+          updateNodeData(placeholderId, {
+              title: `${primary.label || primary.angle}_${source.title}`.slice(0, 24),
+              imageSrc: primary.url,
+              prompt: primary.prompt || options.prompt || source.prompt || '',
+              outputArtifacts: results.map(result => result.url),
+              isLoading: false,
+              errorMessage: undefined,
+              creditEstimate: 4,
+              creditStatus: 'confirmed',
           });
-
-          setNodes(prev => [...prev, ...newNodes]);
-          setConnections(prev => [
-              ...prev,
-              ...newNodes.map(node => ({ id: generateId(), sourceId: source.id, targetId: node.id }))
-          ]);
-          setSelectedNodeIds(new Set(newNodes.map(node => node.id)));
-          updateNodeData(nodeId, { isLoading: false });
       } catch (e) {
           console.error(e);
           alert(`多角度生成失败: ${(e as Error).message}`);
-          updateNodeData(nodeId, { isLoading: false });
+          updateNodeData(placeholderId, {
+              isLoading: false,
+              errorMessage: (e as Error).message,
+              creditEstimate: 4,
+              creditStatus: 'refunded',
+          });
       }
   };
 

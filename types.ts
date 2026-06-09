@@ -27,6 +27,7 @@ export interface NodeData {
   outputArtifacts?: string[]; // History/Batch results
   favoriteArtifacts?: string[]; // User-favorited node materials
   isLoading?: boolean;
+  errorMessage?: string;
   isStackOpen?: boolean; // UI State for expanded gallery
   
   // Configs
