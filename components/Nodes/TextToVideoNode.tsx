@@ -49,6 +49,10 @@ export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
         transform: 'translateX(-50%) scale(var(--panel-inverse-scale, 1))',
         transformOrigin: 'top center',
     };
+    const topToolbarTransform: React.CSSProperties = {
+        transform: 'translateX(-50%) scale(var(--panel-inverse-scale, 1))',
+        transformOrigin: 'bottom center',
+    };
 
     const checkConfig = useCallback(() => {
          const mName = data.model || 'Agnes Video V2.0';
@@ -268,7 +272,7 @@ export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
         </div>
 
         {isSelectedAndStable && showControls && hasResult && (
-            <div className={`absolute bottom-full left-1/2 mb-1 z-[75] flex items-center gap-1.5 rounded-2xl border px-3 py-2 shadow-2xl backdrop-blur-xl pointer-events-auto ${isDark ? 'bg-[#202020]/95 border-zinc-700 text-zinc-100' : 'bg-white/95 border-gray-200 text-gray-900'}`} style={panelTransform} onMouseDown={(e) => e.stopPropagation()}>
+            <div className={`absolute bottom-full left-1/2 mb-2 z-[75] flex items-center gap-1.5 rounded-2xl border px-3 py-2 shadow-2xl backdrop-blur-xl pointer-events-auto ${isDark ? 'bg-[#202020]/95 border-zinc-700 text-zinc-100' : 'bg-white/95 border-gray-200 text-gray-900'}`} style={topToolbarTransform} onMouseDown={(e) => e.stopPropagation()}>
                 <button className={`h-9 px-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onRemoveSubtitles?.(data.id)} title="AI 检测并移除硬字幕和水印">
                     <Icons.Subtitles size={16} />
                     <span>去字幕</span>

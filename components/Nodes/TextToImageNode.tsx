@@ -40,7 +40,6 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
     const [isConfigured, setIsConfigured] = useState(true);
     const [imageModels, setImageModels] = useState<string[]>([]);
     const [isAngleEditorOpen, setIsAngleEditorOpen] = useState(false);
-    const [isFunctionMenuOpen, setIsFunctionMenuOpen] = useState(false);
     const [anglePrompt, setAnglePrompt] = useState('');
     const [angleConsistency, setAngleConsistency] = useState<'standard' | 'high'>('high');
     const [angleBackground, setAngleBackground] = useState<'keep' | 'clean' | 'solid'>('clean');
@@ -75,6 +74,10 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
     const panelTransform: React.CSSProperties = {
         transform: 'translateX(-50%) scale(var(--panel-inverse-scale, 1))',
         transformOrigin: 'top center',
+    };
+    const topToolbarTransform: React.CSSProperties = {
+        transform: 'translateX(-50%) scale(var(--panel-inverse-scale, 1))',
+        transformOrigin: 'bottom center',
     };
 
     const checkConfig = useCallback(() => {
@@ -384,7 +387,7 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
         </div>
 
         {isSelectedAndStable && showControls && hasResult && (
-            <div className="absolute bottom-full left-1/2 mb-1 z-[75] flex flex-col items-center gap-2 pointer-events-none" style={panelTransform}>
+            <div className="absolute bottom-full left-1/2 mb-2 z-[75] flex flex-col items-center gap-2 pointer-events-none" style={topToolbarTransform}>
                 {/* Multi-grid dropdown */}
                 {/* Main toolbar */}
                 <div className={`pointer-events-auto flex items-center gap-1.5 rounded-2xl border px-3 py-2 shadow-2xl backdrop-blur-xl ${isDark ? 'bg-[#202020]/95 border-zinc-700 text-zinc-100' : 'bg-white/95 border-gray-200 text-gray-900'}`} onMouseDown={(e) => e.stopPropagation()}>
@@ -442,40 +445,6 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
                           <LocalCustomDropdown icon={Icons.Crop} options={supportedRatios} value={data.aspectRatio || '1:1'} onChange={handleRatioChange} isOpen={activeDropdown === 'ratio'} onToggle={() => setActiveDropdown(activeDropdown === 'ratio' ? null : 'ratio')} onClose={() => setActiveDropdown(null)} isDark={isDark} />
                           <LocalCustomDropdown icon={Icons.Monitor} options={supportedResolutions} value={data.resolution || '1k'} onChange={(val: any) => updateData(data.id, { resolution: val })} isOpen={activeDropdown === 'res'} onToggle={() => setActiveDropdown(activeDropdown === 'res' ? null : 'res')} onClose={() => setActiveDropdown(null)} disabledOptions={['1k', '2k', '4k'].filter(r => !supportedResolutions.includes(r))} isDark={isDark} />
                           <LocalCustomDropdown icon={Icons.Layers} options={[1, 2, 3, 4]} value={data.count || 1} onChange={(val: any) => updateData(data.id, { count: val })} isOpen={activeDropdown === 'count'} onToggle={() => setActiveDropdown(activeDropdown === 'count' ? null : 'count')} onClose={() => setActiveDropdown(null)} isDark={isDark} />
-                          {data.imageSrc && (
-                              <div className="relative">
-                                  <button
-                                      className={`shrink-0 h-8 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all border ${
-                                          isDark ? 'text-zinc-300 hover:text-white border-zinc-700 hover:border-cyan-500/60 hover:bg-cyan-500/10' : 'text-gray-600 hover:text-gray-900 border-gray-200 hover:border-cyan-400 hover:bg-cyan-50'
-                                      }`}
-                                      onClick={() => setIsFunctionMenuOpen(prev => !prev)}
-                                      title="图片功能"
-                                  >
-                                      <Icons.Sliders size={15} />
-                                      <span>功能</span>
-                                      <Icons.ChevronRight size={12} className={`transition-transform ${isFunctionMenuOpen ? '-rotate-90' : 'rotate-90'}`} />
-                                  </button>
-                                  {isFunctionMenuOpen && (
-                                      <div className={`absolute bottom-full left-0 mb-2 w-36 rounded-xl border p-1.5 shadow-2xl z-[120] ${isDark ? 'bg-[#1a1a1a] border-zinc-700' : 'bg-white border-gray-200'}`} onMouseDown={(event) => event.stopPropagation()}>
-                                          <button
-                                              className={`w-full h-8 px-2 rounded-lg text-xs font-semibold flex items-center gap-2 transition-colors ${isDark ? 'text-zinc-300 hover:bg-zinc-800 hover:text-white' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`}
-                                              onClick={() => { setIsFunctionMenuOpen(false); setIsAngleEditorOpen(true); setIsLightingOpen(false); setIsHdRestoreOpen(false); }}
-                                          >
-                                              <Icons.RefreshCw size={14} />
-                                              <span>多角度</span>
-                                              <span className="ml-auto">{renderCreditBadge(multiAngleCredits, 'cyan')}</span>
-                                          </button>
-                                          <button
-                                              className={`w-full h-8 px-2 rounded-lg text-xs font-semibold flex items-center gap-2 transition-colors ${isDark ? 'text-zinc-300 hover:bg-zinc-800 hover:text-white' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`}
-                                              onClick={() => { setIsFunctionMenuOpen(false); onCrop?.(data.id); }}
-                                          >
-                                              <Icons.Crop size={14} />
-                                              <span>裁剪</span>
-                                          </button>
-                                      </div>
-                                  )}
-                              </div>
-                          )}
                           
                           {/* Spacer */}
                           <div className="flex-1" />
