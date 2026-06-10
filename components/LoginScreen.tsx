@@ -32,7 +32,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
         className="w-full max-w-sm rounded-2xl border border-zinc-800 bg-[#18181b] p-6 shadow-2xl"
       >
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 rounded-xl bg-blue-500/15 text-blue-400 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-[#4446CE]/15 text-[#8F91F4] flex items-center justify-center">
             <Icons.Sparkles size={20} />
           </div>
           <div>
@@ -45,7 +45,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
           type="password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
-          className="w-full h-11 rounded-xl border border-zinc-700 bg-zinc-900 px-4 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+          className="w-full h-11 rounded-xl border border-zinc-700 bg-zinc-900 px-4 text-sm outline-none focus:border-[#4446CE] focus:ring-2 focus:ring-[#4446CE]/20"
           placeholder="访问密码"
           autoFocus
         />
@@ -55,7 +55,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
         <button
           type="submit"
           disabled={isLoading || !password}
-          className="mt-5 w-full h-11 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:bg-zinc-700 disabled:text-zinc-400 font-semibold text-sm flex items-center justify-center gap-2"
+          className="mt-5 w-full h-11 rounded-xl bg-[#4446CE] hover:bg-[#4446CE] disabled:bg-zinc-700 disabled:text-zinc-400 font-semibold text-sm flex items-center justify-center gap-2"
         >
           {isLoading && <Icons.Loader2 size={16} className="animate-spin" />}
           进入画布

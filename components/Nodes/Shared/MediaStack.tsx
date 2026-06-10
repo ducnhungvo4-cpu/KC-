@@ -52,7 +52,7 @@ export const MediaStack: React.FC<MediaStackProps> = ({
                     {sortedArtifacts.map((src, index) => {
                     const isMain = index === 0;
                     return (
-                      <div key={src + index} className={`relative aspect-square overflow-hidden rounded-xl border group/card ${isMain ? 'border-cyan-400 ring-1 ring-cyan-400/40' : (isDark ? 'border-zinc-700 bg-black' : 'border-gray-200 bg-white')}`}>
+                      <div key={src + index} className={`relative aspect-square overflow-hidden rounded-xl border group/card ${isMain ? 'border-[#8F91F4] ring-1 ring-[#8F91F4]/40' : (isDark ? 'border-zinc-700 bg-black' : 'border-gray-200 bg-white')}`}>
                            <button
                                className="absolute inset-0"
                                title={type === 'image' ? '查看原图' : '查看视频'}
@@ -89,7 +89,7 @@ export const MediaStack: React.FC<MediaStackProps> = ({
            )}
            {showBadge && (
                <div className="absolute left-1/2 top-2 z-30 flex -translate-x-1/2 cursor-pointer select-none items-center gap-1 rounded-full border border-white/10 bg-black/30 px-2 py-1 text-[10px] text-white shadow-lg backdrop-blur-md transition-colors hover:bg-black/50" onClick={(e) => { e.stopPropagation(); updateData(data.id, { isStackOpen: true }); }}>
-                   <Icons.Layers size={10} className="text-cyan-400"/>
+                   <Icons.Layers size={10} className="text-[#8F91F4]"/>
                    <span className="font-bold">版本</span>
                    <span className="font-bold tabular-nums">{artifacts.length}</span>
                    <Icons.ChevronRight size={10} className="text-zinc-400" />

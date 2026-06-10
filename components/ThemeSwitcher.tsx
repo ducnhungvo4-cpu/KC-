@@ -19,7 +19,7 @@ export const ThemeSwitcher: React.FC<ThemeSwitcherProps> = ({ isDark, onToggle }
             </button>
             <button
                 onClick={() => onToggle(true)}
-                className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${isDark ? 'bg-zinc-800 text-cyan-400 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${isDark ? 'bg-zinc-800 text-[#8F91F4] shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
                 title="Dark Mode"
             >
                 <Icons.Moon size={16} fill={isDark ? "currentColor" : "none"} />

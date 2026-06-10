@@ -41,7 +41,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onClose, isD
             >
                 {/* Header */}
                 <div className={`px-6 py-5 border-b ${borderColor} text-center`}>
-                    <div className={`w-16 h-16 mx-auto mb-3 rounded-2xl flex items-center justify-center ${isDark ? 'bg-gradient-to-br from-emerald-500/20 to-cyan-500/20' : 'bg-gradient-to-br from-emerald-100 to-cyan-100'}`}>
+                    <div className={`w-16 h-16 mx-auto mb-3 rounded-2xl flex items-center justify-center ${isDark ? 'bg-gradient-to-br from-emerald-500/20 to-[#4446CE]/20' : 'bg-gradient-to-br from-emerald-100 to-[#E1E3FF]'}`}>
                         <Icons.Sparkles size={32} className={isDark ? 'text-emerald-400' : 'text-emerald-600'} />
                     </div>
                     <h2 className={`text-xl font-bold ${textMain}`}>欢迎使用 KC画布 MVP</h2>
@@ -51,14 +51,14 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onClose, isD
                 {/* Content */}
                 <div className="p-6 space-y-4">
                     
-                    <div className={`p-4 rounded-xl border ${isDark ? 'bg-blue-500/10 border-blue-500/30' : 'bg-blue-50 border-blue-200'}`}>
+                    <div className={`p-4 rounded-xl border ${isDark ? 'bg-[#4446CE]/10 border-[#4446CE]/30' : 'bg-[#F0F1FF] border-[#C7C8FF]'}`}>
                         <div className="flex items-start gap-3">
-                            <Icons.Info size={20} className={isDark ? 'text-blue-400 shrink-0 mt-0.5' : 'text-blue-600 shrink-0 mt-0.5'} />
+                            <Icons.Info size={20} className={isDark ? 'text-[#8F91F4] shrink-0 mt-0.5' : 'text-[#4446CE] shrink-0 mt-0.5'} />
                             <div>
-                                <h4 className={`text-sm font-bold ${isDark ? 'text-blue-400' : 'text-blue-700'}`}>
+                                <h4 className={`text-sm font-bold ${isDark ? 'text-[#8F91F4]' : 'text-[#3739B0]'}`}>
                                     本轮试用范围
                                 </h4>
-                                <p className={`text-xs mt-1 leading-relaxed ${isDark ? 'text-blue-300/80' : 'text-blue-600'}`}>
+                                <p className={`text-xs mt-1 leading-relaxed ${isDark ? 'text-[#B9BAFF]/80' : 'text-[#4446CE]'}`}>
                                     先验证画布、节点拖拽连线、参数面板和生图闭环。登录、积分、后端存储和视频合成已按 MVP 原型阶段延后。
                                 </p>
                             </div>
@@ -103,7 +103,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onClose, isD
                 <div className={`px-6 py-4 border-t ${borderColor} flex justify-center`}>
                     <button
                         onClick={handleClose}
-                        className="px-8 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white shadow-lg shadow-emerald-500/25 transition-all active:scale-[0.98]"
+                        className="px-8 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-emerald-600 to-[#4446CE] hover:from-emerald-500 hover:to-[#4446CE] text-white shadow-lg shadow-emerald-500/25 transition-all active:scale-[0.98]"
                     >
                         开始试用
                     </button>

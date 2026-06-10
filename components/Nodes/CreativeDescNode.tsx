@@ -162,7 +162,7 @@ export const CreativeDescNode: React.FC<CreativeDescNodeProps> = ({
                                 data.creditStatus === 'confirmed'
                                     ? (isDark ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300' : 'border-emerald-100 bg-emerald-50 text-emerald-700')
                                     : data.creditStatus === 'reserved'
-                                        ? (isDark ? 'border-blue-500/20 bg-blue-500/10 text-blue-300' : 'border-blue-100 bg-blue-50 text-blue-700')
+                                        ? (isDark ? 'border-[#4446CE]/20 bg-[#4446CE]/10 text-[#B9BAFF]' : 'border-[#E1E3FF] bg-[#F0F1FF] text-[#3739B0]')
                                         : data.creditStatus === 'refunded'
                                             ? (isDark ? 'border-zinc-700 bg-zinc-800 text-zinc-300' : 'border-gray-200 bg-gray-50 text-gray-600')
                                             : (isDark ? 'border-zinc-700 bg-zinc-900/60 text-zinc-400' : 'border-gray-200 bg-gray-50 text-gray-500')

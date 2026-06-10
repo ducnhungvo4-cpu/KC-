@@ -75,7 +75,7 @@ export const LocalCustomDropdown = ({ options, value, onChange, isOpen, onToggle
     const hoverClass = isDark ? 'hover:bg-zinc-700' : 'hover:bg-gray-100';
     const iconColor = isDark ? 'text-zinc-400 group-hover:text-white' : 'text-gray-500 group-hover:text-gray-700';
     const optionHover = isDark ? 'hover:bg-zinc-700 hover:text-white' : 'hover:bg-gray-100 hover:text-gray-900';
-    const activeItem = isDark ? 'bg-blue-500/15 text-blue-400' : 'bg-blue-50 text-blue-600';
+    const activeItem = isDark ? 'bg-[#4446CE]/15 text-[#8F91F4]' : 'bg-[#F0F1FF] text-[#4446CE]';
     const flyoutBg = isDark ? 'bg-[#1a1a1a] border-zinc-700' : 'bg-white border-gray-200 shadow-xl';
 
     const activeGroupItems = hoveredGroup ? (options.find((o: any) => typeof o === 'object' && o.label === hoveredGroup)?.items || []) : [];
@@ -91,7 +91,7 @@ export const LocalCustomDropdown = ({ options, value, onChange, isOpen, onToggle
                 } ${hoverClass}`} 
                 onClick={(e) => { e.stopPropagation(); onToggle(); }}
             >
-                {Icon && <Icon size={15} className={`transition-colors ${isOpen ? (isDark ? 'text-blue-400' : 'text-blue-600') : iconColor}`} />}
+                {Icon && <Icon size={15} className={`transition-colors ${isOpen ? (isDark ? 'text-[#8F91F4]' : 'text-[#4446CE]') : iconColor}`} />}
                 <span className={`text-xs font-medium transition-colors select-none ${
                     isOpen 
                         ? (isDark ? 'text-white' : 'text-gray-900') 
@@ -99,7 +99,7 @@ export const LocalCustomDropdown = ({ options, value, onChange, isOpen, onToggle
                 } ${Icon ? 'min-w-[20px] text-center' : 'max-w-[90px] truncate'}`}>
                     {value}
                 </span>
-                {!Icon && <Icons.ChevronRight size={12} className={`transition-all duration-200 ${isOpen ? 'rotate-[-90deg] text-blue-400' : `rotate-90 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}`} />}
+                {!Icon && <Icons.ChevronRight size={12} className={`transition-all duration-200 ${isOpen ? 'rotate-[-90deg] text-[#8F91F4]' : `rotate-90 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}`} />}
             </button>
 
             {/* Main Dropdown Body */}
@@ -124,7 +124,7 @@ export const LocalCustomDropdown = ({ options, value, onChange, isOpen, onToggle
                                             : (isSelected || (isGroup && isGroupHovered)
                                                 ? activeItem 
                                                 : (containsSelection 
-                                                    ? (isDark ? 'text-blue-400' : 'text-blue-600') + ` ${optionHover}`
+                                                    ? (isDark ? 'text-[#8F91F4]' : 'text-[#4446CE]') + ` ${optionHover}`
                                                     : (isDark ? 'text-zinc-300' : 'text-gray-600') + ` ${optionHover}`
                                                   )
                                             )
@@ -138,8 +138,8 @@ export const LocalCustomDropdown = ({ options, value, onChange, isOpen, onToggle
                                     }}
                                 >
                                     <span className="whitespace-nowrap pr-2">{label}</span>
-                                    {isSelected && <Icons.Check size={12} className="text-blue-400 shrink-0 ml-2" />}
-                                    {isGroup && <Icons.ChevronRight size={12} className={`shrink-0 ml-2 ${isGroupHovered ? 'text-blue-400' : (isDark ? 'text-zinc-500' : 'text-gray-400')}`} />}
+                                    {isSelected && <Icons.Check size={12} className="text-[#8F91F4] shrink-0 ml-2" />}
+                                    {isGroup && <Icons.ChevronRight size={12} className={`shrink-0 ml-2 ${isGroupHovered ? 'text-[#8F91F4]' : (isDark ? 'text-zinc-500' : 'text-gray-400')}`} />}
                                 </div>
                             );
                         })}
@@ -170,7 +170,7 @@ export const LocalCustomDropdown = ({ options, value, onChange, isOpen, onToggle
                                             }}
                                         >
                                             <span className="truncate">{subItem}</span>
-                                            {isSubSelected && <Icons.Check size={12} className="text-blue-400 shrink-0 ml-2" />}
+                                            {isSubSelected && <Icons.Check size={12} className="text-[#8F91F4] shrink-0 ml-2" />}
                                         </div>
                                     );
                                 })}
@@ -246,8 +246,8 @@ export const LocalPromptTextarea: React.FC<{
     const stopCanvasInteraction = (event: React.SyntheticEvent) => event.stopPropagation();
     const modalBg = isDark ? 'bg-[#1b1b1b] border-zinc-700 text-zinc-100' : 'bg-white border-gray-200 text-gray-900';
     const modalTextarea = isDark
-        ? 'bg-zinc-950/70 border-zinc-700 text-zinc-100 placeholder-zinc-500 focus:border-purple-500/60'
-        : 'bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400 focus:border-purple-400';
+        ? 'bg-zinc-950/70 border-zinc-700 text-zinc-100 placeholder-zinc-500 focus:border-[#4446CE]/60'
+        : 'bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400 focus:border-[#8F91F4]';
     const iconButton = isDark
         ? 'bg-zinc-800/90 text-zinc-400 hover:text-white hover:bg-zinc-700 border-zinc-700'
         : 'bg-white/90 text-gray-500 hover:text-gray-900 hover:bg-gray-100 border-gray-200';
@@ -328,7 +328,7 @@ export const LocalThumbnailItem = memo(({ item, index, isDark, onPreview }: { it
     return (
         <button
             type="button"
-            className={`relative w-[48px] h-[48px] flex-shrink-0 border rounded-lg overflow-hidden shadow-sm group/thumb cursor-pointer hover:border-cyan-500/70 transition-colors ${isDark ? 'border-zinc-700 bg-black/40' : 'border-gray-300 bg-gray-100'}`}
+            className={`relative w-[48px] h-[48px] flex-shrink-0 border rounded-lg overflow-hidden shadow-sm group/thumb cursor-pointer hover:border-[#4446CE]/70 transition-colors ${isDark ? 'border-zinc-700 bg-black/40' : 'border-gray-300 bg-gray-100'}`}
             onClick={(event) => {
                 event.stopPropagation();
                 onPreview?.(item);
@@ -443,7 +443,7 @@ export const LocalMediaStack: React.FC<{
                     const isMain = index === 0;
                     const isVideo = /\.(mp4|webm|mov|mkv)(\?|$)/i.test(src) || data.type === 'TEXT_TO_VIDEO';
                     return (
-                      <div key={src + index} className={`relative aspect-square overflow-hidden rounded-xl border group/card ${isMain ? 'border-cyan-400 ring-1 ring-cyan-400/40' : (isDark ? 'border-zinc-700 bg-black' : 'border-gray-200 bg-white')}`}>
+                      <div key={src + index} className={`relative aspect-square overflow-hidden rounded-xl border group/card ${isMain ? 'border-[#8F91F4] ring-1 ring-[#8F91F4]/40' : (isDark ? 'border-zinc-700 bg-black' : 'border-gray-200 bg-white')}`}>
                            <button
                                className="absolute inset-0"
                                title="查看原图"
@@ -478,7 +478,7 @@ export const LocalMediaStack: React.FC<{
            ) : (
                currentSrc && <img src={currentSrc} className={`w-full h-full object-contain pointer-events-none ${isDark ? 'bg-[#09090b]' : 'bg-gray-50'}`} alt="Generated" draggable={false} />
            )}
-           {showBadge && <div className="absolute left-1/2 top-2 z-30 flex -translate-x-1/2 cursor-pointer select-none items-center gap-1 rounded-full border border-white/10 bg-black/30 px-2 py-1 text-[10px] text-white shadow-lg backdrop-blur-md transition-colors hover:bg-black/50" onClick={(e) => { e.stopPropagation(); updateData(data.id, { isStackOpen: true }); }}><Icons.Layers size={10} className="text-cyan-400"/><span className="font-bold">版本</span><span className="font-bold tabular-nums">{artifacts.length}</span><Icons.ChevronRight size={10} className="text-zinc-400" /></div>}
+           {showBadge && <div className="absolute left-1/2 top-2 z-30 flex -translate-x-1/2 cursor-pointer select-none items-center gap-1 rounded-full border border-white/10 bg-black/30 px-2 py-1 text-[10px] text-white shadow-lg backdrop-blur-md transition-colors hover:bg-black/50" onClick={(e) => { e.stopPropagation(); updateData(data.id, { isStackOpen: true }); }}><Icons.Layers size={10} className="text-[#8F91F4]"/><span className="font-bold">版本</span><span className="font-bold tabular-nums">{artifacts.length}</span><Icons.ChevronRight size={10} className="text-zinc-400" /></div>}
         </>
     );
 };

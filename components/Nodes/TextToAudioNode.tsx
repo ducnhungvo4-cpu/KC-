@@ -153,7 +153,7 @@ export const TextToAudioNode: React.FC<TextToAudioNodeProps> = ({
               updateData(data.id, { isStackOpen: true });
             }}
           >
-            <Icons.Layers size={10} className="text-cyan-400" />
+            <Icons.Layers size={10} className="text-[#8F91F4]" />
             <span className="font-bold">版本</span>
             <span className="font-bold tabular-nums">{audioArtifacts.length}</span>
             <Icons.ChevronRight size={10} className="text-zinc-400" />
@@ -178,10 +178,10 @@ export const TextToAudioNode: React.FC<TextToAudioNodeProps> = ({
               {sortedAudioArtifacts.map((src, index) => {
                 const isMain = src === data.audioSrc;
                 return (
-                  <div key={src + index} className={`relative aspect-square rounded-xl border p-2 ${isMain ? 'border-cyan-500/70 ring-1 ring-cyan-400/30' : (isDark ? 'border-zinc-800' : 'border-gray-200')} ${isDark ? 'bg-zinc-950/70' : 'bg-gray-50'}`}>
+                  <div key={src + index} className={`relative aspect-square rounded-xl border p-2 ${isMain ? 'border-[#4446CE]/70 ring-1 ring-[#8F91F4]/30' : (isDark ? 'border-zinc-800' : 'border-gray-200')} ${isDark ? 'bg-zinc-950/70' : 'bg-gray-50'}`}>
                     <div className="flex h-full flex-col items-center justify-center gap-2">
-                      <Icons.Volume2 size={22} className={isMain ? 'text-cyan-300' : mutedText} />
-                      <span className={`text-center text-[10px] font-semibold ${isMain ? 'text-cyan-300' : mutedText}`}>{isMain ? '当前' : `版本 ${index + 1}`}</span>
+                      <Icons.Volume2 size={22} className={isMain ? 'text-[#B9BAFF]' : mutedText} />
+                      <span className={`text-center text-[10px] font-semibold ${isMain ? 'text-[#B9BAFF]' : mutedText}`}>{isMain ? '当前' : `版本 ${index + 1}`}</span>
                       {!isMain && (
                         <button
                           className={`h-6 rounded-md px-2 text-[10px] font-semibold ${isDark ? 'bg-zinc-800 text-zinc-200 hover:bg-zinc-700' : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'}`}
@@ -203,7 +203,7 @@ export const TextToAudioNode: React.FC<TextToAudioNodeProps> = ({
 
         {data.isLoading && (
           <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/55 backdrop-blur-sm">
-            <Icons.Loader2 size={32} className="mb-3 animate-spin text-blue-400" />
+            <Icons.Loader2 size={32} className="mb-3 animate-spin text-[#8F91F4]" />
             <span className="text-sm font-medium text-white/85">语音生成中...</span>
           </div>
         )}

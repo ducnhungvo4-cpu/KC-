@@ -237,7 +237,7 @@ export const CropModal: React.FC<CropModalProps> = ({
                 />
               </div>
               <div
-                className={`absolute border-2 border-cyan-400 bg-cyan-400/10 cursor-move ${isDragging ? 'ring-4 ring-cyan-400/20' : ''}`}
+                className={`absolute border-2 border-[#8F91F4] bg-[#8F91F4]/10 cursor-move ${isDragging ? 'ring-4 ring-[#8F91F4]/20' : ''}`}
                 style={{ left: `${rect.x}%`, top: `${rect.y}%`, width: `${rect.w}%`, height: `${rect.h}%` }}
                 onPointerDown={(e) => handlePointerDown(e)}
                 onPointerMove={handlePointerMove}
@@ -252,7 +252,7 @@ export const CropModal: React.FC<CropModalProps> = ({
                 {['nw', 'ne', 'sw', 'se'].map(dir => (
                   <div
                     key={dir}
-                    className={`absolute w-4 h-4 bg-cyan-400 rounded-full border-2 border-white shadow-md z-10 ${dir.includes('n') ? '-top-2' : '-bottom-2'} ${dir.includes('w') ? '-left-2' : '-right-2'}`}
+                    className={`absolute w-4 h-4 bg-[#8F91F4] rounded-full border-2 border-white shadow-md z-10 ${dir.includes('n') ? '-top-2' : '-bottom-2'} ${dir.includes('w') ? '-left-2' : '-right-2'}`}
                     style={{ cursor: `${dir}-resize` }}
                     onPointerDown={(e) => handlePointerDown(e, dir)}
                   />
@@ -270,7 +270,7 @@ export const CropModal: React.FC<CropModalProps> = ({
                     key={ratio}
                     className={`h-9 rounded-lg text-xs font-semibold border transition-colors ${
                       aspectRatio === ratio
-                        ? 'border-cyan-500 bg-cyan-500/15 text-cyan-500'
+                        ? 'border-[#4446CE] bg-[#4446CE]/15 text-[#4446CE]'
                         : isDark ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-gray-200 text-gray-600 hover:bg-gray-100'
                     }`}
                     onClick={() => handleAspectRatioChange(ratio)}
@@ -315,7 +315,7 @@ export const CropModal: React.FC<CropModalProps> = ({
                 取消
               </button>
               <button
-                className="px-4 py-2 rounded-xl text-sm font-semibold bg-cyan-600 hover:bg-cyan-500 text-white flex items-center gap-2"
+                className="px-4 py-2 rounded-xl text-sm font-semibold bg-[#4446CE] hover:bg-[#4446CE] text-white flex items-center gap-2"
                 onClick={handleConfirm}
                 disabled={!naturalSize.width}
               >

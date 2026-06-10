@@ -98,10 +98,10 @@ export const ImageToImageNode: React.FC<ImageToImageNodeProps> = ({
     }, [data.model, data.aspectRatio, data.resolution, data.id, updateData, supportedRatios, supportedResolutions]);
 
     const containerBg = isDark ? 'bg-[#1e1e1e]' : 'bg-white';
-    const containerBorder = selected ? 'border-purple-500 ring-1 ring-purple-500' : (isDark ? 'border-zinc-800' : 'border-gray-200');
+    const containerBorder = selected ? 'border-[#4446CE] ring-1 ring-[#4446CE]' : (isDark ? 'border-zinc-800' : 'border-gray-200');
     const overlayToolbarBg = isDark ? 'bg-black/50 border-white/5 text-gray-400' : 'bg-white/50 border-black/5 text-gray-600';
     const controlPanelBg = isDark ? 'bg-[#1e1e1e] border-zinc-700/80' : 'bg-white border-gray-200';
-    const inputBg = isDark ? 'bg-zinc-900/50 hover:bg-zinc-900 border-transparent focus:border-purple-500/50 text-zinc-200 placeholder-zinc-500' : 'bg-gray-50 hover:bg-gray-100 border-gray-200 focus:border-purple-400 text-gray-900 placeholder-gray-400';
+    const inputBg = isDark ? 'bg-zinc-900/50 hover:bg-zinc-900 border-transparent focus:border-[#4446CE]/50 text-zinc-200 placeholder-zinc-500' : 'bg-gray-50 hover:bg-gray-100 border-gray-200 focus:border-[#8F91F4] text-gray-900 placeholder-gray-400';
     const dividerColor = isDark ? 'bg-zinc-800' : 'bg-gray-200';
     const emptyStateIconColor = isDark ? 'bg-zinc-900/50 border-zinc-800 text-zinc-600' : 'bg-gray-100 border-gray-200 text-gray-400';
     const emptyStateTextColor = isDark ? 'text-zinc-500' : 'text-gray-400';
@@ -130,7 +130,7 @@ export const ImageToImageNode: React.FC<ImageToImageNodeProps> = ({
                      )}
                  </div>
              )}
-             {data.isLoading && <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-20"><Icons.Loader2 size={24} className="text-purple-500 animate-spin" /></div>}
+             {data.isLoading && <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-20"><Icons.Loader2 size={24} className="text-[#4446CE] animate-spin" /></div>}
         </div>
 
         {isSelectedAndStable && showControls && (
@@ -161,7 +161,7 @@ export const ImageToImageNode: React.FC<ImageToImageNodeProps> = ({
                           </div>
                           <button 
                               onClick={() => onGenerate(data.id)} 
-                              className={`ml-auto h-7 px-4 text-[11px] font-bold rounded-full flex items-center justify-center gap-1.5 transition-all shadow-sm active:scale-[0.98] whitespace-nowrap ${data.isLoading || !isConfigured || !hasInputImage ? 'opacity-50 cursor-not-allowed bg-zinc-600 text-white' : 'bg-purple-600 hover:bg-purple-500 text-white shadow-purple-500/20'}`} 
+                              className={`ml-auto h-7 px-4 text-[11px] font-bold rounded-full flex items-center justify-center gap-1.5 transition-all shadow-sm active:scale-[0.98] whitespace-nowrap ${data.isLoading || !isConfigured || !hasInputImage ? 'opacity-50 cursor-not-allowed bg-zinc-600 text-white' : 'bg-[#4446CE] hover:bg-[#4446CE] text-white shadow-[#4446CE]/20'}`}
                               disabled={data.isLoading || !isConfigured || !hasInputImage} 
                               title={!isConfigured ? '请在设置中配置API Key' : !hasInputImage ? '需要连接输入图片' : '生成'}
                           >

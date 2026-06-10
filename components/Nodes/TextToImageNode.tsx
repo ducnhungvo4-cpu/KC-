@@ -289,11 +289,11 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
     const hdRestoreCredits = hdScale === '4x' ? 8 : 4;
     const renderCreditBadge = (credits: number, tone: 'default' | 'cyan' | 'amber' | 'violet' = 'default') => {
         const toneClass = tone === 'cyan'
-            ? (isDark ? 'bg-cyan-500/15 text-cyan-200 border-cyan-400/20' : 'bg-cyan-50 text-cyan-700 border-cyan-100')
+            ? (isDark ? 'bg-[#4446CE]/15 text-[#C7C8FF] border-[#8F91F4]/20' : 'bg-[#F0F1FF] text-[#3739B0] border-[#E1E3FF]')
             : tone === 'amber'
                 ? (isDark ? 'bg-amber-500/15 text-amber-200 border-amber-400/20' : 'bg-amber-50 text-amber-700 border-amber-100')
                 : tone === 'violet'
-                    ? (isDark ? 'bg-violet-500/15 text-violet-200 border-violet-400/20' : 'bg-violet-50 text-violet-700 border-violet-100')
+                    ? (isDark ? 'bg-[#4446CE]/15 text-[#C7C8FF] border-[#8F91F4]/20' : 'bg-[#F0F1FF] text-[#3739B0] border-[#E1E3FF]')
                     : (isDark ? 'bg-zinc-800 text-zinc-300 border-zinc-700' : 'bg-gray-50 text-gray-600 border-gray-200');
         return <span className={`inline-flex h-5 shrink-0 items-center rounded-md border px-1.5 text-[10px] font-bold tabular-nums ${toneClass}`}>{credits}分</span>;
     };
@@ -305,9 +305,9 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
     }, [data.model, data.aspectRatio, data.resolution, data.id, updateData, supportedRatios, supportedResolutions]);
 
     const containerBg = isDark ? 'bg-[#1a1a1a]' : 'bg-white';
-    const containerBorder = selected ? 'border-blue-500 ring-2 ring-blue-500/30' : (isDark ? 'border-zinc-700/50' : 'border-gray-200');
+    const containerBorder = selected ? 'border-[#4446CE] ring-2 ring-[#4446CE]/30' : (isDark ? 'border-zinc-700/50' : 'border-gray-200');
     const controlPanelBg = isDark ? 'bg-[#1a1a1a]/95 backdrop-blur-xl border-zinc-700/50' : 'bg-white/95 backdrop-blur-xl border-gray-200 shadow-xl';
-    const inputBg = isDark ? 'bg-zinc-800/80 hover:bg-zinc-800 border-zinc-700 focus:border-blue-500 text-white placeholder-zinc-500' : 'bg-gray-50 hover:bg-white border-gray-200 focus:border-blue-500 text-gray-900 placeholder-gray-400';
+    const inputBg = isDark ? 'bg-zinc-800/80 hover:bg-zinc-800 border-zinc-700 focus:border-[#4446CE] text-white placeholder-zinc-500' : 'bg-gray-50 hover:bg-white border-gray-200 focus:border-[#4446CE] text-gray-900 placeholder-gray-400';
     const emptyStateIconColor = isDark ? 'bg-zinc-800/50 text-zinc-500' : 'bg-gray-100 text-gray-400';
     const emptyStateTextColor = isDark ? 'text-zinc-500' : 'text-gray-400';
 
@@ -382,7 +382,7 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
              {/* Loading Overlay */}
              {data.isLoading && (
                  <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center z-20">
-                     <Icons.Loader2 size={32} className="text-blue-500 animate-spin mb-3" />
+                     <Icons.Loader2 size={32} className="text-[#4446CE] animate-spin mb-3" />
                      <span className="text-white/80 text-sm font-medium">生成中...</span>
                  </div>
              )}
@@ -393,7 +393,7 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
                 {/* Multi-grid dropdown */}
                 {/* Main toolbar */}
                 <div className={`pointer-events-auto flex items-center gap-1.5 rounded-2xl border px-3 py-2 shadow-2xl backdrop-blur-xl ${isDark ? 'bg-[#202020]/95 border-zinc-700 text-zinc-100' : 'bg-white/95 border-gray-200 text-gray-900'}`} onMouseDown={(e) => e.stopPropagation()}>
-                    <button className={`h-9 px-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-colors ${isAngleEditorOpen ? (isDark ? 'bg-cyan-500/15 text-cyan-200' : 'bg-cyan-50 text-cyan-700') : (isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100')}`} onClick={() => { setIsAngleEditorOpen(true); setIsLightingOpen(false); setIsHdRestoreOpen(false); }} title="多角度控制">
+                    <button className={`h-9 px-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-colors ${isAngleEditorOpen ? (isDark ? 'bg-[#4446CE]/15 text-[#C7C8FF]' : 'bg-[#F0F1FF] text-[#3739B0]') : (isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100')}`} onClick={() => { setIsAngleEditorOpen(true); setIsLightingOpen(false); setIsHdRestoreOpen(false); }} title="多角度控制">
                         <Icons.RefreshCw size={16} />
                         <span>多角度</span>
                     </button>
@@ -405,7 +405,7 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
                         <Icons.Crop size={16} />
                         <span>裁剪</span>
                     </button>
-                    <button className={`h-9 px-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-colors ${isHdRestoreOpen ? (isDark ? 'bg-violet-500/15 text-violet-200' : 'bg-violet-50 text-violet-700') : (isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100')}`} onClick={() => { setIsHdRestoreOpen(true); setIsAngleEditorOpen(false); setIsLightingOpen(false); }} title="一键提升图片分辨率">
+                    <button className={`h-9 px-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-colors ${isHdRestoreOpen ? (isDark ? 'bg-[#4446CE]/15 text-[#C7C8FF]' : 'bg-[#F0F1FF] text-[#3739B0]') : (isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100')}`} onClick={() => { setIsHdRestoreOpen(true); setIsAngleEditorOpen(false); setIsLightingOpen(false); }} title="一键提升图片分辨率">
                         <Icons.TrendingUp size={16} />
                         <span>一键高清</span>
                     </button>
@@ -423,7 +423,7 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
                  <div className={`${controlPanelBg} rounded-2xl p-4 flex flex-col gap-3 border`}>
                       {/* Prompt Input */}
                       <LocalPromptTextarea
-                          className={`w-full border rounded-xl px-4 py-3 text-sm leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/20 min-h-[72px] transition-all ${inputBg}`}
+                          className={`w-full border rounded-xl px-4 py-3 text-sm leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-[#4446CE]/20 min-h-[72px] transition-all ${inputBg}`}
                           placeholder="描述你想要生成的图片..."
                           value={data.prompt || ''}
                           onChange={(value) => updateData(data.id, { prompt: value })}
@@ -455,7 +455,7 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
                               data.creditStatus === 'confirmed'
                                   ? (isDark ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300' : 'border-emerald-100 bg-emerald-50 text-emerald-700')
                                   : data.creditStatus === 'reserved'
-                                      ? (isDark ? 'border-blue-500/20 bg-blue-500/10 text-blue-300' : 'border-blue-100 bg-blue-50 text-blue-700')
+                                      ? (isDark ? 'border-[#4446CE]/20 bg-[#4446CE]/10 text-[#B9BAFF]' : 'border-[#E1E3FF] bg-[#F0F1FF] text-[#3739B0]')
                                       : data.creditStatus === 'refunded'
                                           ? (isDark ? 'border-zinc-700 bg-zinc-800 text-zinc-300' : 'border-gray-200 bg-gray-50 text-gray-600')
                                           : (isDark ? 'border-zinc-700 bg-zinc-900/60 text-zinc-400' : 'border-gray-200 bg-gray-50 text-gray-500')
@@ -471,7 +471,7 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
                               className={`shrink-0 h-8 px-4 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 whitespace-nowrap transition-all active:scale-[0.98] ${
                                   data.isLoading || !isConfigured 
                                       ? 'bg-gray-400 text-white cursor-not-allowed' 
-                                      : 'bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40'
+                                      : 'bg-gradient-to-r from-[#4446CE] to-[#4446CE] hover:from-[#4446CE] hover:to-[#8F91F4] text-white shadow-lg shadow-[#4446CE]/25 hover:shadow-[#4446CE]/40'
                               }`}
                           >
                               {data.isLoading ? <Icons.Loader2 className="animate-spin" size={15}/> : <Icons.Wand2 size={15} />}
@@ -590,7 +590,7 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
                                       <div className="grid grid-cols-[90px_1fr] items-center gap-4">
                                           <span className={`text-sm ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>提示词</span>
                                           <button
-                                              className={`relative w-10 h-5 rounded-full transition-colors ${showAnglePrompt ? 'bg-cyan-500' : (isDark ? 'bg-zinc-700' : 'bg-gray-300')}`}
+                                              className={`relative w-10 h-5 rounded-full transition-colors ${showAnglePrompt ? 'bg-[#4446CE]' : (isDark ? 'bg-zinc-700' : 'bg-gray-300')}`}
                                               onClick={() => setShowAnglePrompt(value => !value)}
                                               title="展开补充提示词"
                                           >
@@ -601,12 +601,12 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
                                           <LocalCustomDropdown icon={Icons.Crop} options={angleAspectOptions} value={angleAspectRatio} onChange={(val: any) => setAngleAspectRatio(val)} isOpen={activeDropdown === 'angleAspect'} onToggle={() => setActiveDropdown(activeDropdown === 'angleAspect' ? null : 'angleAspect')} onClose={() => setActiveDropdown(null)} isDark={isDark} />
                                           <div className={`h-8 rounded-lg border p-0.5 flex items-center ${isDark ? 'border-zinc-700 bg-zinc-950/30' : 'border-gray-200 bg-white'}`}>
                                               {backgroundOptions.map(item => (
-                                                  <button key={item.value} className={`h-6 px-2.5 rounded-md text-[11px] font-semibold transition-colors ${angleBackground === item.value ? 'bg-blue-600 text-white' : (isDark ? 'text-zinc-400 hover:text-white' : 'text-gray-500 hover:text-gray-900')}`} onClick={() => setAngleBackground(item.value)}>{item.label}</button>
+                                                  <button key={item.value} className={`h-6 px-2.5 rounded-md text-[11px] font-semibold transition-colors ${angleBackground === item.value ? 'bg-[#4446CE] text-white' : (isDark ? 'text-zinc-400 hover:text-white' : 'text-gray-500 hover:text-gray-900')}`} onClick={() => setAngleBackground(item.value)}>{item.label}</button>
                                               ))}
                                           </div>
                                           <div className={`h-8 rounded-lg border p-0.5 flex items-center ${isDark ? 'border-zinc-700 bg-zinc-950/30' : 'border-gray-200 bg-white'}`}>
                                               {consistencyOptions.map(item => (
-                                                  <button key={item.value} className={`h-6 px-2.5 rounded-md text-[11px] font-semibold transition-colors ${angleConsistency === item.value ? 'bg-blue-600 text-white' : (isDark ? 'text-zinc-400 hover:text-white' : 'text-gray-500 hover:text-gray-900')}`} onClick={() => setAngleConsistency(item.value)}>{item.label}</button>
+                                                  <button key={item.value} className={`h-6 px-2.5 rounded-md text-[11px] font-semibold transition-colors ${angleConsistency === item.value ? 'bg-[#4446CE] text-white' : (isDark ? 'text-zinc-400 hover:text-white' : 'text-gray-500 hover:text-gray-900')}`} onClick={() => setAngleConsistency(item.value)}>{item.label}</button>
                                               ))}
                                           </div>
                                       </div>
@@ -614,7 +614,7 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
                               </div>
                               {showAnglePrompt && (
                                   <LocalPromptTextarea
-                                      className={`w-full border rounded-xl px-3 py-2 text-xs leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-cyan-500/20 min-h-[58px] transition-all ${inputBg}`}
+                                      className={`w-full border rounded-xl px-3 py-2 text-xs leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-[#4446CE]/20 min-h-[58px] transition-all ${inputBg}`}
                                       placeholder="补充材质、光线、风格要求，例如：保持场景空间关系、电影感光线、不要改变建筑布局..."
                                       value={anglePrompt}
                                       onChange={setAnglePrompt}
@@ -629,7 +629,7 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
                                   </button>
                                   <div className="flex items-center gap-2">
                                       {renderCreditBadge(multiAngleCredits, 'cyan')}
-                                      <button className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all ${data.isLoading ? 'bg-gray-400 text-white cursor-not-allowed' : 'bg-white text-zinc-950 hover:bg-cyan-100 shadow-lg'}`} disabled={data.isLoading} onClick={handleMultiAngleGenerate} title="生成多角度图片">
+                                      <button className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all ${data.isLoading ? 'bg-gray-400 text-white cursor-not-allowed' : 'bg-white text-zinc-950 hover:bg-[#E1E3FF] shadow-lg'}`} disabled={data.isLoading} onClick={handleMultiAngleGenerate} title="生成多角度图片">
                                           {data.isLoading ? <Icons.Loader2 size={22} className="animate-spin" /> : <Icons.ArrowUp size={26} />}
                                       </button>
                                   </div>
@@ -654,7 +654,7 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
                               <div className="grid grid-cols-[220px_minmax(280px,1fr)] gap-5">
                                   <div className={`relative h-[220px] rounded-2xl overflow-hidden flex items-center justify-center ${isDark ? 'bg-zinc-900' : 'bg-gray-100'}`}>
                                       <img src={data.imageSrc} className="max-w-full max-h-full object-contain" draggable={false} />
-                                      <div className={`absolute left-3 top-3 rounded-lg border px-2 py-1 text-[10px] font-semibold ${isDark ? 'border-violet-400/20 bg-violet-500/15 text-violet-100' : 'border-violet-100 bg-violet-50 text-violet-700'}`}>高清预览</div>
+                                      <div className={`absolute left-3 top-3 rounded-lg border px-2 py-1 text-[10px] font-semibold ${isDark ? 'border-[#8F91F4]/20 bg-[#4446CE]/15 text-[#E1E3FF]' : 'border-[#E1E3FF] bg-[#F0F1FF] text-[#3739B0]'}`}>高清预览</div>
                                   </div>
                                   <div className="flex flex-col justify-center gap-4">
                                       <div>
@@ -663,7 +663,7 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
                                               {(['2x', '4x'] as const).map(scale => (
                                                   <button
                                                       key={scale}
-                                                      className={`h-9 rounded-lg text-sm font-semibold transition-colors ${hdScale === scale ? 'bg-violet-600 text-white' : (isDark ? 'text-zinc-400 hover:text-white hover:bg-zinc-800' : 'text-gray-600 hover:text-gray-900 hover:bg-white')}`}
+                                                      className={`h-9 rounded-lg text-sm font-semibold transition-colors ${hdScale === scale ? 'bg-[#4446CE] text-white' : (isDark ? 'text-zinc-400 hover:text-white hover:bg-zinc-800' : 'text-gray-600 hover:text-gray-900 hover:bg-white')}`}
                                                       onClick={() => setHdScale(scale)}
                                                   >
                                                       {scale}
@@ -683,14 +683,14 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
                                                   max={100}
                                                   value={item.value}
                                                   onChange={(event) => item.setter(Number(event.target.value))}
-                                                  className="w-full accent-violet-500"
+                                                  className="w-full accent-[#4446CE]"
                                               />
                                               <span className={`text-sm font-semibold text-right ${isDark ? 'text-zinc-100' : 'text-gray-900'}`}>{item.value}%</span>
                                           </div>
                                       ))}
                                       <div className="flex items-center justify-between">
                                           <span className={`text-sm ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>人脸增强</span>
-                                          <button className={`relative w-10 h-5 rounded-full transition-colors ${hdFaceRestore ? 'bg-violet-500' : (isDark ? 'bg-zinc-700' : 'bg-gray-300')}`} onClick={() => setHdFaceRestore(value => !value)}>
+                                          <button className={`relative w-10 h-5 rounded-full transition-colors ${hdFaceRestore ? 'bg-[#4446CE]' : (isDark ? 'bg-zinc-700' : 'bg-gray-300')}`} onClick={() => setHdFaceRestore(value => !value)}>
                                               <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${hdFaceRestore ? 'translate-x-5' : 'translate-x-0.5'}`} />
                                           </button>
                                       </div>
@@ -703,7 +703,7 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
                                   </button>
                                   <div className="flex items-center gap-2">
                                       {renderCreditBadge(hdRestoreCredits, 'violet')}
-                                      <button className={`h-11 px-5 rounded-xl flex items-center gap-2 text-sm font-semibold transition-all ${data.isLoading ? 'bg-gray-400 text-white cursor-not-allowed' : 'bg-violet-600 text-white hover:bg-violet-500 shadow-lg shadow-violet-500/25'}`} disabled={data.isLoading} onClick={handleHdRestoreGenerate} title="生成高清图片">
+                                      <button className={`h-11 px-5 rounded-xl flex items-center gap-2 text-sm font-semibold transition-all ${data.isLoading ? 'bg-gray-400 text-white cursor-not-allowed' : 'bg-[#4446CE] text-white hover:bg-[#4446CE] shadow-lg shadow-[#4446CE]/25'}`} disabled={data.isLoading} onClick={handleHdRestoreGenerate} title="生成高清图片">
                                           {data.isLoading ? <Icons.Loader2 size={18} className="animate-spin" /> : <Icons.TrendingUp size={18} />}
                                           <span>{data.isLoading ? '生成中' : '生成'}</span>
                                       </button>
@@ -774,7 +774,7 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
                                           <span className={`text-sm font-semibold ${isDark ? 'text-zinc-200' : 'text-gray-800'}`}>全局</span>
                                           <label className="flex items-center gap-2 cursor-pointer">
                                               <span className={`text-xs ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>智能模式</span>
-                                              <button className={`relative w-10 h-5 rounded-full transition-colors ${lightSmartMode ? 'bg-blue-500' : (isDark ? 'bg-zinc-700' : 'bg-gray-300')}`} onClick={() => setLightSmartMode(!lightSmartMode)}>
+                                              <button className={`relative w-10 h-5 rounded-full transition-colors ${lightSmartMode ? 'bg-[#4446CE]' : (isDark ? 'bg-zinc-700' : 'bg-gray-300')}`} onClick={() => setLightSmartMode(!lightSmartMode)}>
                                                   <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${lightSmartMode ? 'translate-x-5' : 'translate-x-0.5'}`} />
                                               </button>
                                           </label>
@@ -812,7 +812,7 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
                                       {/* Rim light */}
                                       <div className="flex items-center justify-between">
                                           <span className={`text-sm ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>轮廓光</span>
-                                          <button className={`relative w-10 h-5 rounded-full transition-colors ${lightRimEnabled ? 'bg-blue-500' : (isDark ? 'bg-zinc-700' : 'bg-gray-300')}`} onClick={() => setLightRimEnabled(!lightRimEnabled)}>
+                                          <button className={`relative w-10 h-5 rounded-full transition-colors ${lightRimEnabled ? 'bg-[#4446CE]' : (isDark ? 'bg-zinc-700' : 'bg-gray-300')}`} onClick={() => setLightRimEnabled(!lightRimEnabled)}>
                                               <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${lightRimEnabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
                                           </button>
                                       </div>

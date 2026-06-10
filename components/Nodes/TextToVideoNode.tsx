@@ -165,9 +165,9 @@ export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
     }, [data.model, data.resolution, data.duration, data.aspectRatio, resOptions, durOptions, ratioOptions, currentModel, inputs.length, updateData, data.id]);
 
     const containerBg = isDark ? 'bg-[#1a1a1a]' : 'bg-white';
-    const containerBorder = selected ? 'border-purple-500 ring-2 ring-purple-500/30' : (isDark ? 'border-zinc-700/50' : 'border-gray-200');
+    const containerBorder = selected ? 'border-[#4446CE] ring-2 ring-[#4446CE]/30' : (isDark ? 'border-zinc-700/50' : 'border-gray-200');
     const controlPanelBg = isDark ? 'bg-[#1a1a1a]/95 backdrop-blur-xl border-zinc-700/50' : 'bg-white/95 backdrop-blur-xl border-gray-200 shadow-xl';
-    const inputBg = isDark ? 'bg-zinc-800/80 hover:bg-zinc-800 border-zinc-700 focus:border-purple-500 text-white placeholder-zinc-500' : 'bg-gray-50 hover:bg-white border-gray-200 focus:border-purple-500 text-gray-900 placeholder-gray-400';
+    const inputBg = isDark ? 'bg-zinc-800/80 hover:bg-zinc-800 border-zinc-700 focus:border-[#4446CE] text-white placeholder-zinc-500' : 'bg-gray-50 hover:bg-white border-gray-200 focus:border-[#4446CE] text-gray-900 placeholder-gray-400';
     const emptyStateIconColor = isDark ? 'bg-zinc-800/50 text-zinc-500' : 'bg-gray-100 text-gray-400';
     const emptyStateTextColor = isDark ? 'text-zinc-500' : 'text-gray-400';
     const hasResult = !!data.videoSrc && !data.isLoading;
@@ -332,7 +332,7 @@ export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
 
                   {/* Prompt Input */}
                   <LocalPromptTextarea
-                      className={`w-full border rounded-xl px-4 py-3 text-sm leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-purple-500/20 min-h-[72px] transition-all ${inputBg}`}
+                      className={`w-full border rounded-xl px-4 py-3 text-sm leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-[#4446CE]/20 min-h-[72px] transition-all ${inputBg}`}
                       placeholder="描述你想要生成的视频场景..."
                       value={data.prompt || ''}
                       onChange={(value) => updateData(data.id, { prompt: value })}
@@ -363,7 +363,7 @@ export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
                            data.creditStatus === 'confirmed'
                                ? (isDark ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300' : 'border-emerald-100 bg-emerald-50 text-emerald-700')
                                : data.creditStatus === 'reserved'
-                                   ? (isDark ? 'border-blue-500/20 bg-blue-500/10 text-blue-300' : 'border-blue-100 bg-blue-50 text-blue-700')
+                                   ? (isDark ? 'border-[#4446CE]/20 bg-[#4446CE]/10 text-[#B9BAFF]' : 'border-[#E1E3FF] bg-[#F0F1FF] text-[#3739B0]')
                                    : data.creditStatus === 'refunded'
                                        ? (isDark ? 'border-zinc-700 bg-zinc-800 text-zinc-300' : 'border-gray-200 bg-gray-50 text-gray-600')
                                        : (isDark ? 'border-zinc-700 bg-zinc-900/60 text-zinc-400' : 'border-gray-200 bg-gray-50 text-gray-500')
@@ -379,7 +379,7 @@ export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
                            className={`shrink-0 h-8 px-4 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 whitespace-nowrap transition-all active:scale-[0.98] ${
                                data.isLoading
                                    ? 'bg-gray-400 text-white cursor-not-allowed'
-                                   : 'bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-500 hover:to-purple-400 text-white shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40'
+                                   : 'bg-gradient-to-r from-[#4446CE] to-[#4446CE] hover:from-[#4446CE] hover:to-[#8F91F4] text-white shadow-lg shadow-[#4446CE]/25 hover:shadow-[#4446CE]/40'
                            }`}
                        >
                            {data.isLoading ? <Icons.Loader2 className="animate-spin" size={15}/> : <Icons.Wand2 size={15} />}

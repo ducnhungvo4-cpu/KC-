@@ -245,7 +245,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const textSub = isDark ? 'text-gray-400' : 'text-gray-500';
   const textMuted = isDark ? 'text-gray-600' : 'text-gray-400';
   const hoverBg = isDark ? 'hover:bg-white/5' : 'hover:bg-gray-100';
-  const activeBg = isDark ? 'bg-blue-400/10 text-blue-200 ring-1 ring-blue-300/20' : 'bg-blue-50 text-blue-700 ring-1 ring-blue-100';
+  const activeBg = isDark ? 'bg-[#8F91F4]/10 text-[#C7C8FF] ring-1 ring-[#B9BAFF]/20' : 'bg-[#F0F1FF] text-[#3739B0] ring-1 ring-[#E1E3FF]';
 
   // 侧边栏按钮
   const SidebarButton = ({ 
@@ -328,14 +328,14 @@ const Sidebar: React.FC<SidebarProps> = ({
             label="生图" 
             description="文本/图片生成图片"
             type={NodeType.TEXT_TO_IMAGE} 
-            color={isDark ? 'bg-cyan-500/15 text-cyan-400' : 'bg-cyan-100 text-cyan-600'} 
+            color={isDark ? 'bg-[#4446CE]/15 text-[#8F91F4]' : 'bg-[#E1E3FF] text-[#4446CE]'}
           />
           <NodeButton 
             icon={Icons.Video} 
             label="生视频" 
             description="文本/图片生成视频"
             type={NodeType.TEXT_TO_VIDEO} 
-            color={isDark ? 'bg-purple-500/15 text-purple-400' : 'bg-purple-100 text-purple-600'} 
+            color={isDark ? 'bg-[#4446CE]/15 text-[#8F91F4]' : 'bg-[#E1E3FF] text-[#4446CE]'}
           />
           <NodeButton
             icon={Icons.Music}
@@ -356,7 +356,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         onClick={() => { onSaveProject(); setActivePanel(null); }}
         className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${hoverBg}`}
       >
-        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${isDark ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-50 text-blue-600'}`}>
+        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${isDark ? 'bg-[#4446CE]/10 text-[#8F91F4]' : 'bg-[#F0F1FF] text-[#4446CE]'}`}>
           <Icons.Save size={18} />
         </div>
         <div className="text-left">
@@ -414,13 +414,13 @@ const Sidebar: React.FC<SidebarProps> = ({
     };
     const typeIcons: Record<AssetLibraryType, typeof Icons.User> = { role: Icons.User, scene: Icons.Image, prop: Icons.Box };
     const typeColors: Record<AssetLibraryType, string> = {
-      role: isDark ? "bg-gradient-to-r from-blue-500/20 to-cyan-400/10 text-blue-100 ring-1 ring-blue-300/25 shadow-sm" : "bg-gradient-to-r from-blue-50 to-cyan-50 text-blue-700 ring-1 ring-blue-200 shadow-sm",
+      role: isDark ? "bg-gradient-to-r from-[#4446CE]/20 to-[#8F91F4]/10 text-[#E1E3FF] ring-1 ring-[#B9BAFF]/25 shadow-sm" : "bg-gradient-to-r from-[#F0F1FF] to-[#F0F1FF] text-[#3739B0] ring-1 ring-[#C7C8FF] shadow-sm",
       scene: isDark ? "bg-gradient-to-r from-amber-500/20 to-yellow-400/10 text-amber-100 ring-1 ring-amber-300/25 shadow-sm" : "bg-gradient-to-r from-amber-50 to-yellow-50 text-amber-700 ring-1 ring-amber-200 shadow-sm",
       prop: isDark ? "bg-gradient-to-r from-emerald-500/20 to-teal-400/10 text-emerald-100 ring-1 ring-emerald-300/25 shadow-sm" : "bg-gradient-to-r from-emerald-50 to-teal-50 text-emerald-700 ring-1 ring-emerald-200 shadow-sm",
     };
     const addButtonClass = isDark
-      ? "border border-blue-300/15 bg-blue-300/10 text-blue-100/80 hover:border-blue-300/35 hover:bg-blue-300/15 hover:text-blue-100"
-      : "border border-blue-100 bg-blue-50/70 text-blue-700 hover:border-blue-200 hover:bg-blue-100";
+      ? "border border-[#B9BAFF]/15 bg-[#B9BAFF]/10 text-[#E1E3FF]/80 hover:border-[#B9BAFF]/35 hover:bg-[#B9BAFF]/15 hover:text-[#E1E3FF]"
+      : "border border-[#E1E3FF] bg-[#F0F1FF]/70 text-[#3739B0] hover:border-[#C7C8FF] hover:bg-[#E1E3FF]";
     const toggleExpanded = (assetId: string) => {
       setExpandedAssetIds(prev => {
         const next = new Set(prev);
@@ -451,8 +451,8 @@ const Sidebar: React.FC<SidebarProps> = ({
     };
     const selectButtonClass = (selected: boolean) => `h-6 w-6 shrink-0 rounded-[9px] border flex items-center justify-center transition-all ${
       selected
-        ? (isDark ? 'border-cyan-300/60 bg-cyan-300/15 text-cyan-100 shadow-[0_0_16px_rgba(103,232,249,0.2)]' : 'border-blue-500 bg-blue-50 text-blue-600 shadow-sm')
-        : (isDark ? 'border-white/10 bg-white/5 text-zinc-600 hover:border-blue-300/30 hover:text-blue-100' : 'border-gray-200 bg-white text-gray-300 hover:text-gray-600 hover:border-blue-200')
+        ? (isDark ? 'border-[#B9BAFF]/60 bg-[#B9BAFF]/15 text-[#E1E3FF] shadow-[0_0_16px_rgba(68,70,206,0.2)]' : 'border-[#4446CE] bg-[#F0F1FF] text-[#4446CE] shadow-sm')
+        : (isDark ? 'border-white/10 bg-white/5 text-zinc-600 hover:border-[#B9BAFF]/30 hover:text-[#E1E3FF]' : 'border-gray-200 bg-white text-gray-300 hover:text-gray-600 hover:border-[#C7C8FF]')
     }`;
 
     return (
@@ -467,7 +467,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               key={tab.key}
               className={"h-9 flex-1 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all duration-200 " + (
                 mediaTab === tab.key
-                  ? (isDark ? "bg-gradient-to-r from-blue-500/20 to-cyan-400/10 text-blue-100 ring-1 ring-blue-300/20 shadow-sm" : "bg-white text-blue-700 ring-1 ring-blue-100 shadow-sm")
+                  ? (isDark ? "bg-gradient-to-r from-[#4446CE]/20 to-[#8F91F4]/10 text-[#E1E3FF] ring-1 ring-[#B9BAFF]/20 shadow-sm" : "bg-white text-[#3739B0] ring-1 ring-[#E1E3FF] shadow-sm")
                   : (isDark ? "text-zinc-500 hover:bg-white/5 hover:text-zinc-200" : "text-gray-400 hover:bg-white hover:text-gray-600")
               )}
               onClick={() => { setMediaTab(tab.key); setSelectedAssetIds(new Set()); setSelectedShotClipIds(new Set()); }}
@@ -498,7 +498,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             </div>
 
             {/* Search */}
-            <div className={"flex items-center gap-2.5 rounded-2xl border px-3 py-2 shrink-0 shadow-inner transition-all focus-within:border-blue-300/45 focus-within:ring-2 focus-within:ring-blue-400/10 " + (isDark ? "border-white/10 bg-black/20" : "border-gray-200 bg-gray-50/80")}>
+            <div className={"flex items-center gap-2.5 rounded-2xl border px-3 py-2 shrink-0 shadow-inner transition-all focus-within:border-[#B9BAFF]/45 focus-within:ring-2 focus-within:ring-[#8F91F4]/10 " + (isDark ? "border-white/10 bg-black/20" : "border-gray-200 bg-gray-50/80")}>
               <Icons.Search size={14} className={textMuted} />
               <input value={assetSearch} onChange={(e) => setAssetSearch(e.target.value)}
                 placeholder={`在项目库中搜索${typeLabel[assetTab]}...`}
@@ -509,12 +509,12 @@ const Sidebar: React.FC<SidebarProps> = ({
             </div>
 
             {selectedAssetIds.size > 0 && (
-              <div className={`flex items-center justify-between rounded-2xl border px-3 py-2 text-xs shadow-sm ${isDark ? 'border-blue-300/25 bg-blue-400/10 text-blue-100' : 'border-blue-200 bg-blue-50 text-blue-700'}`}>
+              <div className={`flex items-center justify-between rounded-2xl border px-3 py-2 text-xs shadow-sm ${isDark ? 'border-[#B9BAFF]/25 bg-[#8F91F4]/10 text-[#E1E3FF]' : 'border-[#C7C8FF] bg-[#F0F1FF] text-[#3739B0]'}`}>
                 <span>已选择 {selectedAssetIds.size} 个资产</span>
                 <div className="flex items-center gap-2">
                   <button className="font-semibold hover:opacity-80" onClick={() => setSelectedAssetIds(new Set())}>清空</button>
                   <button
-                    className={`h-7 rounded-xl px-3 font-semibold shadow-sm ${isDark ? 'bg-blue-400 text-slate-950 hover:bg-cyan-300' : 'bg-blue-600 text-white hover:bg-blue-500'}`}
+                    className={`h-7 rounded-xl px-3 font-semibold shadow-sm ${isDark ? 'bg-[#8F91F4] text-slate-950 hover:bg-[#B9BAFF]' : 'bg-[#4446CE] text-white hover:bg-[#4446CE]'}`}
                     onClick={() => {
                       Array.from(selectedAssetIds).forEach(assetId => {
                         const asset = assetLibrary.find(item => item.id === assetId);
@@ -563,7 +563,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                       return (
                         <div
                           key={asset.id}
-                          className={"overflow-hidden rounded-2xl border transition-all duration-200 " + (isDark ? "border-white/10 bg-white/[0.035] shadow-[0_16px_40px_rgba(2,6,23,0.18)] hover:border-blue-300/20 hover:bg-white/[0.055]" : "border-gray-200 bg-white shadow-sm hover:border-blue-100 hover:shadow-md")}
+                          className={"overflow-hidden rounded-2xl border transition-all duration-200 " + (isDark ? "border-white/10 bg-white/[0.035] shadow-[0_16px_40px_rgba(2,6,23,0.18)] hover:border-[#B9BAFF]/20 hover:bg-white/[0.055]" : "border-gray-200 bg-white shadow-sm hover:border-[#E1E3FF] hover:shadow-md")}
                         >
                           <div
                             draggable
@@ -593,7 +593,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                                     <button
                                       type="button"
                                       onClick={() => toggleExpanded(asset.id)}
-                                      className={"h-7 w-7 shrink-0 rounded-xl flex items-center justify-center " + (isDark ? "text-zinc-400 hover:bg-blue-400/10 hover:text-blue-100" : "text-gray-500 hover:bg-blue-50 hover:text-blue-700")}
+                                      className={"h-7 w-7 shrink-0 rounded-xl flex items-center justify-center " + (isDark ? "text-zinc-400 hover:bg-[#8F91F4]/10 hover:text-[#E1E3FF]" : "text-gray-500 hover:bg-[#F0F1FF] hover:text-[#3739B0]")}
                                       aria-label={isExpanded ? '收起子形象' : '展开子形象'}
                                     >
                                       <Icons.ChevronDown size={16} className={"transition-transform " + (isExpanded ? "rotate-180" : "")} />
@@ -618,7 +618,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                           </div>
 
                           {hasChildren && isExpanded && (
-                            <div className={"relative ml-6 border-l pl-3 pb-2 " + (isDark ? "border-blue-300/15" : "border-blue-100")}>
+                            <div className={"relative ml-6 border-l pl-3 pb-2 " + (isDark ? "border-[#B9BAFF]/15" : "border-[#E1E3FF]")}>
                               {(visibleChildren.length ? visibleChildren : children).map((child: AssetLibraryItem) => (
                                 <div
                                   key={child.id}
@@ -626,7 +626,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                                   onDragStart={(event: React.DragEvent) => startAssetDrag(event, child.id)}
                                   className={"relative flex items-center gap-3 rounded-xl border-b py-2 pr-2 cursor-grab active:cursor-grabbing " + (isDark ? "border-white/10 hover:bg-white/5" : "border-gray-100 hover:bg-gray-50")}
                                 >
-                                  <span className={"absolute -left-3 top-1/2 h-px w-3 " + (isDark ? "bg-blue-300/20" : "bg-blue-100")} />
+                                  <span className={"absolute -left-3 top-1/2 h-px w-3 " + (isDark ? "bg-[#B9BAFF]/20" : "bg-[#E1E3FF]")} />
                                   <button
                                     type="button"
                                     className={selectButtonClass(selectedAssetIds.has(child.id))}
@@ -664,7 +664,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                       <div key={asset.id}>
                         <div draggable
                           onDragStart={(event: React.DragEvent) => startAssetDrag(event, asset.id)}
-                          className={"group/card rounded-2xl border p-3 transition-all duration-200 cursor-grab active:cursor-grabbing " + (isDark ? "border-white/10 bg-white/[0.035] hover:border-blue-300/20 hover:bg-white/[0.055] shadow-[0_14px_34px_rgba(2,6,23,0.16)]" : "border-gray-100 bg-white hover:bg-gray-50 hover:border-blue-100 hover:shadow-md")}
+                          className={"group/card rounded-2xl border p-3 transition-all duration-200 cursor-grab active:cursor-grabbing " + (isDark ? "border-white/10 bg-white/[0.035] hover:border-[#B9BAFF]/20 hover:bg-white/[0.055] shadow-[0_14px_34px_rgba(2,6,23,0.16)]" : "border-gray-100 bg-white hover:bg-gray-50 hover:border-[#E1E3FF] hover:shadow-md")}
                         >
                           <div className="flex items-center gap-3">
                             <button
@@ -701,11 +701,11 @@ const Sidebar: React.FC<SidebarProps> = ({
                           </div>
                         </div>
                         {children.length > 0 && (
-                          <div className={"ml-4 mt-1 space-y-1 border-l-2 pl-3 " + (isDark ? "border-blue-300/10" : "border-blue-100")}>
+                          <div className={"ml-4 mt-1 space-y-1 border-l-2 pl-3 " + (isDark ? "border-[#B9BAFF]/10" : "border-[#E1E3FF]")}>
                             {children.map((child: AssetLibraryItem) => (
                               <div key={child.id} draggable
                                 onDragStart={(event: React.DragEvent) => startAssetDrag(event, child.id)}
-                                className={"group/card rounded-xl border p-2 transition-all duration-200 cursor-grab active:cursor-grabbing " + (isDark ? "border-white/10 bg-white/[0.025] hover:bg-white/[0.055] hover:border-blue-300/20" : "border-gray-100 bg-gray-50/50 hover:bg-white hover:border-blue-100")}
+                                className={"group/card rounded-xl border p-2 transition-all duration-200 cursor-grab active:cursor-grabbing " + (isDark ? "border-white/10 bg-white/[0.025] hover:bg-white/[0.055] hover:border-[#B9BAFF]/20" : "border-gray-100 bg-gray-50/50 hover:bg-white hover:border-[#E1E3FF]")}
                               >
                                 <div className="flex items-center gap-2">
                                   <button
@@ -753,19 +753,19 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <option value="all">全部集数</option>
                 {episodes.map((ep: number) => <option key={ep} value={String(ep)}>第{ep} 集</option>)}
               </select>
-              <div className={"flex items-center gap-2 rounded-xl border px-3 flex-1 transition-colors focus-within:border-purple-500/40 " + (isDark ? "border-zinc-800 bg-zinc-900/50" : "border-gray-200 bg-gray-50/80")}>
+              <div className={"flex items-center gap-2 rounded-xl border px-3 flex-1 transition-colors focus-within:border-[#4446CE]/40 " + (isDark ? "border-zinc-800 bg-zinc-900/50" : "border-gray-200 bg-gray-50/80")}>
                 <Icons.Search size={13} className={textMuted} />
                 <input value={shotSearch} onChange={(e) => setShotSearch(e.target.value)}
                   className={"min-w-0 flex-1 bg-transparent text-xs outline-none py-2 " + (isDark ? "text-zinc-100 placeholder:text-zinc-600" : "text-gray-900 placeholder:text-gray-400")} placeholder="搜索镜次..." />
               </div>
             </div>
             {selectedShotClipIds.size > 0 && (
-              <div className={`flex items-center justify-between rounded-xl border px-3 py-2 text-xs ${isDark ? 'border-purple-500/30 bg-purple-500/10 text-purple-200' : 'border-purple-200 bg-purple-50 text-purple-700'}`}>
+              <div className={`flex items-center justify-between rounded-xl border px-3 py-2 text-xs ${isDark ? 'border-[#4446CE]/30 bg-[#4446CE]/10 text-[#C7C8FF]' : 'border-[#C7C8FF] bg-[#F0F1FF] text-[#3739B0]'}`}>
                 <span>已选择 {selectedShotClipIds.size} 个视频</span>
                 <div className="flex items-center gap-2">
                   <button className="font-semibold hover:opacity-80" onClick={() => setSelectedShotClipIds(new Set())}>清空</button>
                   <button
-                    className={`h-7 rounded-lg px-3 font-semibold ${isDark ? 'bg-purple-500 text-white hover:bg-purple-400' : 'bg-purple-600 text-white hover:bg-purple-500'}`}
+                    className={`h-7 rounded-lg px-3 font-semibold ${isDark ? 'bg-[#4446CE] text-white hover:bg-[#8F91F4]' : 'bg-[#4446CE] text-white hover:bg-[#4446CE]'}`}
                     onClick={() => {
                       Array.from(selectedShotClipIds).forEach(clipId => {
                         const clip = shotClips.find(item => item.id === clipId);
@@ -858,8 +858,8 @@ const Sidebar: React.FC<SidebarProps> = ({
           {/* Header */}
           <div className={`px-5 py-4 border-b ${borderColor} flex items-center justify-between shrink-0`}>
             <div className="flex items-center gap-3">
-              <div className={`p-2 rounded-lg ${isDark ? 'bg-blue-500/10' : 'bg-blue-50'}`}>
-                <Icons.Clock size={18} className={isDark ? 'text-blue-400' : 'text-blue-600'} />
+              <div className={`p-2 rounded-lg ${isDark ? 'bg-[#4446CE]/10' : 'bg-[#F0F1FF]'}`}>
+                <Icons.Clock size={18} className={isDark ? 'text-[#8F91F4]' : 'text-[#4446CE]'} />
               </div>
               <h3 className={`text-base font-bold ${textMain}`}>生成历史</h3>
             </div>

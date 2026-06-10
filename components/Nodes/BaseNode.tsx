@@ -53,9 +53,9 @@ const ConnectionPort: React.FC<{
         group-hover:scale-100
         group-hover/port:pointer-events-auto
         group-hover/port:scale-110
-        group-hover/port:border-cyan-400
-        group-hover/port:text-cyan-300
-        group-hover/port:shadow-[0_0_18px_rgba(34,211,238,0.45)]
+        group-hover/port:border-[#8F91F4]
+        group-hover/port:text-[#B9BAFF]
+        group-hover/port:shadow-[0_0_18px_rgba(68,70,206,0.45)]
       `}>
         <div className="relative w-7 h-7">
           <span className="absolute left-0 top-1/2 h-[3px] w-full -translate-y-1/2 rounded-full bg-current" />
@@ -99,8 +99,8 @@ const BaseNode: React.FC<BaseNodeProps> = ({
                 selected ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto'
               } ${
                 isDark
-                  ? 'bg-zinc-950/90 border-zinc-700 text-zinc-200 hover:border-cyan-400 hover:text-white'
-                  : 'bg-white/95 border-gray-200 text-gray-700 hover:border-cyan-400 hover:text-gray-950'
+                  ? 'bg-zinc-950/90 border-zinc-700 text-zinc-200 hover:border-[#8F91F4] hover:text-white'
+                  : 'bg-white/95 border-gray-200 text-gray-700 hover:border-[#8F91F4] hover:text-gray-950'
               }`}
               title="上传本地素材到当前节点"
               onMouseDown={(e) => e.stopPropagation()}

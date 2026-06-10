@@ -50,7 +50,7 @@ const DEMO_ASSET_LIBRARY: AssetLibraryItem[] = [
         name: '王上近晨',
         version: '角色A01',
         updatedAt: '今天 10:24',
-        previewUrl: createDemoAssetPreview('王上近晨', '#60a5fa', '#172554'),
+        previewUrl: createDemoAssetPreview('王上近晨', '#8F91F4', '#172554'),
         description: '主形象，短剧男主核心资产。',
         voiceTimbre: '音色A01',
     },
@@ -2813,13 +2813,13 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowNewWorkflowDialog(false)}>
             <div className={`w-[400px] p-6 rounded-2xl shadow-2xl border flex flex-col gap-4 transform transition-all scale-100 ${isDark ? 'bg-[#1A1D21] border-zinc-700 text-gray-200' : 'bg-white border-gray-200 text-gray-800'}`} onClick={(e) => e.stopPropagation()}>
                 <div>
-                    <h3 className="text-lg font-bold flex items-center gap-2"><Icons.FilePlus size={20} className="text-blue-500"/>清空当前画布</h3>
+                    <h3 className="text-lg font-bold flex items-center gap-2"><Icons.FilePlus size={20} className="text-[#4446CE]"/>清空当前画布</h3>
                     <p className={`text-xs mt-2 leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>是否在清空画布之前保存当前项目？<br/>清空后节点和连线会从当前画布移除。</p>
                 </div>
                 <div className={`flex justify-end gap-2 mt-2 pt-4 border-t ${isDark ? 'border-zinc-800' : 'border-gray-100'}`}>
                     <button onClick={() => setShowNewWorkflowDialog(false)} className={`px-4 py-2 rounded-lg text-xs font-medium transition-colors ${isDark ? 'hover:bg-zinc-800 text-gray-400' : 'hover:bg-gray-100 text-gray-600'}`}>取消</button>
                     <button onClick={() => handleConfirmNew(false)} className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors ${isDark ? 'bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20' : 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-200'}`}>不保存</button>
-                    <button onClick={() => handleConfirmNew(true)} className={`px-4 py-2 rounded-lg text-xs font-bold text-white transition-colors shadow-lg shadow-blue-500/20 flex items-center gap-1.5 ${isDark ? 'bg-blue-600 hover:bg-blue-500' : 'bg-blue-500 hover:bg-blue-400'}`}><Icons.Save size={14}/>保存并清空</button>
+                    <button onClick={() => handleConfirmNew(true)} className={`px-4 py-2 rounded-lg text-xs font-bold text-white transition-colors shadow-lg shadow-[#4446CE]/20 flex items-center gap-1.5 ${isDark ? 'bg-[#4446CE] hover:bg-[#4446CE]' : 'bg-[#4446CE] hover:bg-[#8F91F4]'}`}><Icons.Save size={14}/>保存并清空</button>
                 </div>
             </div>
         </div>
@@ -2843,7 +2843,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
               <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-8 py-7">
                   <header className="flex items-center justify-between gap-6">
                       <div className="flex items-center gap-3">
-                          <div className={`h-11 w-11 rounded-2xl flex items-center justify-center ${isDark ? 'bg-blue-500/15 text-blue-300' : 'bg-blue-100 text-blue-600'}`}>
+                          <div className={`h-11 w-11 rounded-2xl flex items-center justify-center ${isDark ? 'bg-[#4446CE]/15 text-[#B9BAFF]' : 'bg-[#E1E3FF] text-[#4446CE]'}`}>
                               <Icons.Sparkles size={22} />
                           </div>
                           <div>
@@ -2854,7 +2854,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                       <div className="flex items-center gap-2">
                           <button
                               onClick={createProject}
-                              className={`h-10 rounded-xl px-4 text-sm font-semibold flex items-center gap-2 ${isDark ? 'bg-blue-600 text-white hover:bg-blue-500' : 'bg-blue-600 text-white hover:bg-blue-500'}`}
+                              className={`h-10 rounded-xl px-4 text-sm font-semibold flex items-center gap-2 ${isDark ? 'bg-[#4446CE] text-white hover:bg-[#4446CE]' : 'bg-[#4446CE] text-white hover:bg-[#4446CE]'}`}
                           >
                               <Icons.FilePlus size={16} />
                               新建项目
@@ -2888,7 +2888,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                           <button
                               key={project.id}
                               onClick={() => openProject(project)}
-                              className={`group rounded-2xl border p-5 text-left transition-all ${isDark ? 'border-zinc-800 bg-[#16181c] hover:border-blue-500/45 hover:bg-[#1a1d23]' : 'border-gray-200 bg-white hover:border-blue-300 hover:shadow-md'}`}
+                              className={`group rounded-2xl border p-5 text-left transition-all ${isDark ? 'border-zinc-800 bg-[#16181c] hover:border-[#4446CE]/45 hover:bg-[#1a1d23]' : 'border-gray-200 bg-white hover:border-[#B9BAFF] hover:shadow-md'}`}
                           >
                               <div className="flex items-start justify-between gap-3">
                                   <div className="min-w-0">
@@ -2941,7 +2941,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
           isDark ? 'border-zinc-800 bg-zinc-950/70 text-zinc-200 hover:border-zinc-700' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
       }`;
       const searchClass = `h-10 w-full rounded-xl border pl-9 pr-3 text-sm outline-none transition-colors ${
-          isDark ? 'border-zinc-800 bg-zinc-950/70 text-zinc-100 placeholder:text-zinc-600 focus:border-blue-500' : 'border-gray-200 bg-white text-gray-900 placeholder:text-gray-400 focus:border-blue-500'
+          isDark ? 'border-zinc-800 bg-zinc-950/70 text-zinc-100 placeholder:text-zinc-600 focus:border-[#4446CE]' : 'border-gray-200 bg-white text-gray-900 placeholder:text-gray-400 focus:border-[#4446CE]'
       }`;
 
       return (
@@ -2949,7 +2949,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
               <div className="mx-auto flex min-h-screen w-full max-w-[1680px] flex-col px-8 py-7">
                   <header className="flex items-center justify-between gap-6">
                       <div className="flex items-center gap-3">
-                          <div className={`h-11 w-11 rounded-2xl flex items-center justify-center ${isDark ? 'bg-blue-500/15 text-blue-300' : 'bg-blue-100 text-blue-600'}`}>
+                          <div className={`h-11 w-11 rounded-2xl flex items-center justify-center ${isDark ? 'bg-[#4446CE]/15 text-[#B9BAFF]' : 'bg-[#E1E3FF] text-[#4446CE]'}`}>
                               <Icons.Sparkles size={22} />
                           </div>
                           <div>
@@ -3014,7 +3014,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                                       openProject(project);
                                   }
                               }}
-                              className={`group relative min-h-[138px] cursor-pointer rounded-2xl border p-4 text-left transition-all ${isDark ? 'border-zinc-800 bg-[#16181c] hover:border-blue-500/45 hover:bg-[#1a1d23]' : 'border-gray-200 bg-white hover:border-blue-300 hover:shadow-md'}`}
+                              className={`group relative min-h-[138px] cursor-pointer rounded-2xl border p-4 text-left transition-all ${isDark ? 'border-zinc-800 bg-[#16181c] hover:border-[#4446CE]/45 hover:bg-[#1a1d23]' : 'border-gray-200 bg-white hover:border-[#B9BAFF] hover:shadow-md'}`}
                           >
                               {!DEFAULT_PROJECTS.some(item => item.id === project.id) && (
                                   <button
@@ -3050,11 +3050,11 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
       if (!saveResultTarget) return null;
       const modeButtonClass = (mode: typeof saveResultMode) => `rounded-xl border px-3 py-2 text-left transition-all ${
           saveResultMode === mode
-              ? (isDark ? 'border-blue-500 bg-blue-500/15 text-blue-200' : 'border-blue-500 bg-blue-50 text-blue-700')
+              ? (isDark ? 'border-[#4446CE] bg-[#4446CE]/15 text-[#C7C8FF]' : 'border-[#4446CE] bg-[#F0F1FF] text-[#3739B0]')
               : (isDark ? 'border-zinc-800 bg-zinc-950/45 text-zinc-400 hover:border-zinc-700 hover:text-zinc-100' : 'border-gray-200 bg-gray-50 text-gray-600 hover:border-gray-300 hover:text-gray-900')
       }`;
       const inputClass = `w-full rounded-xl border px-3 py-2 text-sm outline-none ${
-          isDark ? 'border-zinc-800 bg-zinc-950/60 text-zinc-100 placeholder:text-zinc-600 focus:border-blue-500' : 'border-gray-200 bg-white text-gray-900 placeholder:text-gray-400 focus:border-blue-500'
+          isDark ? 'border-zinc-800 bg-zinc-950/60 text-zinc-100 placeholder:text-zinc-600 focus:border-[#4446CE]' : 'border-gray-200 bg-white text-gray-900 placeholder:text-gray-400 focus:border-[#4446CE]'
       }`;
 
       return (
@@ -3115,7 +3115,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                                       ].map(([value, label]) => (
                                           <button
                                               key={value}
-                                              className={`h-9 flex-1 rounded-xl border text-sm font-semibold ${saveAssetType === value ? (isDark ? 'border-blue-500 bg-blue-500/15 text-blue-200' : 'border-blue-500 bg-blue-50 text-blue-700') : (isDark ? 'border-zinc-800 text-zinc-400 hover:bg-zinc-900' : 'border-gray-200 text-gray-600 hover:bg-gray-50')}`}
+                                              className={`h-9 flex-1 rounded-xl border text-sm font-semibold ${saveAssetType === value ? (isDark ? 'border-[#4446CE] bg-[#4446CE]/15 text-[#C7C8FF]' : 'border-[#4446CE] bg-[#F0F1FF] text-[#3739B0]') : (isDark ? 'border-zinc-800 text-zinc-400 hover:bg-zinc-900' : 'border-gray-200 text-gray-600 hover:bg-gray-50')}`}
                                               onClick={() => setSaveAssetType(value as AssetLibraryType)}
                                           >
                                               {label}
@@ -3148,7 +3148,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                       <div className={`text-xs ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>当前为原型演示，后续接项目素材库/资产库接口。</div>
                       <div className="flex gap-2">
                           <button className={`h-10 rounded-xl px-4 text-sm font-semibold ${isDark ? 'text-zinc-400 hover:bg-zinc-900 hover:text-white' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`} onClick={() => setSaveResultTarget(null)}>取消</button>
-                          <button className="h-10 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-500" onClick={handleConfirmSaveResult}>确认保存</button>
+                          <button className="h-10 rounded-xl bg-[#4446CE] px-4 text-sm font-semibold text-white hover:bg-[#4446CE]" onClick={handleConfirmSaveResult}>确认保存</button>
                       </div>
                   </div>
               </div>
@@ -3242,7 +3242,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                                               row.status === 'confirmed'
                                                   ? (isDark ? 'bg-emerald-500/10 text-emerald-300' : 'bg-emerald-50 text-emerald-700')
                                                   : row.status === 'reserved'
-                                                      ? (isDark ? 'bg-blue-500/10 text-blue-300' : 'bg-blue-50 text-blue-700')
+                                                      ? (isDark ? 'bg-[#4446CE]/10 text-[#B9BAFF]' : 'bg-[#F0F1FF] text-[#3739B0]')
                                                       : row.status === 'refunded'
                                                           ? (isDark ? 'bg-zinc-800 text-zinc-300' : 'bg-gray-100 text-gray-600')
                                                           : (isDark ? 'bg-amber-500/10 text-amber-300' : 'bg-amber-50 text-amber-700')
@@ -3332,7 +3332,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                               onClick={() => setCreditProjectId(project.id)}
                               className={`rounded-2xl border p-3 text-left transition-all ${
                                   activeProjectId === project.id
-                                      ? (isDark ? 'border-blue-500/60 bg-blue-500/10' : 'border-blue-300 bg-blue-50')
+                                      ? (isDark ? 'border-[#4446CE]/60 bg-[#4446CE]/10' : 'border-[#B9BAFF] bg-[#F0F1FF]')
                                       : (isDark ? 'border-zinc-800 bg-zinc-950/35 hover:border-zinc-700' : 'border-gray-200 bg-gray-50 hover:border-gray-300')
                               }`}
                           >
@@ -3370,7 +3370,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                                               row.status === 'confirmed'
                                                   ? (isDark ? 'bg-emerald-500/10 text-emerald-300' : 'bg-emerald-50 text-emerald-700')
                                                   : row.status === 'reserved'
-                                                      ? (isDark ? 'bg-blue-500/10 text-blue-300' : 'bg-blue-50 text-blue-700')
+                                                      ? (isDark ? 'bg-[#4446CE]/10 text-[#B9BAFF]' : 'bg-[#F0F1FF] text-[#3739B0]')
                                                       : row.status === 'refunded'
                                                           ? (isDark ? 'bg-zinc-800 text-zinc-300' : 'bg-gray-100 text-gray-600')
                                                           : (isDark ? 'bg-amber-500/10 text-amber-300' : 'bg-amber-50 text-amber-700')
@@ -3462,7 +3462,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                                       width={rect.width}
                                       height={rect.height}
                                       rx={2}
-                                      fill={rect.selected ? '#60a5fa' : (isDark ? '#71717a' : '#9ca3af')}
+                                      fill={rect.selected ? '#8F91F4' : (isDark ? '#71717a' : '#9ca3af')}
                                       opacity={rect.selected ? 0.9 : 0.55}
                                   />
                               ))}
@@ -3577,7 +3577,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                         <div className={`h-px my-1.5 mx-2 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`}></div>
                         <div className={`px-3 py-1 text-[9px] font-semibold uppercase tracking-wider ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>添加节点</div>
                         <button className={menuItemClass} onClick={() => { addNode(NodeType.TEXT_TO_IMAGE, contextMenu.worldX, contextMenu.worldY); setContextMenu(null); }}>
-                            <div className="w-5 h-5 rounded bg-cyan-500/10 flex items-center justify-center"><Icons.Image size={12} className="text-cyan-400"/></div>
+                            <div className="w-5 h-5 rounded bg-[#4446CE]/10 flex items-center justify-center"><Icons.Image size={12} className="text-[#8F91F4]"/></div>
                             <span>生图</span>
                         </button>
                         <button className={menuItemClass} onClick={() => { addNode(NodeType.CREATIVE_DESC, contextMenu.worldX, contextMenu.worldY); setContextMenu(null); }}>
@@ -3585,7 +3585,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                             <span>文本</span>
                         </button>
                         <button className={menuItemClass} onClick={() => { addNode(NodeType.TEXT_TO_VIDEO, contextMenu.worldX, contextMenu.worldY); setContextMenu(null); }}>
-                            <div className="w-5 h-5 rounded bg-purple-500/10 flex items-center justify-center"><Icons.Video size={12} className="text-purple-400"/></div>
+                            <div className="w-5 h-5 rounded bg-[#4446CE]/10 flex items-center justify-center"><Icons.Video size={12} className="text-[#8F91F4]"/></div>
                             <span>生视频</span>
                         </button>
                         <button className={menuItemClass} onClick={() => { addNode(NodeType.TEXT_TO_AUDIO, contextMenu.worldX, contextMenu.worldY); setContextMenu(null); }}>
@@ -3621,7 +3621,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
             
             <div className={groupLabelClass}>生成</div>
             <button className={menuItemClass} onClick={() => handleQuickAddNode(NodeType.TEXT_TO_IMAGE)}>
-                <div className="w-6 h-6 rounded-md bg-cyan-500/10 flex items-center justify-center"><Icons.Image size={14} className="text-cyan-400"/></div>
+                <div className="w-6 h-6 rounded-md bg-[#4446CE]/10 flex items-center justify-center"><Icons.Image size={14} className="text-[#8F91F4]"/></div>
                 <span>生图</span>
             </button>
             <button className={menuItemClass} onClick={() => handleQuickAddNode(NodeType.CREATIVE_DESC)}>
@@ -3629,7 +3629,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                 <span>文本</span>
             </button>
             <button className={menuItemClass} onClick={() => handleQuickAddNode(NodeType.TEXT_TO_VIDEO)}>
-                <div className="w-6 h-6 rounded-md bg-purple-500/10 flex items-center justify-center"><Icons.Video size={14} className="text-purple-400"/></div>
+                <div className="w-6 h-6 rounded-md bg-[#4446CE]/10 flex items-center justify-center"><Icons.Video size={14} className="text-[#8F91F4]"/></div>
                 <span>生视频</span>
             </button>
             <button className={menuItemClass} onClick={() => handleQuickAddNode(NodeType.TEXT_TO_AUDIO)}>
@@ -3936,7 +3936,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                             {/* 虚线预览 */}
                             <path 
                                 d={d} 
-                                stroke="#3b82f6" 
+                                stroke="#4446CE"
                                 strokeWidth={2} 
                                 fill="none" 
                                 strokeDasharray="6,4" 
@@ -3947,7 +3947,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                                 cx={relTx} 
                                 cy={relTy} 
                                 r={5} 
-                                fill="#3b82f6"
+                                fill="#4446CE"
                             />
                         </svg>
                     );
@@ -4002,14 +4002,14 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                 <div className={`fixed z-50 border rounded-xl shadow-2xl p-2 flex flex-col gap-1 w-48 pointer-events-auto ${isDark ? 'bg-[#1A1D21] border-zinc-700' : 'bg-white border-gray-200'}`} style={{ left: lastMousePosRef.current.x + 20, top: lastMousePosRef.current.y }}>
                     <div className={`text-[10px] uppercase font-bold px-2 py-1 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Quick Connect</div>
                     {suggestedNodes.map(node => (
-                        <button key={node.id} className={`flex items-center gap-2 px-2 py-1.5 rounded text-left text-xs transition-colors ${isDark ? 'hover:bg-zinc-800 text-gray-300 hover:text-cyan-400' : 'hover:bg-gray-100 text-gray-700 hover:text-cyan-600'}`} onClick={(e) => { e.stopPropagation(); const start = connectionStartRef.current!; if (start.type === 'source') createConnection(start.nodeId, node.id); else createConnection(node.id, start.nodeId); }}>
+                        <button key={node.id} className={`flex items-center gap-2 px-2 py-1.5 rounded text-left text-xs transition-colors ${isDark ? 'hover:bg-zinc-800 text-gray-300 hover:text-[#8F91F4]' : 'hover:bg-gray-100 text-gray-700 hover:text-[#4446CE]'}`} onClick={(e) => { e.stopPropagation(); const start = connectionStartRef.current!; if (start.type === 'source') createConnection(start.nodeId, node.id); else createConnection(node.id, start.nodeId); }}>
                             {node.type === NodeType.TEXT_TO_VIDEO ? <Icons.Video size={12} /> : <Icons.Image size={12} />}<span className="truncate">{node.title}</span>
                         </button>
                     ))}
                 </div>
             )}
             {dragMode === 'SELECT' && selectionBox && (
-                <div className="fixed border border-cyan-500/50 bg-cyan-500/10 pointer-events-none z-50" style={{ left: containerRef.current!.getBoundingClientRect().left + selectionBox.x, top: containerRef.current!.getBoundingClientRect().top + selectionBox.y, width: selectionBox.w, height: selectionBox.h }}/>
+                <div className="fixed border border-[#4446CE]/50 bg-[#4446CE]/10 pointer-events-none z-50" style={{ left: containerRef.current!.getBoundingClientRect().left + selectionBox.x, top: containerRef.current!.getBoundingClientRect().top + selectionBox.y, width: selectionBox.w, height: selectionBox.h }}/>
             )}
             
             {/* Top Left Project Name */}
@@ -4026,15 +4026,15 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                         aria-label="返回项目列表"
                         className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 font-bold transition-all ${
                             isDark
-                                ? 'text-blue-300 hover:bg-blue-500/15 hover:text-blue-200'
-                                : 'text-blue-600 hover:bg-blue-50 hover:text-blue-700'
+                                ? 'text-[#B9BAFF] hover:bg-[#4446CE]/15 hover:text-[#C7C8FF]'
+                                : 'text-[#4446CE] hover:bg-[#F0F1FF] hover:text-[#3739B0]'
                         }`}
                     >
                         <Icons.ChevronLeft size={18} strokeWidth={2.8} />
                     </button>
                     {/* Logo */}
                     <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                        isDark ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-100 text-blue-600'
+                        isDark ? 'bg-[#4446CE]/20 text-[#8F91F4]' : 'bg-[#E1E3FF] text-[#4446CE]'
                     }`}>
                         <Icons.Sparkles size={16} />
                     </div>
@@ -4042,7 +4042,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                     <div className="min-w-0">
                         <div
                             className={`block max-w-[220px] truncate text-sm font-bold ${
-                                isDark ? 'text-blue-100' : 'text-blue-700'
+                                isDark ? 'text-[#E1E3FF]' : 'text-[#3739B0]'
                             }`}
                             title={projectName}
                             aria-readonly="true"
@@ -4054,35 +4054,35 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                             <button
                                 type="button"
                                 onClick={() => setIsSubCanvasListOpen(!isSubCanvasListOpen)}
-                                className={`flex items-center gap-1.5 rounded-lg border px-2 py-0.5 text-[11px] font-semibold shadow-sm transition-all ${isDark ? 'border-blue-400/10 bg-blue-400/5 text-blue-200/80 hover:border-blue-300/30 hover:bg-blue-400/10 hover:text-blue-100' : 'border-blue-100 bg-blue-50/70 text-blue-700 hover:border-blue-200 hover:bg-blue-100/80 hover:text-blue-800'}`}
+                                className={`flex items-center gap-1.5 rounded-lg border px-2 py-0.5 text-[11px] font-semibold shadow-sm transition-all ${isDark ? 'border-[#8F91F4]/10 bg-[#8F91F4]/5 text-[#C7C8FF]/80 hover:border-[#B9BAFF]/30 hover:bg-[#8F91F4]/10 hover:text-[#E1E3FF]' : 'border-[#E1E3FF] bg-[#F0F1FF]/70 text-[#3739B0] hover:border-[#C7C8FF] hover:bg-[#E1E3FF]/80 hover:text-[#2F318F]'}`}
                             >
                                 <Icons.LayoutGrid size={12} />
                                 <span className="max-w-[200px] truncate">{activeSubCanvas?.name || '选择画布'}</span>
                                 <Icons.ChevronDown size={10} />
                             </button>
                             {isSubCanvasListOpen && (
-                                <div className={`absolute top-full left-0 mt-2 flex h-[calc(100vh-118px)] min-h-[240px] max-h-[610px] w-[312px] flex-col rounded-2xl border p-2 shadow-[0_24px_80px_rgba(2,6,23,0.32)] z-[210] backdrop-blur-2xl ${isDark ? 'bg-[#0c1118]/95 border-blue-300/15 ring-1 ring-white/10' : 'bg-white/95 border-blue-100 ring-1 ring-blue-50'}`} onMouseDown={(e) => e.stopPropagation()}>
+                                <div className={`absolute top-full left-0 mt-2 flex h-[calc(100vh-118px)] min-h-[240px] max-h-[610px] w-[312px] flex-col rounded-2xl border p-2 shadow-[0_24px_80px_rgba(2,6,23,0.32)] z-[210] backdrop-blur-2xl ${isDark ? 'bg-[#0c1118]/95 border-[#B9BAFF]/15 ring-1 ring-white/10' : 'bg-white/95 border-[#E1E3FF] ring-1 ring-[#F0F1FF]'}`} onMouseDown={(e) => e.stopPropagation()}>
                                     {/* New Canvas Button - Prominent, at top */}
                                     <button
                                         type="button"
-                                        className={`mb-3 h-10 w-full rounded-xl text-xs font-semibold flex items-center justify-center gap-2 border shadow-sm transition-all ${isDark ? 'border-blue-400/30 bg-gradient-to-r from-blue-500/20 to-cyan-400/10 text-blue-100 hover:border-blue-300/50 hover:from-blue-500/30 hover:to-cyan-400/20' : 'border-blue-200 bg-gradient-to-r from-blue-50 to-cyan-50 text-blue-700 hover:border-blue-300 hover:from-blue-100 hover:to-cyan-100'}`}
+                                        className={`mb-3 h-10 w-full rounded-xl text-xs font-semibold flex items-center justify-center gap-2 border shadow-sm transition-all ${isDark ? 'border-[#8F91F4]/30 bg-gradient-to-r from-[#4446CE]/20 to-[#8F91F4]/10 text-[#E1E3FF] hover:border-[#B9BAFF]/50 hover:from-[#4446CE]/30 hover:to-[#8F91F4]/20' : 'border-[#C7C8FF] bg-gradient-to-r from-[#F0F1FF] to-[#F0F1FF] text-[#3739B0] hover:border-[#B9BAFF] hover:from-[#E1E3FF] hover:to-[#E1E3FF]'}`}
                                         onMouseDown={(e) => e.stopPropagation()}
                                         onClick={(e) => { e.stopPropagation(); handleCreateSubCanvas(); }}
                                     >
                                         <Icons.Plus size={13} strokeWidth={2.5} />
                                         新建子画布
                                     </button>
-                                    <div className={`h-px mb-3 ${isDark ? 'bg-gradient-to-r from-transparent via-blue-300/20 to-transparent' : 'bg-gradient-to-r from-transparent via-blue-100 to-transparent'}`} />
-                                    <div className={`px-2 pb-1.5 text-[10px] font-bold tracking-wide ${isDark ? 'text-blue-100/45' : 'text-blue-500/55'}`}>子画布</div>
+                                    <div className={`h-px mb-3 ${isDark ? 'bg-gradient-to-r from-transparent via-[#B9BAFF]/20 to-transparent' : 'bg-gradient-to-r from-transparent via-[#E1E3FF] to-transparent'}`} />
+                                    <div className={`px-2 pb-1.5 text-[10px] font-bold tracking-wide ${isDark ? 'text-[#E1E3FF]/45' : 'text-[#4446CE]/55'}`}>子画布</div>
                                     <div className="space-y-1">
                                         {subCanvases.map(canvas => (
-                                            <div key={canvas.id} className={`group flex h-10 items-center gap-1.5 rounded-xl border px-2 transition-all ${activeSubCanvasId === canvas.id ? (isDark ? 'border-blue-400/25 bg-blue-400/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]' : 'border-blue-200 bg-blue-50 shadow-sm') : (isDark ? 'border-transparent hover:border-white/10 hover:bg-white/5' : 'border-transparent hover:border-gray-200 hover:bg-gray-50')}`}>
+                                            <div key={canvas.id} className={`group flex h-10 items-center gap-1.5 rounded-xl border px-2 transition-all ${activeSubCanvasId === canvas.id ? (isDark ? 'border-[#8F91F4]/25 bg-[#8F91F4]/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]' : 'border-[#C7C8FF] bg-[#F0F1FF] shadow-sm') : (isDark ? 'border-transparent hover:border-white/10 hover:bg-white/5' : 'border-transparent hover:border-gray-200 hover:bg-gray-50')}`}>
                                                 <button
                                                     type="button"
                                                     className="flex min-w-0 flex-1 items-center gap-2 text-left"
                                                     onClick={() => handleSwitchSubCanvas(canvas.id)}
                                                 >
-                                                    <span className={`h-3 w-1.5 rounded-full shrink-0 ${activeSubCanvasId === canvas.id ? (isDark ? 'bg-cyan-300 shadow-[0_0_12px_rgba(103,232,249,0.55)]' : 'bg-blue-500') : (isDark ? 'bg-zinc-700' : 'bg-gray-300')}`} />
+                                                    <span className={`h-3 w-1.5 rounded-full shrink-0 ${activeSubCanvasId === canvas.id ? (isDark ? 'bg-[#B9BAFF] shadow-[0_0_12px_rgba(68,70,206,0.55)]' : 'bg-[#4446CE]') : (isDark ? 'bg-zinc-700' : 'bg-gray-300')}`} />
                                                     {editingSubCanvasId === canvas.id ? (
                                                         <input
                                                             value={editingSubCanvasName}
@@ -4093,18 +4093,18 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                                                                 if (e.key === 'Escape') setEditingSubCanvasId(null);
                                                             }}
                                                             autoFocus
-                                                            className={`min-w-0 flex-1 bg-transparent text-xs font-medium outline-none border-b ${isDark ? 'text-white border-blue-400' : 'text-gray-900 border-blue-500'}`}
+                                                            className={`min-w-0 flex-1 bg-transparent text-xs font-medium outline-none border-b ${isDark ? 'text-white border-[#8F91F4]' : 'text-gray-900 border-[#4446CE]'}`}
                                                             onMouseDown={(e) => e.stopPropagation()}
                                                             onClick={(e) => e.stopPropagation()}
                                                         />
                                                     ) : (
-                                                        <span className={`truncate text-xs font-semibold ${activeSubCanvasId === canvas.id ? (isDark ? 'text-blue-100' : 'text-blue-800') : (isDark ? 'text-zinc-300' : 'text-gray-700')}`}>{canvas.name}</span>
+                                                        <span className={`truncate text-xs font-semibold ${activeSubCanvasId === canvas.id ? (isDark ? 'text-[#E1E3FF]' : 'text-[#2F318F]') : (isDark ? 'text-zinc-300' : 'text-gray-700')}`}>{canvas.name}</span>
                                                     )}
                                                 </button>
                                                 <div className="flex shrink-0 items-center gap-0.5 opacity-60 transition-opacity group-hover:opacity-100">
                                                     <button
                                                         type="button"
-                                                        className={`w-6 h-6 rounded-lg flex items-center justify-center transition-colors ${isDark ? 'text-zinc-400 hover:bg-blue-400/10 hover:text-blue-100' : 'text-gray-500 hover:bg-blue-100 hover:text-blue-700'}`}
+                                                        className={`w-6 h-6 rounded-lg flex items-center justify-center transition-colors ${isDark ? 'text-zinc-400 hover:bg-[#8F91F4]/10 hover:text-[#E1E3FF]' : 'text-gray-500 hover:bg-[#E1E3FF] hover:text-[#3739B0]'}`}
                                                         onClick={(e) => { e.stopPropagation(); setEditingSubCanvasId(canvas.id); setEditingSubCanvasName(canvas.name); }}
                                                         title="修改子画布名称"
                                                     >
@@ -4245,7 +4245,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                 if (e.key === 'Escape') setShowSubCanvasNameDialog(false);
               }}
               placeholder="输入画布名称"
-              className={`w-full rounded-lg border px-3 py-2 text-sm outline-none transition-colors ${isDark ? 'bg-zinc-900 border-zinc-600 text-white placeholder-zinc-500 focus:border-blue-400' : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400 focus:border-blue-500'}`}
+              className={`w-full rounded-lg border px-3 py-2 text-sm outline-none transition-colors ${isDark ? 'bg-zinc-900 border-zinc-600 text-white placeholder-zinc-500 focus:border-[#8F91F4]' : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400 focus:border-[#4446CE]'}`}
             />
             <div className="flex justify-end gap-2 mt-4">
               <button
@@ -4258,7 +4258,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
               <button
                 type="button"
                 onClick={handleConfirmCreateSubCanvas}
-                className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors ${isDark ? 'bg-blue-500 text-white hover:bg-blue-400' : 'bg-blue-600 text-white hover:bg-blue-500'}`}
+                className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors ${isDark ? 'bg-[#4446CE] text-white hover:bg-[#8F91F4]' : 'bg-[#4446CE] text-white hover:bg-[#4446CE]'}`}
               >
                 确定
               </button>
