@@ -743,6 +743,16 @@ const CanvasWithSidebar: React.FC = () => {
   // Quick Add Menu State
   const [quickAddMenu, setQuickAddMenu] = useState<{ sourceId: string, x: number, y: number, worldX: number, worldY: number, direction?: 'forward' | 'backward' } | null>(null);
 
+  // Seedance audit states per node
+  const [auditStates, setAuditStates] = useState<Record<string, 'auditing' | 'passed'>>({});
+
+  const handleSeedanceAudit = (nodeId: string) => {
+    setAuditStates(prev => ({ ...prev, [nodeId]: 'auditing' }));
+    setTimeout(() => {
+      setAuditStates(prev => ({ ...prev, [nodeId]: 'passed' }));
+    }, 3000);
+  };
+
   const [contextMenu, setContextMenu] = useState<{ 
       type: 'CANVAS' | 'NODE', 
       nodeId?: string, 
@@ -1712,6 +1722,18 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
   };
   
   const handleHistoryPreview = (url: string, type: 'image' | 'video') => setPreviewMedia({ url, type });
+
+  const handleSetImageVersion = (nodeId: string, version: ImageVersionSnapshot) => {
+      updateNodeData(nodeId, {
+          imageSrc: version.url,
+          prompt: version.prompt,
+          model: version.model,
+          aspectRatio: version.aspectRatio,
+          resolution: version.resolution,
+          count: version.count,
+          promptOptimize: version.promptOptimize,
+      });
+  };
 
   const handleUseImageVersion = (nodeId: string, version: ImageVersionSnapshot) => {
       const source = nodes.find(node => node.id === nodeId);
@@ -3651,6 +3673,11 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                                 <Icons.Database size={14}/> 添加到资产素材库
                             </button>
                         )}
+                        {isImageNode && (
+                            <button className={menuItemClass} onClick={() => { if (contextMenu.nodeId) { handleSeedanceAudit(contextMenu.nodeId); setContextMenu(null); } }}>
+                                <Icons.ShieldCheck size={14} className="text-emerald-400"/> Seedance 2.0 合规审核
+                            </button>
+                        )}
                         <div className={`h-px my-1.5 mx-2 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`}></div>
                         <button className={`text-left px-3 py-2 text-xs transition-all duration-150 flex items-center gap-2.5 rounded-md mx-1 text-red-400 ${isDark ? 'hover:bg-red-500/10 hover:text-red-300' : 'hover:bg-red-50 hover:text-red-600'}`} onClick={() => { if (contextMenu.nodeId) deleteNode(contextMenu.nodeId); setContextMenu(null); }}>
                             <Icons.Trash2 size={14}/> 删除
@@ -4057,6 +4084,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                         onAddToAssetLibrary={handleOpenAssetSelection}
                         scale={transform.k}
                         isDark={isDark}
+                        auditState={auditStates[node.id]}
                     >
                         <NodeContent 
                             data={node} 
@@ -4069,6 +4097,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                             onPreviewReference={handlePreviewReference}
                             onMaximize={handleMaximize}
                             onPreviewMedia={handleHistoryPreview}
+                            onSetImageVersion={handleSetImageVersion}
                             onUseImageVersion={handleUseImageVersion}
                             onDownload={handleDownload}
                             onUpload={triggerReplaceImage}

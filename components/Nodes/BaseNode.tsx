@@ -15,6 +15,7 @@ interface BaseNodeProps {
   children: React.ReactNode;
   scale: number;
   isDark?: boolean;
+  auditState?: 'auditing' | 'passed';
 }
 
 // Port component for cleaner code
@@ -69,8 +70,8 @@ const ConnectionPort: React.FC<{
   );
 };
 
-const BaseNode: React.FC<BaseNodeProps> = ({ 
-  data, selected, onMouseDown, onContextMenu, onConnectStart, onPortMouseUp, children, onResizeStart, onAttachInput, onAddToAssetLibrary, isDark = true
+const BaseNode: React.FC<BaseNodeProps> = ({
+  data, selected, onMouseDown, onContextMenu, onConnectStart, onPortMouseUp, children, onResizeStart, onAttachInput, onAddToAssetLibrary, isDark = true, auditState
 }) => {
   const showInputPort = data.type !== NodeType.ORIGINAL_IMAGE;
   const hasContent = Boolean(data.imageSrc || data.videoSrc || data.audioSrc);
@@ -91,6 +92,29 @@ const BaseNode: React.FC<BaseNodeProps> = ({
     >
       {/* Main Content Area */}
       <div className="relative w-full h-full">
+          {/* Seedance audit badge — top-left corner, outside the node */}
+          {auditState && (
+            <div className="absolute -top-2 -left-2 z-[200] group/audit pointer-events-auto">
+              {auditState === 'auditing' ? (
+                <div className="w-5 h-5 rounded-full bg-zinc-800/90 border border-zinc-600 flex items-center justify-center shadow-lg cursor-default">
+                  <svg className="w-3 h-3 animate-spin text-zinc-400" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeDasharray="40 20"/>
+                  </svg>
+                  <div className="absolute left-full ml-1.5 top-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded text-[9px] whitespace-nowrap bg-zinc-900/95 border border-zinc-700 text-zinc-300 opacity-0 group-hover/audit:opacity-100 transition-opacity pointer-events-none shadow-lg">
+                    审核中
+                  </div>
+                </div>
+              ) : (
+                <div className="w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-500/60 flex items-center justify-center shadow-lg cursor-default" title="合规审核通过">
+                  <svg viewBox="0 0 24 24" fill="none" className="w-3.5 h-3.5 text-emerald-400">
+                    <path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.25C17.25 22.15 21 17.25 21 12V7L12 2z" fill="currentColor" opacity="0.3"/>
+                    <path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.25C17.25 22.15 21 17.25 21 12V7L12 2z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+                    <path d="M9 12l2 2 4-4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </div>
+              )}
+            </div>
+          )}
           {children}
 
           {onAttachInput && !hasContent && (

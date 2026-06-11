@@ -16,6 +16,7 @@ interface NodeContentProps {
   inputs?: string[];
   onMaximize?: (id: string) => void;
   onPreviewMedia?: (url: string, type: 'image' | 'video') => void;
+  onSetImageVersion?: (nodeId: string, version: ImageVersionSnapshot) => void;
   onUseImageVersion?: (nodeId: string, version: ImageVersionSnapshot) => void;
   onDownload?: (id: string) => void;
   onUpload?: (nodeId: string) => void;
