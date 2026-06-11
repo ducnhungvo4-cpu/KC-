@@ -494,15 +494,6 @@ export const LocalMediaStack: React.FC<{
             ? imageVersionUrls.findIndex(url => url === previewedVersion.url)
             : -1;
         const previewVersionNumber = previewIndex >= 0 ? imageVersionUrls.length - previewIndex : currentVersionNumber;
-        const formatVersionTime = (createdAt: number) => {
-            if (!createdAt) return '历史版本';
-            return new Date(createdAt).toLocaleTimeString('zh-CN', {
-                hour: '2-digit',
-                minute: '2-digit',
-                hour12: false,
-            });
-        };
-
         return (
             <>
                 {displaySrc && (
@@ -521,7 +512,7 @@ export const LocalMediaStack: React.FC<{
                 {showBadge && (
                     <button
                         type="button"
-                        className="absolute left-1/2 top-0 z-[90] flex -translate-x-1/2 -translate-y-1/2 items-center gap-1.5 rounded-full border border-white/10 bg-black/50 px-2.5 py-1 text-[10px] font-semibold text-white shadow-lg backdrop-blur-md hover:bg-black/70"
+                        className="absolute left-1/2 top-3 z-[90] flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-white/10 bg-black/50 px-2.5 py-1 text-[10px] font-semibold text-white shadow-lg backdrop-blur-md hover:bg-black/70"
                         onClick={(event) => {
                             event.stopPropagation();
                             updateData(data.id, { isStackOpen: true });
@@ -535,9 +526,11 @@ export const LocalMediaStack: React.FC<{
                 {data.isStackOpen && (
                     <div
                         ref={stackRef}
-                        className={`history-version-drawer absolute left-[calc(100%+16px)] top-0 z-[120] flex w-[380px] max-w-[calc(100vw-48px)] flex-col overflow-hidden rounded-2xl border shadow-2xl backdrop-blur-xl ${isDark ? 'border-zinc-700 bg-[#181818]/97 text-zinc-100' : 'border-gray-200 bg-white/97 text-gray-900'}`}
+                        className={`history-version-drawer absolute left-[calc(100%+16px)] top-0 z-[120] flex w-[420px] max-w-[calc(100vw-48px)] flex-col overflow-hidden rounded-2xl border shadow-2xl backdrop-blur-xl ${isDark ? 'border-zinc-700 bg-[#181818]/97 text-zinc-100' : 'border-gray-200 bg-white/97 text-gray-900'}`}
                         style={{ height: Math.max(440, data.height) }}
+                        data-canvas-wheel-pass-through="true"
                         onMouseDown={(event) => event.stopPropagation()}
+                        onWheelCapture={(event) => event.stopPropagation()}
                         onMouseLeave={() => setPreviewedVersion(null)}
                     >
                         <div className={`flex items-start justify-between border-b px-4 py-4 ${isDark ? 'border-zinc-800' : 'border-gray-100'}`}>
@@ -560,7 +553,7 @@ export const LocalMediaStack: React.FC<{
                                 <Icons.X size={17} />
                             </button>
                         </div>
-                        <div className="custom-scrollbar flex-1 space-y-3 overflow-y-auto p-3">
+                        <div className="custom-scrollbar flex-1 space-y-3 overflow-y-auto overscroll-contain p-3">
                             {imageVersionUrls.map((src, index) => {
                                 const version = getImageVersion(src);
                                 const versionNumber = imageVersionUrls.length - index;
@@ -568,74 +561,61 @@ export const LocalMediaStack: React.FC<{
                                 return (
                                     <div
                                         key={src + index}
-                                        className={`rounded-xl border p-2.5 transition-colors ${isCurrent
+                                        className={`relative overflow-hidden rounded-xl border transition-colors ${isCurrent
                                             ? (isDark ? 'border-[#8F91F4]/70 bg-[#8F91F4]/10' : 'border-[#8F91F4] bg-[#F0F1FF]')
                                             : (isDark ? 'border-zinc-800 bg-black/20 hover:border-zinc-700 hover:bg-white/[0.04]' : 'border-gray-200 bg-gray-50/70 hover:border-gray-300 hover:bg-white')
                                         }`}
                                         onMouseEnter={() => setPreviewedVersion(version)}
                                         onMouseLeave={() => setPreviewedVersion(null)}
                                     >
-                                        <div className="mb-2 flex items-center justify-between gap-2">
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-sm font-bold">V{versionNumber}</span>
-                                                {isCurrent && (
-                                                    <span className={`rounded-full px-2 py-0.5 text-[9px] font-semibold ${isDark ? 'bg-[#8F91F4]/20 text-[#C7C8FF]' : 'bg-[#E1E3FF] text-[#3739B0]'}`}>
-                                                        当前使用中
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <span className={`text-[10px] ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>{formatVersionTime(version.createdAt)}</span>
-                                        </div>
-                                        <div className="flex gap-3">
-                                            <img src={src} className={`h-[92px] w-[112px] shrink-0 rounded-lg object-cover ${isDark ? 'bg-black' : 'bg-gray-100'}`} draggable={false} />
-                                            <div className="min-w-0 flex-1">
-                                                <div className={`truncate text-[11px] font-medium ${isDark ? 'text-zinc-300' : 'text-gray-700'}`}>
-                                                    {version.model} · {version.aspectRatio}
-                                                </div>
-                                                <p
-                                                    className={`mt-2 overflow-hidden text-[11px] leading-5 ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}
-                                                    style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}
-                                                    title={version.prompt || '无提示词'}
-                                                >
-                                                    提示词：{version.prompt || '无提示词'}
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <div className="mt-2.5 flex items-center justify-end gap-2">
-                                            <button
-                                                type="button"
-                                                className={`h-7 rounded-lg px-2.5 text-[10px] font-semibold ${isDark ? 'bg-zinc-800 text-zinc-200 hover:bg-zinc-700' : 'border border-gray-200 bg-white text-gray-700 hover:bg-gray-100'}`}
-                                                onClick={(event) => {
-                                                    event.stopPropagation();
-                                                    onPreviewMedia?.(src, 'image');
-                                                }}
-                                            >
-                                                预览
-                                            </button>
-                                            {!isCurrent && (
+                                        <div className={`relative aspect-[4/3] w-full ${isDark ? 'bg-black' : 'bg-gray-100'}`}>
+                                            <img src={src} className="h-full w-full object-contain" draggable={false} />
+                                            <div className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-black/70 to-transparent" />
+                                            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/80 to-transparent" />
+                                            <span className="absolute left-3 top-3 rounded-full border border-white/15 bg-black/55 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-md">
+                                                V{versionNumber}
+                                            </span>
+                                            {isCurrent && (
+                                                <span className="absolute right-3 top-3 rounded-full border border-[#B9BAFF]/25 bg-[#4446CE]/75 px-2.5 py-1 text-[10px] font-semibold text-white backdrop-blur-md">
+                                                    当前使用中
+                                                </span>
+                                            )}
+                                            <div className="absolute inset-x-3 bottom-3 flex items-center justify-end gap-2">
                                                 <button
                                                     type="button"
-                                                    className={`h-7 rounded-lg px-2.5 text-[10px] font-semibold ${isDark ? 'bg-zinc-800 text-zinc-200 hover:bg-zinc-700' : 'border border-gray-200 bg-white text-gray-700 hover:bg-gray-100'}`}
+                                                    className="h-8 rounded-lg border border-white/15 bg-black/55 px-3 text-[11px] font-semibold text-white backdrop-blur-md hover:bg-black/75"
                                                     onClick={(event) => {
                                                         event.stopPropagation();
-                                                        setPreviewedVersion(null);
-                                                        onSetImageVersion?.(data.id, version);
+                                                        onPreviewMedia?.(src, 'image');
                                                     }}
                                                 >
-                                                    设为当前
+                                                    预览
                                                 </button>
-                                            )}
-                                            <button
-                                                type="button"
-                                                className="h-7 rounded-lg bg-[#4446CE] px-3 text-[10px] font-semibold text-white hover:bg-[#5557DB]"
-                                                onClick={(event) => {
-                                                    event.stopPropagation();
-                                                    onUseImageVersion?.(data.id, version);
-                                                    closeStack();
-                                                }}
-                                            >
-                                                使用
-                                            </button>
+                                                {!isCurrent && (
+                                                    <button
+                                                        type="button"
+                                                        className="h-8 rounded-lg border border-white/15 bg-black/55 px-3 text-[11px] font-semibold text-white backdrop-blur-md hover:bg-black/75"
+                                                        onClick={(event) => {
+                                                            event.stopPropagation();
+                                                            setPreviewedVersion(null);
+                                                            onSetImageVersion?.(data.id, version);
+                                                        }}
+                                                    >
+                                                        设为当前
+                                                    </button>
+                                                )}
+                                                <button
+                                                    type="button"
+                                                    className="h-8 rounded-lg bg-[#4446CE] px-3.5 text-[11px] font-semibold text-white shadow-lg hover:bg-[#5557DB]"
+                                                    onClick={(event) => {
+                                                        event.stopPropagation();
+                                                        onUseImageVersion?.(data.id, version);
+                                                        closeStack();
+                                                    }}
+                                                >
+                                                    使用
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 );

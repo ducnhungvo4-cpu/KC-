@@ -3640,7 +3640,6 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                 const node = nodes.find(n => n.id === contextMenu.nodeId);
                 const isImageNode = Boolean(node?.imageSrc) || contextMenu.nodeType === NodeType.TEXT_TO_IMAGE || contextMenu.nodeType === NodeType.IMAGE_TO_IMAGE || contextMenu.nodeType === NodeType.ORIGINAL_IMAGE;
                 const isVideoNode = Boolean(node?.videoSrc) || contextMenu.nodeType === NodeType.TEXT_TO_VIDEO || contextMenu.nodeType === NodeType.IMAGE_TO_VIDEO || contextMenu.nodeType === NodeType.START_END_TO_VIDEO;
-                const isAudioNode = Boolean(node?.audioSrc) || contextMenu.nodeType === NodeType.TEXT_TO_AUDIO;
                 const isTextNode = contextMenu.nodeType === NodeType.CREATIVE_DESC;
                 
                 return (
@@ -3648,35 +3647,10 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                         <button className={menuItemClass} onClick={() => { performCopy(); setContextMenu(null); }}>
                             <Icons.Copy size={14}/> 复制节点
                         </button>
-                        {(isImageNode || isVideoNode || isAudioNode) && (
-                            <button className={menuItemClass} onClick={() => { triggerReplaceImage(contextMenu.nodeId!); setContextMenu(null); }}>
-                                <Icons.Upload size={14}/> 替换素材
-                            </button>
-                        )}
-                        {isImageNode && (
-                            <button className={menuItemClass} onClick={() => { if (contextMenu.nodeId) copyImageToClipboard(contextMenu.nodeId); setContextMenu(null); }}>
-                                <Icons.Image size={14}/> 复制图片数据
-                            </button>
-                        )}
                         {isVideoNode && (
-                            <>
-                                <button className={menuItemClass} onClick={() => { if (contextMenu.nodeId) handleDownload(contextMenu.nodeId); setContextMenu(null); }}>
-                                    <Icons.Download size={14}/> 下载视频
-                                </button>
-                                <button className={menuItemClass} onClick={() => { if (contextMenu.nodeId) handleOpenAssetSelection(contextMenu.nodeId); setContextMenu(null); }}>
-                                    <Icons.Clapperboard size={14}/> 添加到分镜素材
-                                </button>
-                            </>
-                        )}
-                        {isAudioNode && (
-                            <>
-                                <button className={menuItemClass} onClick={() => { if (contextMenu.nodeId) handleDownload(contextMenu.nodeId); setContextMenu(null); }}>
-                                    <Icons.Download size={14}/> 下载音频
-                                </button>
-                                <button className={menuItemClass} onClick={() => { if (contextMenu.nodeId) triggerReplaceImage(contextMenu.nodeId); setContextMenu(null); }}>
-                                    <Icons.Mic size={14}/> 替换音频
-                                </button>
-                            </>
+                            <button className={menuItemClass} onClick={() => { if (contextMenu.nodeId) handleOpenAssetSelection(contextMenu.nodeId); setContextMenu(null); }}>
+                                <Icons.Clapperboard size={14}/> 添加到分镜素材
+                            </button>
                         )}
                         {isTextNode && (
                             <button className={menuItemClass} onClick={() => { if (node?.prompt) navigator.clipboard?.writeText(node.prompt); setContextMenu(null); }}>
@@ -3945,46 +3919,56 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                                 style={{ pointerEvents: 'stroke', cursor: 'pointer' }}
                                 onClick={(e) => { e.stopPropagation(); setSelectedConnectionId(conn.id); }}
                             />
-                            {/* 主连接线 - 实线 */}
+                            {/* Base connection line */}
                             <path 
                                 d={d} 
                                 stroke={lineColor}
                                 strokeWidth={isSelected ? 2.5 : 2}
                                 fill="none" 
                                 strokeLinecap="round"
-                                strokeDasharray="2 10"
-                                opacity={isSelected ? 0.9 : 0.56}
+                                opacity={isSelected ? 0.9 : 0.5}
+                                style={{ pointerEvents: 'none' }}
+                            />
+                            {/* Slow flowing light-blue glow */}
+                            <path
+                                d={d}
+                                stroke="#7DD3FC"
+                                strokeWidth={isSelected ? 7 : 6}
+                                fill="none"
+                                strokeLinecap="round"
+                                strokeDasharray="14 34"
+                                opacity={isSelected ? 0.34 : 0.24}
+                                style={{
+                                    pointerEvents: 'none',
+                                    filter: 'drop-shadow(0 0 4px rgba(125, 211, 252, 0.9))',
+                                }}
+                            >
+                                <animate
+                                    attributeName="stroke-dashoffset"
+                                    from="0"
+                                    to="-48"
+                                    dur="4.8s"
+                                    repeatCount="indefinite"
+                                />
+                            </path>
+                            <path
+                                d={d}
+                                stroke="#BAE6FD"
+                                strokeWidth={isSelected ? 2.2 : 1.6}
+                                fill="none"
+                                strokeLinecap="round"
+                                strokeDasharray="14 34"
+                                opacity={isSelected ? 0.9 : 0.72}
                                 style={{ pointerEvents: 'none' }}
                             >
                                 <animate
                                     attributeName="stroke-dashoffset"
                                     from="0"
-                                    to="-12"
-                                    dur="1.25s"
+                                    to="-48"
+                                    dur="4.8s"
                                     repeatCount="indefinite"
                                 />
                             </path>
-                            {/* 选中时的发光效果 */}
-                            {isSelected && (
-                                <path 
-                                    d={d} 
-                                    stroke={lineColor}
-                                    strokeWidth={5}
-                                    fill="none" 
-                                    strokeLinecap="round"
-                                    strokeDasharray="2 10"
-                                    opacity={0.16}
-                                    style={{ pointerEvents: 'none' }}
-                                >
-                                    <animate
-                                        attributeName="stroke-dashoffset"
-                                        from="0"
-                                        to="-12"
-                                        dur="1.25s"
-                                        repeatCount="indefinite"
-                                    />
-                                </path>
-                            )}
                             {/* 删除按钮 - 使用纯 SVG 实现 */}
                             {isSelected && (
                                 <g 
