@@ -10,6 +10,17 @@ export enum NodeType {
   ORIGINAL_IMAGE = 'ORIGINAL_IMAGE',
 }
 
+export interface ImageVersionSnapshot {
+  url: string;
+  prompt: string;
+  model: string;
+  aspectRatio: string;
+  resolution: string;
+  count: number;
+  promptOptimize: boolean;
+  createdAt: number;
+}
+
 export interface NodeData {
   id: string;
   type: NodeType;
@@ -25,6 +36,7 @@ export interface NodeData {
   videoSrc?: string; // Result (Active Selection)
   audioSrc?: string; // Result (Active Selection)
   outputArtifacts?: string[]; // History/Batch results
+  imageVersions?: ImageVersionSnapshot[]; // Image history with generation parameters
   favoriteArtifacts?: string[]; // User-favorited node materials
   isLoading?: boolean;
   errorMessage?: string;

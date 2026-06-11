@@ -2,7 +2,7 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import Sidebar from './components/Sidebar';
 import { AssetSelectionModal } from './components/AssetSelectionModal';
-import { AssetLibraryItem, AssetLibraryType, AddToAssetPanelState, InputMedia, MultiAngleOptions, NodeData, Connection, CanvasTransform, Point, DragMode, NodeType, ProjectCanvasItem, ShotClip } from './types';
+import { AssetLibraryItem, AssetLibraryType, AddToAssetPanelState, ImageVersionSnapshot, InputMedia, MultiAngleOptions, NodeData, Connection, CanvasTransform, Point, DragMode, NodeType, ProjectCanvasItem, ShotClip } from './types';
 import BaseNode from './components/Nodes/BaseNode';
 import { NodeContent } from './components/Nodes/NodeContent';
 import { Icons } from './components/Icons';
@@ -327,6 +327,34 @@ const mergeArtifactVersions = (newArtifacts: string | string[], currentArtifact?
         seen.add(item);
         return true;
     });
+};
+
+const createImageVersionSnapshot = (
+    url: string,
+    node: Pick<NodeData, 'prompt' | 'model' | 'aspectRatio' | 'resolution' | 'count' | 'promptOptimize'>,
+    createdAt = Date.now()
+): ImageVersionSnapshot => ({
+    url,
+    prompt: node.prompt || '',
+    model: node.model || 'Seedream 5.0',
+    aspectRatio: node.aspectRatio || '1:1',
+    resolution: node.resolution || '1k',
+    count: node.count || 1,
+    promptOptimize: !!node.promptOptimize,
+    createdAt,
+});
+
+const mergeImageVersionSnapshots = (
+    urls: string[],
+    generatedVersions: ImageVersionSnapshot[],
+    existingVersions: ImageVersionSnapshot[] = [],
+    fallbackNode: NodeData
+) => {
+    const versionByUrl = new Map<string, ImageVersionSnapshot>();
+    [...generatedVersions, ...existingVersions].forEach(version => {
+        if (!versionByUrl.has(version.url)) versionByUrl.set(version.url, version);
+    });
+    return urls.map(url => versionByUrl.get(url) || createImageVersionSnapshot(url, fallbackNode, 0));
 };
 
 // Helper for resizing imported media constraints
@@ -1149,6 +1177,20 @@ const CanvasWithSidebar: React.FC = () => {
       const { width, height } = getNodeSizeForAspectRatio('4:3', 300);
       const rect = containerRef.current?.getBoundingClientRect();
       const center = position || (rect ? screenToWorld(rect.width / 2, rect.height / 2) : { x: 0, y: 0 });
+      if (asset.type === 'role') {
+          addNode(NodeType.TEXT_TO_AUDIO, center.x + width / 2 + 72, center.y - 130, {
+              width: 420,
+              height: 260,
+              title: asset.name,
+              prompt: '',
+              model: 'Minimax-speech-2.8-hd',
+              source: 'asset_library',
+              sourceRefId: asset.id,
+              projectId: currentProject?.id || DEMO_PROJECT_META.id,
+              directorGroupName: currentProject?.directorGroup || DEMO_PROJECT_META.directorGroup,
+              outputArtifacts: [],
+          });
+      }
       addNode(NodeType.TEXT_TO_IMAGE, center.x - width / 2, center.y - height / 2, {
           width,
           height,
@@ -1536,6 +1578,14 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
               // Set output based on node type
               if (node.type === NodeType.TEXT_TO_IMAGE) {
                   updates.imageSrc = results[0];
+                  const generatedAt = Date.now();
+                  const generatedVersions = results.map((url, index) => createImageVersionSnapshot(url, node, generatedAt + index));
+                  updates.imageVersions = mergeImageVersionSnapshots(
+                      newArtifacts,
+                      generatedVersions,
+                      node.imageVersions,
+                      node
+                  );
               } else if (node.type === NodeType.TEXT_TO_VIDEO || node.type === NodeType.START_END_TO_VIDEO) {
                   updates.videoSrc = results[0];
               }
@@ -1662,6 +1712,47 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
   };
   
   const handleHistoryPreview = (url: string, type: 'image' | 'video') => setPreviewMedia({ url, type });
+
+  const handleUseImageVersion = (nodeId: string, version: ImageVersionSnapshot) => {
+      const source = nodes.find(node => node.id === nodeId);
+      if (!source) return;
+
+      const { width, height } = getNodeSizeForAspectRatio(version.aspectRatio);
+      let x = source.x + source.width + 80;
+      let y = source.y;
+      while (nodes.some(node =>
+          Math.abs(node.x - x) < 48 &&
+          Math.abs(node.y - y) < 48
+      )) {
+          y += 56;
+      }
+
+      const newNode: NodeData = {
+          id: generateId(),
+          type: NodeType.TEXT_TO_IMAGE,
+          x,
+          y,
+          width,
+          height,
+          title: source.title,
+          prompt: version.prompt,
+          imageSrc: version.url,
+          outputArtifacts: [version.url],
+          imageVersions: [version],
+          aspectRatio: version.aspectRatio,
+          resolution: version.resolution,
+          count: version.count,
+          model: version.model,
+          promptOptimize: version.promptOptimize,
+          source: 'canvas',
+          projectId: source.projectId || currentProject?.id || DEMO_PROJECT_META.id,
+          canvasId: source.canvasId,
+          directorGroupName: source.directorGroupName || currentProject?.directorGroup || DEMO_PROJECT_META.directorGroup,
+      };
+
+      setNodes(prev => [...prev, newNode]);
+      setSelectedNodeIds(new Set([newNode.id]));
+  };
 
   const handlePreviewReference = (item: InputMedia) => {
       if (item.type === 'text') {
@@ -3978,6 +4069,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                             onPreviewReference={handlePreviewReference}
                             onMaximize={handleMaximize}
                             onPreviewMedia={handleHistoryPreview}
+                            onUseImageVersion={handleUseImageVersion}
                             onDownload={handleDownload}
                             onUpload={triggerReplaceImage}
                             onSaveResult={openSaveResultModal}

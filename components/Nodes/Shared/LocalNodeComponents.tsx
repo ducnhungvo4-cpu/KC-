@@ -1,8 +1,8 @@
 ﻿
-import React, { useState, useEffect, useRef, memo } from 'react';
+import React, { useState, useEffect, useRef, memo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Icons } from '../../Icons';
-import { InputMedia, NodeData } from '../../../types';
+import { ImageVersionSnapshot, InputMedia, NodeData, NodeType } from '../../../types';
 
 // --- Local Components (Extracted) ---
 
@@ -415,23 +415,143 @@ export const LocalMediaStack: React.FC<{
     onToggleFavorite?: (src: string, type: 'image' | 'video') => void,
     isFavorite?: (src: string) => boolean,
     onPreviewMedia?: (src: string, type: 'image' | 'video') => void,
+    onUseImageVersion?: (nodeId: string, version: ImageVersionSnapshot) => void,
 }> = ({
-    data, updateData, currentSrc, isDark = true, selected, onPreviewMedia
+    data, updateData, currentSrc, isDark = true, selected, onPreviewMedia, onUseImageVersion
 }) => {
     const stackRef = useRef<HTMLDivElement>(null);
+    const closeTimerRef = useRef<number | null>(null);
+    const [isClosing, setIsClosing] = useState(false);
     const artifacts = data.outputArtifacts || [];
     const sortedArtifacts = currentSrc ? [currentSrc, ...artifacts.filter(a => a !== currentSrc)] : artifacts;
+    const isImageHistory = data.type === NodeType.TEXT_TO_IMAGE;
+    const imageVersionUrls = currentSrc
+        ? [currentSrc, ...artifacts.filter(url => url !== currentSrc)]
+        : artifacts;
     const showBadge = !!selected && !data.isStackOpen && artifacts.length > 1;
+    const snapshotByUrl = new Map<string, ImageVersionSnapshot>(
+        (data.imageVersions || []).map(version => [version.url, version])
+    );
+
+    const getImageVersion = (url: string): ImageVersionSnapshot => snapshotByUrl.get(url) || {
+        url,
+        prompt: data.prompt || '',
+        model: data.model || 'Seedream 5.0',
+        aspectRatio: data.aspectRatio || '1:1',
+        resolution: data.resolution || '1k',
+        count: data.count || 1,
+        promptOptimize: !!data.promptOptimize,
+        createdAt: 0,
+    };
+
+    const requestClose = useCallback(() => {
+        if (!data.isStackOpen || isClosing) return;
+        if (!isImageHistory) {
+            updateData(data.id, { isStackOpen: false });
+            return;
+        }
+        setIsClosing(true);
+        closeTimerRef.current = window.setTimeout(() => {
+            updateData(data.id, { isStackOpen: false });
+            setIsClosing(false);
+            closeTimerRef.current = null;
+        }, 360);
+    }, [data.id, data.isStackOpen, isClosing, isImageHistory, updateData]);
 
     useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => { if (data.isStackOpen && stackRef.current && !stackRef.current.contains(event.target as Node)) updateData(data.id, { isStackOpen: false }); };
+        const handleClickOutside = (event: MouseEvent) => {
+            if (data.isStackOpen && stackRef.current && !stackRef.current.contains(event.target as Node)) requestClose();
+        };
         if (data.isStackOpen) document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [data.isStackOpen, data.id, updateData]);
+    }, [data.isStackOpen, requestClose]);
 
-    useEffect(() => { if (!selected && data.isStackOpen) updateData(data.id, { isStackOpen: false }); }, [selected, data.isStackOpen, data.id, updateData]);
+    useEffect(() => {
+        if (!selected && data.isStackOpen) requestClose();
+    }, [selected, data.isStackOpen, requestClose]);
+
+    useEffect(() => () => {
+        if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current);
+    }, []);
 
     if (data.isStackOpen) {
+        if (isImageHistory) {
+            const panelHeight = Math.max(280, Math.round(data.height * 0.9));
+            return (
+                <div
+                    ref={stackRef}
+                    className={`history-version-panel absolute left-[3%] top-9 z-[100] flex w-[94%] flex-col rounded-[24px] border p-4 pt-7 shadow-2xl backdrop-blur-xl ${isClosing ? 'history-version-panel-closing' : 'history-version-panel-opening'} ${isDark ? 'border-zinc-700 bg-[#181818]/97' : 'border-gray-200 bg-white/97'}`}
+                    style={{ height: panelHeight }}
+                    onMouseDown={(event) => event.stopPropagation()}
+                >
+                    <button
+                        type="button"
+                        className={`absolute left-1/2 top-0 z-20 flex h-9 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border shadow-lg backdrop-blur-xl ${isDark ? 'border-zinc-600 bg-zinc-800 text-zinc-200 hover:bg-zinc-700' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-100'}`}
+                        title="收拢历史版本"
+                        aria-label="收拢历史版本"
+                        onClick={(event) => {
+                            event.stopPropagation();
+                            requestClose();
+                        }}
+                    >
+                        <Icons.ChevronDown size={18} className="rotate-180" />
+                    </button>
+                    <div className="mb-3 flex items-center justify-between">
+                        <span className={`text-sm font-semibold ${isDark ? 'text-zinc-100' : 'text-gray-900'}`}>历史版本</span>
+                        <span className={`text-[10px] ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>{imageVersionUrls.length} 个版本</span>
+                    </div>
+                    <div className="custom-scrollbar grid flex-1 grid-cols-2 gap-3 overflow-y-auto pr-1">
+                        {imageVersionUrls.map((src, index) => {
+                            const version = getImageVersion(src);
+                            const isMain = src === currentSrc;
+                            const rotate = index % 2 === 0 ? -5 : 5;
+                            const delay = Math.min(index * 42, 252);
+                            return (
+                                <div
+                                    key={src + index}
+                                    className={`history-version-card group/card relative min-h-[150px] overflow-hidden rounded-2xl border ${isClosing ? 'history-version-card-closing' : 'history-version-card-opening'} ${isMain ? 'border-[#8F91F4] ring-1 ring-[#8F91F4]/40' : (isDark ? 'border-zinc-700 bg-black' : 'border-gray-200 bg-gray-50')}`}
+                                    style={{
+                                        '--history-card-rotate': `${rotate}deg`,
+                                        animationDelay: `${isClosing ? Math.max(0, 180 - delay / 2) : delay}ms`,
+                                    } as React.CSSProperties}
+                                >
+                                    <img src={src} className={`h-full w-full object-cover ${isDark ? 'bg-[#09090b]' : 'bg-gray-50'}`} draggable={false} />
+                                    <div className="absolute inset-x-0 top-0 flex items-start justify-between bg-gradient-to-b from-black/70 to-transparent p-2 pb-6">
+                                        <span className="rounded-md bg-black/55 px-2 py-1 text-[10px] font-semibold text-white backdrop-blur-md">{isMain ? '当前' : `版本 ${index + 1}`}</span>
+                                        <button
+                                            type="button"
+                                            className="flex h-7 items-center gap-1 rounded-lg border border-white/15 bg-black/55 px-2 text-[10px] font-semibold text-white backdrop-blur-md hover:bg-black/75"
+                                            title="展开大图"
+                                            onClick={(event) => {
+                                                event.stopPropagation();
+                                                onPreviewMedia?.(src, 'image');
+                                            }}
+                                        >
+                                            <Icons.Maximize2 size={12} />
+                                            展开
+                                        </button>
+                                    </div>
+                                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/55 to-transparent p-2 pt-8">
+                                        <button
+                                            type="button"
+                                            className="h-8 w-full rounded-lg bg-white text-xs font-bold text-zinc-900 shadow-lg hover:bg-zinc-100"
+                                            onClick={(event) => {
+                                                event.stopPropagation();
+                                                onUseImageVersion?.(data.id, version);
+                                                requestClose();
+                                            }}
+                                        >
+                                            使用
+                                        </button>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            );
+        }
+
         return (
             <div ref={stackRef} className={`absolute left-1/2 top-10 z-[100] w-[560px] max-w-[calc(100vw-48px)] -translate-x-1/2 rounded-2xl border p-3 shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-200 ${isDark ? 'border-zinc-700 bg-[#181818]/95' : 'border-gray-200 bg-white/95'}`} onMouseDown={(event) => event.stopPropagation()}>
                 <div className="mb-2 flex items-center justify-between">

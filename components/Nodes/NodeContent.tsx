@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { InputMedia, MultiAngleOptions, NodeData, NodeType } from '../../types';
+import { ImageVersionSnapshot, InputMedia, MultiAngleOptions, NodeData, NodeType } from '../../types';
 import { TextToImageNode } from './TextToImageNode';
 import { TextToVideoNode } from './TextToVideoNode';
 import { StartEndToVideoNode } from './StartEndToVideoNode';
@@ -16,6 +16,7 @@ interface NodeContentProps {
   inputs?: string[];
   onMaximize?: (id: string) => void;
   onPreviewMedia?: (url: string, type: 'image' | 'video') => void;
+  onUseImageVersion?: (nodeId: string, version: ImageVersionSnapshot) => void;
   onDownload?: (id: string) => void;
   onUpload?: (nodeId: string) => void;
   onSaveResult?: (nodeId: string) => void;
