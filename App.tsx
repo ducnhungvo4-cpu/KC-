@@ -1724,6 +1724,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
   const handleHistoryPreview = (url: string, type: 'image' | 'video') => setPreviewMedia({ url, type });
 
   const handleSetImageVersion = (nodeId: string, version: ImageVersionSnapshot) => {
+      const { width, height } = getNodeSizeForAspectRatio(version.aspectRatio);
       updateNodeData(nodeId, {
           imageSrc: version.url,
           prompt: version.prompt,
@@ -1732,6 +1733,8 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
           resolution: version.resolution,
           count: version.count,
           promptOptimize: version.promptOptimize,
+          width,
+          height,
       });
   };
 
@@ -4393,7 +4396,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
             {renderSaveResultModal()}
             {renderCreditDashboardV2()}
             {previewMedia && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md animate-in fade-in duration-200" onClick={() => setPreviewMedia(null)}>
+                <div data-media-preview-overlay className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md animate-in fade-in duration-200" onClick={() => setPreviewMedia(null)}>
                     <div className="relative max-w-[90vw] max-h-[90vh] bg-black rounded-lg shadow-2xl overflow-hidden border border-zinc-700" onClick={(e) => e.stopPropagation()}>
                          <button className="absolute top-2 right-2 bg-black/50 text-white p-2 rounded-full hover:bg-red-500 transition-colors z-10" onClick={() => setPreviewMedia(null)}><Icons.X size={20} /></button>
                          {previewMedia.type === 'video' ? <video src={previewMedia.url} controls autoPlay className="max-w-full max-h-[90vh]" /> : <img src={previewMedia.url} alt="Preview" className="max-w-full max-h-[90vh] object-contain" />}

@@ -78,83 +78,19 @@
         background-size: 200% 100%;
       }
 
-      @keyframes history-panel-open {
+      @keyframes history-drawer-open {
         0% {
           opacity: 0;
-          transform: translateY(-28px) scaleX(0.42) scaleY(0.12);
-          clip-path: polygon(46% 0, 54% 0, 66% 100%, 34% 100%);
-        }
-        65% {
-          opacity: 1;
-          transform: translateY(4px) scaleX(1.03) scaleY(1);
-          clip-path: polygon(5% 0, 95% 0, 100% 100%, 0 100%);
+          transform: translateX(-16px) scale(0.98);
         }
         100% {
           opacity: 1;
-          transform: translateY(0) scale(1);
-          clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+          transform: translateX(0) scale(1);
         }
       }
-      @keyframes history-panel-close {
-        0% {
-          opacity: 1;
-          transform: translateY(0) scale(1);
-          clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
-        }
-        45% {
-          opacity: 0.9;
-          transform: translateY(3px) scaleX(0.88) scaleY(0.72);
-          clip-path: polygon(12% 0, 88% 0, 96% 100%, 4% 100%);
-        }
-        100% {
-          opacity: 0;
-          transform: translateY(-28px) scaleX(0.4) scaleY(0.1);
-          clip-path: polygon(47% 0, 53% 0, 64% 100%, 36% 100%);
-        }
-      }
-      @keyframes history-card-open {
-        0% {
-          opacity: 0;
-          transform: translateY(-42px) rotate(var(--history-card-rotate, 0deg)) scale(0.58);
-        }
-        70% {
-          opacity: 1;
-          transform: translateY(4px) rotate(0deg) scale(1.02);
-        }
-        100% {
-          opacity: 1;
-          transform: translateY(0) rotate(0) scale(1);
-        }
-      }
-      @keyframes history-card-close {
-        0% {
-          opacity: 1;
-          transform: translateY(0) rotate(0) scale(1);
-        }
-        100% {
-          opacity: 0;
-          transform: translateY(-38px) rotate(var(--history-card-rotate, 0deg)) scale(0.55);
-        }
-      }
-      .history-version-panel {
-        transform-origin: top center;
-        will-change: transform, opacity, clip-path;
-      }
-      .history-version-panel-opening {
-        animation: history-panel-open 420ms cubic-bezier(0.2, 0.82, 0.24, 1) both;
-      }
-      .history-version-panel-closing {
-        pointer-events: none;
-        animation: history-panel-close 360ms cubic-bezier(0.55, 0.05, 0.75, 0.35) both;
-      }
-      .history-version-card {
-        will-change: transform, opacity;
-      }
-      .history-version-card-opening {
-        animation: history-card-open 380ms cubic-bezier(0.16, 0.84, 0.25, 1) both;
-      }
-      .history-version-card-closing {
-        animation: history-card-close 230ms ease-in both;
+      .history-version-drawer {
+        transform-origin: left center;
+        animation: history-drawer-open 220ms cubic-bezier(0.2, 0.82, 0.24, 1) both;
       }
       
       /* Focus ring utilities */

@@ -1,5 +1,5 @@
 ﻿
-import React, { useState, useEffect, useRef, memo, useCallback } from 'react';
+import React, { useState, useEffect, useRef, memo } from 'react';
 import { createPortal } from 'react-dom';
 import { Icons } from '../../Icons';
 import { ImageVersionSnapshot, InputMedia, NodeData, NodeType } from '../../../types';
@@ -415,19 +415,17 @@ export const LocalMediaStack: React.FC<{
     onToggleFavorite?: (src: string, type: 'image' | 'video') => void,
     isFavorite?: (src: string) => boolean,
     onPreviewMedia?: (src: string, type: 'image' | 'video') => void,
+    onSetImageVersion?: (nodeId: string, version: ImageVersionSnapshot) => void,
     onUseImageVersion?: (nodeId: string, version: ImageVersionSnapshot) => void,
 }> = ({
-    data, updateData, currentSrc, isDark = true, selected, onPreviewMedia, onUseImageVersion
+    data, updateData, currentSrc, isDark = true, selected, onPreviewMedia, onSetImageVersion, onUseImageVersion
 }) => {
     const stackRef = useRef<HTMLDivElement>(null);
-    const closeTimerRef = useRef<number | null>(null);
-    const [isClosing, setIsClosing] = useState(false);
+    const [previewedVersion, setPreviewedVersion] = useState<ImageVersionSnapshot | null>(null);
     const artifacts = data.outputArtifacts || [];
     const sortedArtifacts = currentSrc ? [currentSrc, ...artifacts.filter(a => a !== currentSrc)] : artifacts;
     const isImageHistory = data.type === NodeType.TEXT_TO_IMAGE;
-    const imageVersionUrls = currentSrc
-        ? [currentSrc, ...artifacts.filter(url => url !== currentSrc)]
-        : artifacts;
+    const imageVersionUrls = artifacts.length > 0 ? artifacts : (currentSrc ? [currentSrc] : []);
     const showBadge = !!selected && !data.isStackOpen && artifacts.length > 1;
     const snapshotByUrl = new Map<string, ImageVersionSnapshot>(
         (data.imageVersions || []).map(version => [version.url, version])
@@ -444,114 +442,193 @@ export const LocalMediaStack: React.FC<{
         createdAt: 0,
     };
 
-    const requestClose = useCallback(() => {
-        if (!data.isStackOpen || isClosing) return;
-        if (!isImageHistory) {
-            updateData(data.id, { isStackOpen: false });
-            return;
-        }
-        setIsClosing(true);
-        closeTimerRef.current = window.setTimeout(() => {
-            updateData(data.id, { isStackOpen: false });
-            setIsClosing(false);
-            closeTimerRef.current = null;
-        }, 360);
-    }, [data.id, data.isStackOpen, isClosing, isImageHistory, updateData]);
+    const closeStack = () => {
+        setPreviewedVersion(null);
+        updateData(data.id, { isStackOpen: false });
+    };
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
-            if (data.isStackOpen && stackRef.current && !stackRef.current.contains(event.target as Node)) requestClose();
+            const target = event.target as Element;
+            if (target.closest?.('[data-media-preview-overlay]')) return;
+            if (data.isStackOpen && stackRef.current && !stackRef.current.contains(event.target as Node)) {
+                setPreviewedVersion(null);
+                updateData(data.id, { isStackOpen: false });
+            }
         };
         if (data.isStackOpen) document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [data.isStackOpen, requestClose]);
+    }, [data.isStackOpen, data.id, updateData]);
 
     useEffect(() => {
-        if (!selected && data.isStackOpen) requestClose();
-    }, [selected, data.isStackOpen, requestClose]);
+        if (!selected && data.isStackOpen) {
+            setPreviewedVersion(null);
+            updateData(data.id, { isStackOpen: false });
+        }
+    }, [selected, data.isStackOpen, data.id, updateData]);
 
-    useEffect(() => () => {
-        if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current);
-    }, []);
+    if (isImageHistory) {
+        const currentIndex = Math.max(0, imageVersionUrls.findIndex(url => url === currentSrc));
+        const currentVersionNumber = Math.max(1, imageVersionUrls.length - currentIndex);
+        const displaySrc = previewedVersion?.url || currentSrc;
+        const previewIndex = previewedVersion
+            ? imageVersionUrls.findIndex(url => url === previewedVersion.url)
+            : -1;
+        const previewVersionNumber = previewIndex >= 0 ? imageVersionUrls.length - previewIndex : currentVersionNumber;
+        const formatVersionTime = (createdAt: number) => {
+            if (!createdAt) return '历史版本';
+            return new Date(createdAt).toLocaleTimeString('zh-CN', {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false,
+            });
+        };
 
-    if (data.isStackOpen) {
-        if (isImageHistory) {
-            const panelHeight = Math.max(280, Math.round(data.height * 0.9));
-            return (
-                <div
-                    ref={stackRef}
-                    className={`history-version-panel absolute left-[3%] top-9 z-[100] flex w-[94%] flex-col rounded-[24px] border p-4 pt-7 shadow-2xl backdrop-blur-xl ${isClosing ? 'history-version-panel-closing' : 'history-version-panel-opening'} ${isDark ? 'border-zinc-700 bg-[#181818]/97' : 'border-gray-200 bg-white/97'}`}
-                    style={{ height: panelHeight }}
-                    onMouseDown={(event) => event.stopPropagation()}
-                >
+        return (
+            <>
+                {displaySrc && (
+                    <img
+                        src={displaySrc}
+                        className={`h-full w-full object-contain pointer-events-none ${isDark ? 'bg-[#09090b]' : 'bg-gray-50'}`}
+                        alt={previewedVersion ? `正在预览 V${previewVersionNumber}` : 'Generated'}
+                        draggable={false}
+                    />
+                )}
+                {previewedVersion && previewedVersion.url !== currentSrc && (
+                    <div className="absolute left-1/2 top-12 z-40 -translate-x-1/2 rounded-full border border-[#8F91F4]/40 bg-[#181818]/90 px-3 py-1.5 text-[11px] font-semibold text-[#E1E3FF] shadow-xl backdrop-blur-md">
+                        正在预览 V{previewVersionNumber}
+                    </div>
+                )}
+                {showBadge && (
                     <button
                         type="button"
-                        className={`absolute left-1/2 top-0 z-20 flex h-9 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border shadow-lg backdrop-blur-xl ${isDark ? 'border-zinc-600 bg-zinc-800 text-zinc-200 hover:bg-zinc-700' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-100'}`}
-                        title="收拢历史版本"
-                        aria-label="收拢历史版本"
+                        className="absolute left-1/2 top-2 z-30 flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-white/10 bg-black/40 px-2.5 py-1 text-[10px] font-semibold text-white shadow-lg backdrop-blur-md hover:bg-black/60"
                         onClick={(event) => {
                             event.stopPropagation();
-                            requestClose();
+                            updateData(data.id, { isStackOpen: true });
                         }}
                     >
-                        <Icons.ChevronDown size={18} className="rotate-180" />
+                        <span>V{currentVersionNumber}</span>
+                        <span className="text-zinc-300">· {imageVersionUrls.length}个版本</span>
+                        <Icons.ChevronRight size={11} className="text-zinc-400" />
                     </button>
-                    <div className="mb-3 flex items-center justify-between">
-                        <span className={`text-sm font-semibold ${isDark ? 'text-zinc-100' : 'text-gray-900'}`}>历史版本</span>
-                        <span className={`text-[10px] ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>{imageVersionUrls.length} 个版本</span>
-                    </div>
-                    <div className="custom-scrollbar grid flex-1 grid-cols-2 gap-3 overflow-y-auto pr-1">
-                        {imageVersionUrls.map((src, index) => {
-                            const version = getImageVersion(src);
-                            const isMain = src === currentSrc;
-                            const rotate = index % 2 === 0 ? -5 : 5;
-                            const delay = Math.min(index * 42, 252);
-                            return (
-                                <div
-                                    key={src + index}
-                                    className={`history-version-card group/card relative min-h-[150px] overflow-hidden rounded-2xl border ${isClosing ? 'history-version-card-closing' : 'history-version-card-opening'} ${isMain ? 'border-[#8F91F4] ring-1 ring-[#8F91F4]/40' : (isDark ? 'border-zinc-700 bg-black' : 'border-gray-200 bg-gray-50')}`}
-                                    style={{
-                                        '--history-card-rotate': `${rotate}deg`,
-                                        animationDelay: `${isClosing ? Math.max(0, 180 - delay / 2) : delay}ms`,
-                                    } as React.CSSProperties}
-                                >
-                                    <img src={src} className={`h-full w-full object-cover ${isDark ? 'bg-[#09090b]' : 'bg-gray-50'}`} draggable={false} />
-                                    <div className="absolute inset-x-0 top-0 flex items-start justify-between bg-gradient-to-b from-black/70 to-transparent p-2 pb-6">
-                                        <span className="rounded-md bg-black/55 px-2 py-1 text-[10px] font-semibold text-white backdrop-blur-md">{isMain ? '当前' : `版本 ${index + 1}`}</span>
-                                        <button
-                                            type="button"
-                                            className="flex h-7 items-center gap-1 rounded-lg border border-white/15 bg-black/55 px-2 text-[10px] font-semibold text-white backdrop-blur-md hover:bg-black/75"
-                                            title="展开大图"
-                                            onClick={(event) => {
-                                                event.stopPropagation();
-                                                onPreviewMedia?.(src, 'image');
-                                            }}
-                                        >
-                                            <Icons.Maximize2 size={12} />
-                                            展开
-                                        </button>
-                                    </div>
-                                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/55 to-transparent p-2 pt-8">
-                                        <button
-                                            type="button"
-                                            className="h-8 w-full rounded-lg bg-white text-xs font-bold text-zinc-900 shadow-lg hover:bg-zinc-100"
-                                            onClick={(event) => {
-                                                event.stopPropagation();
-                                                onUseImageVersion?.(data.id, version);
-                                                requestClose();
-                                            }}
-                                        >
-                                            使用
-                                        </button>
-                                    </div>
+                )}
+                {data.isStackOpen && (
+                    <div
+                        ref={stackRef}
+                        className={`history-version-drawer absolute left-[calc(100%+16px)] top-0 z-[120] flex w-[380px] max-w-[calc(100vw-48px)] flex-col overflow-hidden rounded-2xl border shadow-2xl backdrop-blur-xl ${isDark ? 'border-zinc-700 bg-[#181818]/97 text-zinc-100' : 'border-gray-200 bg-white/97 text-gray-900'}`}
+                        style={{ height: Math.max(440, data.height) }}
+                        onMouseDown={(event) => event.stopPropagation()}
+                        onMouseLeave={() => setPreviewedVersion(null)}
+                    >
+                        <div className={`flex items-start justify-between border-b px-4 py-4 ${isDark ? 'border-zinc-800' : 'border-gray-100'}`}>
+                            <div>
+                                <div className="text-sm font-semibold">历史版本</div>
+                                <div className={`mt-1 text-[11px] ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>
+                                    当前：V{currentVersionNumber} · 共 {imageVersionUrls.length} 个版本
                                 </div>
-                            );
-                        })}
+                            </div>
+                            <button
+                                type="button"
+                                className={`flex h-8 w-8 items-center justify-center rounded-lg ${isDark ? 'text-zinc-400 hover:bg-zinc-800 hover:text-white' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`}
+                                title="关闭历史版本"
+                                aria-label="关闭历史版本"
+                                onClick={(event) => {
+                                    event.stopPropagation();
+                                    closeStack();
+                                }}
+                            >
+                                <Icons.X size={17} />
+                            </button>
+                        </div>
+                        <div className="custom-scrollbar flex-1 space-y-3 overflow-y-auto p-3">
+                            {imageVersionUrls.map((src, index) => {
+                                const version = getImageVersion(src);
+                                const versionNumber = imageVersionUrls.length - index;
+                                const isCurrent = src === currentSrc;
+                                return (
+                                    <div
+                                        key={src + index}
+                                        className={`rounded-xl border p-2.5 transition-colors ${isCurrent
+                                            ? (isDark ? 'border-[#8F91F4]/70 bg-[#8F91F4]/10' : 'border-[#8F91F4] bg-[#F0F1FF]')
+                                            : (isDark ? 'border-zinc-800 bg-black/20 hover:border-zinc-700 hover:bg-white/[0.04]' : 'border-gray-200 bg-gray-50/70 hover:border-gray-300 hover:bg-white')
+                                        }`}
+                                        onMouseEnter={() => setPreviewedVersion(version)}
+                                        onMouseLeave={() => setPreviewedVersion(null)}
+                                    >
+                                        <div className="mb-2 flex items-center justify-between gap-2">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-sm font-bold">V{versionNumber}</span>
+                                                {isCurrent && (
+                                                    <span className={`rounded-full px-2 py-0.5 text-[9px] font-semibold ${isDark ? 'bg-[#8F91F4]/20 text-[#C7C8FF]' : 'bg-[#E1E3FF] text-[#3739B0]'}`}>
+                                                        当前使用中
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <span className={`text-[10px] ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>{formatVersionTime(version.createdAt)}</span>
+                                        </div>
+                                        <div className="flex gap-3">
+                                            <img src={src} className={`h-[92px] w-[112px] shrink-0 rounded-lg object-cover ${isDark ? 'bg-black' : 'bg-gray-100'}`} draggable={false} />
+                                            <div className="min-w-0 flex-1">
+                                                <div className={`truncate text-[11px] font-medium ${isDark ? 'text-zinc-300' : 'text-gray-700'}`}>
+                                                    {version.model} · {version.aspectRatio}
+                                                </div>
+                                                <p
+                                                    className={`mt-2 overflow-hidden text-[11px] leading-5 ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}
+                                                    style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}
+                                                    title={version.prompt || '无提示词'}
+                                                >
+                                                    提示词：{version.prompt || '无提示词'}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="mt-2.5 flex items-center justify-end gap-2">
+                                            <button
+                                                type="button"
+                                                className={`h-7 rounded-lg px-2.5 text-[10px] font-semibold ${isDark ? 'bg-zinc-800 text-zinc-200 hover:bg-zinc-700' : 'border border-gray-200 bg-white text-gray-700 hover:bg-gray-100'}`}
+                                                onClick={(event) => {
+                                                    event.stopPropagation();
+                                                    onPreviewMedia?.(src, 'image');
+                                                }}
+                                            >
+                                                预览
+                                            </button>
+                                            {!isCurrent && (
+                                                <button
+                                                    type="button"
+                                                    className={`h-7 rounded-lg px-2.5 text-[10px] font-semibold ${isDark ? 'bg-zinc-800 text-zinc-200 hover:bg-zinc-700' : 'border border-gray-200 bg-white text-gray-700 hover:bg-gray-100'}`}
+                                                    onClick={(event) => {
+                                                        event.stopPropagation();
+                                                        setPreviewedVersion(null);
+                                                        onSetImageVersion?.(data.id, version);
+                                                    }}
+                                                >
+                                                    设为当前
+                                                </button>
+                                            )}
+                                            <button
+                                                type="button"
+                                                className="h-7 rounded-lg bg-[#4446CE] px-3 text-[10px] font-semibold text-white hover:bg-[#5557DB]"
+                                                onClick={(event) => {
+                                                    event.stopPropagation();
+                                                    onUseImageVersion?.(data.id, version);
+                                                    closeStack();
+                                                }}
+                                            >
+                                                使用
+                                            </button>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
                     </div>
-                </div>
-            );
-        }
+                )}
+            </>
+        );
+    }
 
+    if (data.isStackOpen) {
         return (
             <div ref={stackRef} className={`absolute left-1/2 top-10 z-[100] w-[560px] max-w-[calc(100vw-48px)] -translate-x-1/2 rounded-2xl border p-3 shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-200 ${isDark ? 'border-zinc-700 bg-[#181818]/95' : 'border-gray-200 bg-white/95'}`} onMouseDown={(event) => event.stopPropagation()}>
                 <div className="mb-2 flex items-center justify-between">
