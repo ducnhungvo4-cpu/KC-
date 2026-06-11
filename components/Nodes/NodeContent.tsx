@@ -87,7 +87,7 @@ export const NodeContent = memo(NodeContentComponent, (prev, next) => {
         if (prev.inputMedia?.length !== next.inputMedia?.length) return false;
         if (prev.inputMedia && next.inputMedia) {
             for (let i = 0; i < prev.inputMedia.length; i++) {
-                if (prev.inputMedia[i].type !== next.inputMedia[i].type || prev.inputMedia[i].url !== next.inputMedia[i].url) return false;
+                if (prev.inputMedia[i].type !== next.inputMedia[i].type || prev.inputMedia[i].url !== next.inputMedia[i].url || prev.inputMedia[i].auditStatus !== next.inputMedia[i].auditStatus) return false;
             }
         }
     }

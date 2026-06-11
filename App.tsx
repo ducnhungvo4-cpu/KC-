@@ -743,16 +743,6 @@ const CanvasWithSidebar: React.FC = () => {
   // Quick Add Menu State
   const [quickAddMenu, setQuickAddMenu] = useState<{ sourceId: string, x: number, y: number, worldX: number, worldY: number, direction?: 'forward' | 'backward' } | null>(null);
 
-  // Seedance audit states per node
-  const [auditStates, setAuditStates] = useState<Record<string, 'auditing' | 'passed'>>({});
-
-  const handleSeedanceAudit = (nodeId: string) => {
-    setAuditStates(prev => ({ ...prev, [nodeId]: 'auditing' }));
-    setTimeout(() => {
-      setAuditStates(prev => ({ ...prev, [nodeId]: 'passed' }));
-    }, 3000);
-  };
-
   const [contextMenu, setContextMenu] = useState<{ 
       type: 'CANVAS' | 'NODE', 
       nodeId?: string, 
@@ -812,10 +802,10 @@ const CanvasWithSidebar: React.FC = () => {
             .map(c => nodes.find(n => n.id === c.sourceId))
             .filter((n): n is NodeData => Boolean(n && (n.imageSrc || n.videoSrc || n.prompt || n.optimizedPrompt)))
             .map(n => {
-                if (n.videoSrc) return { type: 'video', url: n.videoSrc, title: n.title } satisfies InputMedia;
-                if (n.imageSrc) return { type: 'image', url: n.imageSrc, title: n.title } satisfies InputMedia;
+                if (n.videoSrc) return { type: 'video', url: n.videoSrc, title: n.title, sourceId: n.id } satisfies InputMedia;
+                if (n.imageSrc) return { type: 'image', url: n.imageSrc, title: n.title, sourceId: n.id, auditStatus: n.auditStatus } satisfies InputMedia;
                 const text = n.optimizedPrompt || n.prompt || '';
-                return { type: 'text', url: `text://${n.id}`, text, title: n.title } satisfies InputMedia;
+                return { type: 'text', url: `text://${n.id}`, text, title: n.title, sourceId: n.id } satisfies InputMedia;
             });
     });
     return map;
@@ -1467,6 +1457,15 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
     setNodes(prev => prev.map(n => n.id === id ? { ...n, ...updates } : n));
   }, []);
 
+  // Seedance 2.0 compliance audit. Status lives on the image node's data (single source
+  // of truth) so it flows through inputMediaMap to the video node's reference thumbnails.
+  const handleSeedanceAudit = useCallback((nodeId: string) => {
+    updateNodeData(nodeId, { auditStatus: 'auditing' });
+    setTimeout(() => {
+      updateNodeData(nodeId, { auditStatus: 'passed' });
+    }, 3000);
+  }, [updateNodeData]);
+
   const getEstimatedCredits = (node: NodeData) => {
       const count = node.count || 1;
       if (node.type === NodeType.TEXT_TO_VIDEO || node.type === NodeType.START_END_TO_VIDEO) return 14 * count;
@@ -1546,7 +1545,20 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
     updateNodeData(nodeId, { isLoading: true, errorMessage: undefined, creditEstimate, creditStatus: 'reserved' });
     
     const inputs = getInputImages(node.id);
-    
+
+    // Image-to-video compliance gate: when generating a video from upstream image nodes,
+    // auto-submit each reference image node for Seedance 2.0 audit.
+    const isVideoNode = node.type === NodeType.TEXT_TO_VIDEO
+        || node.type === NodeType.IMAGE_TO_VIDEO
+        || node.type === NodeType.START_END_TO_VIDEO;
+    if (isVideoNode) {
+        connections
+            .filter(c => c.targetId === node.id)
+            .map(c => nodes.find(n => n.id === c.sourceId))
+            .filter((n): n is NodeData => Boolean(n && n.imageSrc))
+            .forEach(n => handleSeedanceAudit(n.id));
+    }
+
     // Debug: Log input images for troubleshooting
     console.log(`[Generation] Node: ${node.title} (${node.type}), Input Images:`, inputs.length > 0 ? inputs.map(i => i.substring(0, 50) + '...') : 'None');
 
@@ -4087,7 +4099,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                         onAddToAssetLibrary={handleOpenAssetSelection}
                         scale={transform.k}
                         isDark={isDark}
-                        auditState={auditStates[node.id]}
+                        auditState={node.auditStatus}
                     >
                         <NodeContent 
                             data={node} 

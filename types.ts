@@ -41,6 +41,7 @@ export interface NodeData {
   isLoading?: boolean;
   errorMessage?: string;
   isStackOpen?: boolean; // UI State for expanded gallery
+  auditStatus?: 'auditing' | 'passed'; // Seedance 2.0 compliance audit status
   
   // Configs
   aspectRatio?: string;
@@ -141,6 +142,8 @@ export interface InputMedia {
   url: string;
   text?: string;
   title?: string;
+  sourceId?: string; // upstream source node id (for audit-status lookup on thumbnails)
+  auditStatus?: 'auditing' | 'passed'; // Seedance 2.0 compliance audit status of the source node
 }
 
 export interface MaterialLibraryItem {

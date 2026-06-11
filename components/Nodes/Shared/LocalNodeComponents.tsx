@@ -354,6 +354,25 @@ export const LocalThumbnailItem = memo(({ item, index, isDark, onPreview }: { it
             <div className="absolute inset-0 bg-black/0 group-hover/thumb:bg-black/20 transition-colors" />
             <Icons.Maximize2 size={12} className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white opacity-0 group-hover/thumb:opacity-100 transition-opacity drop-shadow" />
             <div className="absolute top-0 right-0 bg-black/60 backdrop-blur-sm text-white text-[9px] font-bold px-1.5 rounded-bl z-10">{index + 1}</div>
+            {item.type === 'image' && item.auditStatus && (
+                <div className="absolute bottom-0 left-0 z-20" title={item.auditStatus === 'auditing' ? '合规审核中' : '合规审核通过'}>
+                    {item.auditStatus === 'auditing' ? (
+                        <div className="m-0.5 w-4 h-4 rounded-full bg-zinc-900/85 border border-zinc-600 flex items-center justify-center shadow">
+                            <svg className="w-2.5 h-2.5 animate-spin text-zinc-300" viewBox="0 0 24 24" fill="none">
+                                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeDasharray="40 20"/>
+                            </svg>
+                        </div>
+                    ) : (
+                        <div className="m-0.5 w-4 h-4 rounded-full bg-emerald-500/25 border border-emerald-400/70 flex items-center justify-center shadow">
+                            <svg viewBox="0 0 24 24" fill="none" className="w-3 h-3 text-emerald-400">
+                                <path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.25C17.25 22.15 21 17.25 21 12V7L12 2z" fill="currentColor" opacity="0.3"/>
+                                <path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.25C17.25 22.15 21 17.25 21 12V7L12 2z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+                                <path d="M9 12l2 2 4-4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                        </div>
+                    )}
+                </div>
+            )}
         </button>
     );
 });
@@ -502,7 +521,7 @@ export const LocalMediaStack: React.FC<{
                 {showBadge && (
                     <button
                         type="button"
-                        className="absolute left-1/2 top-2 z-30 flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-white/10 bg-black/40 px-2.5 py-1 text-[10px] font-semibold text-white shadow-lg backdrop-blur-md hover:bg-black/60"
+                        className="absolute left-1/2 top-0 z-[90] flex -translate-x-1/2 -translate-y-1/2 items-center gap-1.5 rounded-full border border-white/10 bg-black/50 px-2.5 py-1 text-[10px] font-semibold text-white shadow-lg backdrop-blur-md hover:bg-black/70"
                         onClick={(event) => {
                             event.stopPropagation();
                             updateData(data.id, { isStackOpen: true });
