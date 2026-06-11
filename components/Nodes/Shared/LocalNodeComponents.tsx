@@ -354,25 +354,6 @@ export const LocalThumbnailItem = memo(({ item, index, isDark, onPreview }: { it
             <div className="absolute inset-0 bg-black/0 group-hover/thumb:bg-black/20 transition-colors" />
             <Icons.Maximize2 size={12} className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white opacity-0 group-hover/thumb:opacity-100 transition-opacity drop-shadow" />
             <div className="absolute top-0 right-0 bg-black/60 backdrop-blur-sm text-white text-[9px] font-bold px-1.5 rounded-bl z-10">{index + 1}</div>
-            {item.type === 'image' && item.auditStatus && (
-                <div className="absolute bottom-0 left-0 z-20" title={item.auditStatus === 'auditing' ? '合规审核中' : '合规审核通过'}>
-                    {item.auditStatus === 'auditing' ? (
-                        <div className="m-0.5 w-4 h-4 rounded-full bg-zinc-900/85 border border-zinc-600 flex items-center justify-center shadow">
-                            <svg className="w-2.5 h-2.5 animate-spin text-zinc-300" viewBox="0 0 24 24" fill="none">
-                                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeDasharray="40 20"/>
-                            </svg>
-                        </div>
-                    ) : (
-                        <div className="m-0.5 w-4 h-4 rounded-full bg-emerald-500/25 border border-emerald-400/70 flex items-center justify-center shadow">
-                            <svg viewBox="0 0 24 24" fill="none" className="w-3 h-3 text-emerald-400">
-                                <path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.25C17.25 22.15 21 17.25 21 12V7L12 2z" fill="currentColor" opacity="0.3"/>
-                                <path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.25C17.25 22.15 21 17.25 21 12V7L12 2z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
-                                <path d="M9 12l2 2 4-4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                        </div>
-                    )}
-                </div>
-            )}
         </button>
     );
 });
@@ -436,14 +417,16 @@ export const LocalMediaStack: React.FC<{
     onPreviewMedia?: (src: string, type: 'image' | 'video') => void,
     onSetImageVersion?: (nodeId: string, version: ImageVersionSnapshot) => void,
     onUseImageVersion?: (nodeId: string, version: ImageVersionSnapshot) => void,
+    onUseVideoVersion?: (nodeId: string, src: string) => void,
 }> = ({
-    data, updateData, currentSrc, isDark = true, selected, onPreviewMedia, onSetImageVersion, onUseImageVersion
+    data, updateData, currentSrc, isDark = true, selected, onPreviewMedia, onSetImageVersion, onUseImageVersion, onUseVideoVersion
 }) => {
     const stackRef = useRef<HTMLDivElement>(null);
     const [previewedVersion, setPreviewedVersion] = useState<ImageVersionSnapshot | null>(null);
     const artifacts = data.outputArtifacts || [];
     const sortedArtifacts = currentSrc ? [currentSrc, ...artifacts.filter(a => a !== currentSrc)] : artifacts;
     const isImageHistory = data.type === NodeType.TEXT_TO_IMAGE;
+    const isVideoHistory = data.type === NodeType.TEXT_TO_VIDEO || data.type === NodeType.START_END_TO_VIDEO;
     const imageVersionUrls = artifacts.length > 0 ? artifacts : (currentSrc ? [currentSrc] : []);
     const showBadge = !!selected && !data.isStackOpen && artifacts.length > 1;
     const snapshotByUrl = new Map<string, ImageVersionSnapshot>(
@@ -536,9 +519,6 @@ export const LocalMediaStack: React.FC<{
                         <div className={`flex items-start justify-between border-b px-4 py-4 ${isDark ? 'border-zinc-800' : 'border-gray-100'}`}>
                             <div>
                                 <div className="text-sm font-semibold">历史版本</div>
-                                <div className={`mt-1 text-[11px] ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>
-                                    当前：V{currentVersionNumber} · 共 {imageVersionUrls.length} 个版本
-                                </div>
                             </div>
                             <button
                                 type="button"
@@ -557,53 +537,30 @@ export const LocalMediaStack: React.FC<{
                             {imageVersionUrls.map((src, index) => {
                                 const version = getImageVersion(src);
                                 const versionNumber = imageVersionUrls.length - index;
-                                const isCurrent = src === currentSrc;
+                                // History excludes the version currently shown on the node.
+                                if (src === currentSrc) return null;
                                 return (
                                     <div
                                         key={src + index}
-                                        className={`relative overflow-hidden rounded-xl border transition-colors ${isCurrent
-                                            ? (isDark ? 'border-[#8F91F4]/70 bg-[#8F91F4]/10' : 'border-[#8F91F4] bg-[#F0F1FF]')
-                                            : (isDark ? 'border-zinc-800 bg-black/20 hover:border-zinc-700 hover:bg-white/[0.04]' : 'border-gray-200 bg-gray-50/70 hover:border-gray-300 hover:bg-white')
-                                        }`}
+                                        className={`relative overflow-hidden rounded-xl border transition-colors ${isDark ? 'border-zinc-800 bg-black/20 hover:border-zinc-700 hover:bg-white/[0.04]' : 'border-gray-200 bg-gray-50/70 hover:border-gray-300 hover:bg-white'}`}
                                         onMouseEnter={() => setPreviewedVersion(version)}
                                         onMouseLeave={() => setPreviewedVersion(null)}
                                     >
-                                        <div className={`relative aspect-[4/3] w-full ${isDark ? 'bg-black' : 'bg-gray-100'}`}>
+                                        <div
+                                            className={`relative aspect-[4/3] w-full cursor-zoom-in ${isDark ? 'bg-black' : 'bg-gray-100'}`}
+                                            title="点击查看大图"
+                                            onClick={(event) => {
+                                                event.stopPropagation();
+                                                onPreviewMedia?.(src, 'image');
+                                            }}
+                                        >
                                             <img src={src} className="h-full w-full object-contain" draggable={false} />
                                             <div className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-black/70 to-transparent" />
                                             <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/80 to-transparent" />
                                             <span className="absolute left-3 top-3 rounded-full border border-white/15 bg-black/55 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-md">
                                                 V{versionNumber}
                                             </span>
-                                            {isCurrent && (
-                                                <span className="absolute right-3 top-3 rounded-full border border-[#B9BAFF]/25 bg-[#4446CE]/75 px-2.5 py-1 text-[10px] font-semibold text-white backdrop-blur-md">
-                                                    当前使用中
-                                                </span>
-                                            )}
                                             <div className="absolute inset-x-3 bottom-3 flex items-center justify-end gap-2">
-                                                <button
-                                                    type="button"
-                                                    className="h-8 rounded-lg border border-white/15 bg-black/55 px-3 text-[11px] font-semibold text-white backdrop-blur-md hover:bg-black/75"
-                                                    onClick={(event) => {
-                                                        event.stopPropagation();
-                                                        onPreviewMedia?.(src, 'image');
-                                                    }}
-                                                >
-                                                    预览
-                                                </button>
-                                                {!isCurrent && (
-                                                    <button
-                                                        type="button"
-                                                        className="h-8 rounded-lg border border-white/15 bg-black/55 px-3 text-[11px] font-semibold text-white backdrop-blur-md hover:bg-black/75"
-                                                        onClick={(event) => {
-                                                            event.stopPropagation();
-                                                            setPreviewedVersion(null);
-                                                            onSetImageVersion?.(data.id, version);
-                                                        }}
-                                                    >
-                                                        设为当前
-                                                    </button>
-                                                )}
                                                 <button
                                                     type="button"
                                                     className="h-8 rounded-lg bg-[#4446CE] px-3.5 text-[11px] font-semibold text-white shadow-lg hover:bg-[#5557DB]"
@@ -613,7 +570,105 @@ export const LocalMediaStack: React.FC<{
                                                         closeStack();
                                                     }}
                                                 >
-                                                    使用
+                                                    复制并新建
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+            </>
+        );
+    }
+
+    if (isVideoHistory && (artifacts.length > 0 || currentSrc)) {
+        const videoUrls = artifacts.length > 0 ? artifacts : (currentSrc ? [currentSrc] : []);
+        const currentIndex = Math.max(0, videoUrls.findIndex(url => url === currentSrc));
+        const currentVersionNumber = Math.max(1, videoUrls.length - currentIndex);
+        return (
+            <>
+                {currentSrc && <VideoPreview src={currentSrc} isDark={isDark || false} />}
+                {showBadge && (
+                    <button
+                        type="button"
+                        className="absolute left-1/2 top-3 z-[90] flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-white/10 bg-black/50 px-2.5 py-1 text-[10px] font-semibold text-white shadow-lg backdrop-blur-md hover:bg-black/70"
+                        onClick={(event) => {
+                            event.stopPropagation();
+                            updateData(data.id, { isStackOpen: true });
+                        }}
+                    >
+                        <span>V{currentVersionNumber}</span>
+                        <span className="text-zinc-300">· {videoUrls.length}个版本</span>
+                        <Icons.ChevronRight size={11} className="text-zinc-400" />
+                    </button>
+                )}
+                {data.isStackOpen && (
+                    <div
+                        ref={stackRef}
+                        className={`history-version-drawer absolute left-[calc(100%+16px)] top-0 z-[120] flex w-[420px] max-w-[calc(100vw-48px)] flex-col overflow-hidden rounded-2xl border shadow-2xl backdrop-blur-xl ${isDark ? 'border-zinc-700 bg-[#181818]/97 text-zinc-100' : 'border-gray-200 bg-white/97 text-gray-900'}`}
+                        style={{ height: Math.max(440, data.height) }}
+                        data-canvas-wheel-pass-through="true"
+                        onMouseDown={(event) => event.stopPropagation()}
+                        onWheelCapture={(event) => event.stopPropagation()}
+                    >
+                        <div className={`flex items-start justify-between border-b px-4 py-4 ${isDark ? 'border-zinc-800' : 'border-gray-100'}`}>
+                            <div>
+                                <div className="text-sm font-semibold">历史版本</div>
+                            </div>
+                            <button
+                                type="button"
+                                className={`flex h-8 w-8 items-center justify-center rounded-lg ${isDark ? 'text-zinc-400 hover:bg-zinc-800 hover:text-white' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`}
+                                title="关闭历史版本"
+                                aria-label="关闭历史版本"
+                                onClick={(event) => {
+                                    event.stopPropagation();
+                                    closeStack();
+                                }}
+                            >
+                                <Icons.X size={17} />
+                            </button>
+                        </div>
+                        <div className="custom-scrollbar flex-1 space-y-3 overflow-y-auto overscroll-contain p-3">
+                            {videoUrls.map((src, index) => {
+                                const versionNumber = videoUrls.length - index;
+                                // History excludes the version currently shown on the node.
+                                if (src === currentSrc) return null;
+                                return (
+                                    <div
+                                        key={src + index}
+                                        className={`relative overflow-hidden rounded-xl border transition-colors ${isDark ? 'border-zinc-800 bg-black/20 hover:border-zinc-700 hover:bg-white/[0.04]' : 'border-gray-200 bg-gray-50/70 hover:border-gray-300 hover:bg-white'}`}
+                                    >
+                                        <div
+                                            className={`relative aspect-video w-full cursor-zoom-in ${isDark ? 'bg-black' : 'bg-gray-100'}`}
+                                            title="点击查看视频"
+                                            onClick={(event) => {
+                                                event.stopPropagation();
+                                                onPreviewMedia?.(src, 'video');
+                                            }}
+                                        >
+                                            <video src={src} className="h-full w-full object-contain" muted playsInline preload="metadata" />
+                                            <div className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-black/70 to-transparent" />
+                                            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/80 to-transparent" />
+                                            <span className="absolute left-3 top-3 rounded-full border border-white/15 bg-black/55 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-md">
+                                                V{versionNumber}
+                                            </span>
+                                            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                                                <Icons.Play size={26} className="text-white/85 drop-shadow" fill="currentColor" />
+                                            </div>
+                                            <div className="absolute inset-x-3 bottom-3 flex items-center justify-end gap-2">
+                                                <button
+                                                    type="button"
+                                                    className="h-8 rounded-lg bg-[#4446CE] px-3.5 text-[11px] font-semibold text-white shadow-lg hover:bg-[#5557DB]"
+                                                    onClick={(event) => {
+                                                        event.stopPropagation();
+                                                        onUseVideoVersion?.(data.id, src);
+                                                        closeStack();
+                                                    }}
+                                                >
+                                                    复制并新建
                                                 </button>
                                             </div>
                                         </div>

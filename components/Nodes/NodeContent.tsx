@@ -18,6 +18,7 @@ interface NodeContentProps {
   onPreviewMedia?: (url: string, type: 'image' | 'video') => void;
   onSetImageVersion?: (nodeId: string, version: ImageVersionSnapshot) => void;
   onUseImageVersion?: (nodeId: string, version: ImageVersionSnapshot) => void;
+  onUseVideoVersion?: (nodeId: string, src: string) => void;
   onDownload?: (id: string) => void;
   onUpload?: (nodeId: string) => void;
   onSaveResult?: (nodeId: string) => void;
@@ -87,7 +88,7 @@ export const NodeContent = memo(NodeContentComponent, (prev, next) => {
         if (prev.inputMedia?.length !== next.inputMedia?.length) return false;
         if (prev.inputMedia && next.inputMedia) {
             for (let i = 0; i < prev.inputMedia.length; i++) {
-                if (prev.inputMedia[i].type !== next.inputMedia[i].type || prev.inputMedia[i].url !== next.inputMedia[i].url || prev.inputMedia[i].auditStatus !== next.inputMedia[i].auditStatus) return false;
+                if (prev.inputMedia[i].type !== next.inputMedia[i].type || prev.inputMedia[i].url !== next.inputMedia[i].url) return false;
             }
         }
     }

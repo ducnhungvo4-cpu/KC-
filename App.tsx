@@ -802,10 +802,10 @@ const CanvasWithSidebar: React.FC = () => {
             .map(c => nodes.find(n => n.id === c.sourceId))
             .filter((n): n is NodeData => Boolean(n && (n.imageSrc || n.videoSrc || n.prompt || n.optimizedPrompt)))
             .map(n => {
-                if (n.videoSrc) return { type: 'video', url: n.videoSrc, title: n.title, sourceId: n.id } satisfies InputMedia;
-                if (n.imageSrc) return { type: 'image', url: n.imageSrc, title: n.title, sourceId: n.id, auditStatus: n.auditStatus } satisfies InputMedia;
+                if (n.videoSrc) return { type: 'video', url: n.videoSrc, title: n.title } satisfies InputMedia;
+                if (n.imageSrc) return { type: 'image', url: n.imageSrc, title: n.title } satisfies InputMedia;
                 const text = n.optimizedPrompt || n.prompt || '';
-                return { type: 'text', url: `text://${n.id}`, text, title: n.title, sourceId: n.id } satisfies InputMedia;
+                return { type: 'text', url: `text://${n.id}`, text, title: n.title } satisfies InputMedia;
             });
     });
     return map;
@@ -1457,12 +1457,13 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
     setNodes(prev => prev.map(n => n.id === id ? { ...n, ...updates } : n));
   }, []);
 
-  // Seedance 2.0 compliance audit. Status lives on the image node's data (single source
-  // of truth) so it flows through inputMediaMap to the video node's reference thumbnails.
+  // Seedance 2.0 compliance audit (mock). Status lives on the node's data so it drives
+  // the node's own corner badge / red outline. Without a real audit backend, the result
+  // is randomized after a short delay to demo both pass and fail states.
   const handleSeedanceAudit = useCallback((nodeId: string) => {
     updateNodeData(nodeId, { auditStatus: 'auditing' });
     setTimeout(() => {
-      updateNodeData(nodeId, { auditStatus: 'passed' });
+      updateNodeData(nodeId, { auditStatus: Math.random() < 0.5 ? 'passed' : 'failed' });
     }, 3000);
   }, [updateNodeData]);
 
@@ -1785,6 +1786,37 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
           projectId: source.projectId || currentProject?.id || DEMO_PROJECT_META.id,
           canvasId: source.canvasId,
           directorGroupName: source.directorGroupName || currentProject?.directorGroup || DEMO_PROJECT_META.directorGroup,
+      };
+
+      setNodes(prev => [...prev, newNode]);
+      setSelectedNodeIds(new Set([newNode.id]));
+  };
+
+  // "复制并新建" for video history versions: clone the source video node to the right,
+  // keeping all generation params, with the chosen version as its active result.
+  const handleUseVideoVersion = (nodeId: string, src: string) => {
+      const source = nodes.find(node => node.id === nodeId);
+      if (!source) return;
+
+      let x = source.x + source.width + 80;
+      let y = source.y;
+      while (nodes.some(node =>
+          Math.abs(node.x - x) < 48 &&
+          Math.abs(node.y - y) < 48
+      )) {
+          y += 56;
+      }
+
+      const newNode: NodeData = {
+          ...source,
+          id: generateId(),
+          x,
+          y,
+          videoSrc: src,
+          outputArtifacts: [src],
+          isStackOpen: false,
+          isLoading: false,
+          auditStatus: undefined,
       };
 
       setNodes(prev => [...prev, newNode]);
@@ -4088,6 +4120,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                             onPreviewMedia={handleHistoryPreview}
                             onSetImageVersion={handleSetImageVersion}
                             onUseImageVersion={handleUseImageVersion}
+                            onUseVideoVersion={handleUseVideoVersion}
                             onDownload={handleDownload}
                             onUpload={triggerReplaceImage}
                             onSaveResult={openSaveResultModal}
