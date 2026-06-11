@@ -495,14 +495,15 @@ export const LocalMediaStack: React.FC<{
                 {showBadge && (
                     <button
                         type="button"
-                        className="absolute left-1/2 top-3 z-[90] flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-white/10 bg-black/50 px-2.5 py-1 text-[10px] font-semibold text-white shadow-lg backdrop-blur-md hover:bg-black/70"
+                        className="absolute bottom-3 right-3 z-[90] flex items-center gap-1.5 rounded-lg border border-white/10 bg-black/55 px-2.5 py-1.5 text-[10px] font-semibold text-white shadow-lg backdrop-blur-md hover:bg-black/75"
                         onClick={(event) => {
                             event.stopPropagation();
                             updateData(data.id, { isStackOpen: true });
                         }}
                     >
-                        <span>V{currentVersionNumber}</span>
-                        <span className="text-zinc-300">· {imageVersionUrls.length}个版本</span>
+                        <Icons.Clock size={12} />
+                        <span>历史记录</span>
+                        <span className="text-zinc-300">{imageVersionUrls.length}</span>
                         <Icons.ChevronRight size={11} className="text-zinc-400" />
                     </button>
                 )}
@@ -518,13 +519,13 @@ export const LocalMediaStack: React.FC<{
                     >
                         <div className={`flex items-start justify-between border-b px-4 py-4 ${isDark ? 'border-zinc-800' : 'border-gray-100'}`}>
                             <div>
-                                <div className="text-sm font-semibold">历史版本</div>
+                                <div className="text-sm font-semibold">历史记录</div>
                             </div>
                             <button
                                 type="button"
                                 className={`flex h-8 w-8 items-center justify-center rounded-lg ${isDark ? 'text-zinc-400 hover:bg-zinc-800 hover:text-white' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`}
-                                title="关闭历史版本"
-                                aria-label="关闭历史版本"
+                                title="关闭历史记录"
+                                aria-label="关闭历史记录"
                                 onClick={(event) => {
                                     event.stopPropagation();
                                     closeStack();

@@ -278,6 +278,7 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
     };
 
     const hasResult = !!data.imageSrc && !data.isLoading;
+    const isExclusiveEditorOpen = isAngleEditorOpen || isLightingOpen;
     const creditLabel = data.creditStatus === 'reserved'
         ? '已预扣'
         : data.creditStatus === 'confirmed'
@@ -392,7 +393,7 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
              )}
         </div>
 
-        {isSelectedAndStable && showControls && hasResult && (
+        {isSelectedAndStable && showControls && hasResult && !isExclusiveEditorOpen && (
             <div className="absolute bottom-full left-1/2 mb-8 z-[75] flex flex-col items-center gap-2 pointer-events-none" style={topToolbarTransform}>
                 {/* Multi-grid dropdown */}
                 {/* Main toolbar */}
@@ -423,65 +424,57 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
         {/* Control Panel */}
         {isSelectedAndStable && showControls && (
             <div className="absolute top-full left-1/2 min-w-[520px] pt-4 z-[70] pointer-events-auto" style={panelTransform} onMouseDown={(e) => e.stopPropagation()}>
-                 {inputMedia.length > 0 && <LocalInputThumbnails inputs={inputs} items={inputMedia} ready={deferredInputs} isDark={isDark} onPreview={onPreviewReference} />}
-                 <div className={`${controlPanelBg} rounded-2xl p-4 flex flex-col gap-3 border`}>
-                      {/* Prompt Input */}
-                      <LocalPromptTextarea
-                          className={`w-full border rounded-xl px-4 py-3 text-sm leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-[#4446CE]/20 min-h-[72px] transition-all ${inputBg}`}
-                          placeholder="描述你想要生成的图片..."
-                          value={data.prompt || ''}
-                          onChange={(value) => updateData(data.id, { prompt: value })}
-                          isDark={isDark}
-                          expandedTitle="编辑图片提示词"
-                      />
-                      
-                      {/* Parameters Row - All in one line */}
-                      <div className="flex items-center gap-2">
-                          <LocalCustomDropdown 
-                              options={imageModels} 
-                              value={data.model || 'Seedream 5.0'} 
-                              onChange={(val: any) => updateData(data.id, { model: val })} 
-                              isOpen={activeDropdown === 'model'} 
-                              onToggle={() => setActiveDropdown(activeDropdown === 'model' ? null : 'model')} 
-                              onClose={() => setActiveDropdown(null)} 
-                              align="left" 
-                              width="w-[130px]" 
-                              isDark={isDark} 
-                          />
-                          <LocalCustomDropdown icon={Icons.Crop} options={supportedRatios} value={data.aspectRatio || '1:1'} onChange={handleRatioChange} isOpen={activeDropdown === 'ratio'} onToggle={() => setActiveDropdown(activeDropdown === 'ratio' ? null : 'ratio')} onClose={() => setActiveDropdown(null)} isDark={isDark} />
-                          <LocalCustomDropdown icon={Icons.Monitor} options={supportedResolutions} value={data.resolution || '1k'} onChange={(val: any) => updateData(data.id, { resolution: val })} isOpen={activeDropdown === 'res'} onToggle={() => setActiveDropdown(activeDropdown === 'res' ? null : 'res')} onClose={() => setActiveDropdown(null)} disabledOptions={['1k', '2k', '4k'].filter(r => !supportedResolutions.includes(r))} isDark={isDark} />
-                          <LocalCustomDropdown icon={Icons.Layers} options={[1, 2, 3, 4]} value={data.count || 1} onChange={(val: any) => updateData(data.id, { count: val })} isOpen={activeDropdown === 'count'} onToggle={() => setActiveDropdown(activeDropdown === 'count' ? null : 'count')} onClose={() => setActiveDropdown(null)} isDark={isDark} />
-                          
-                          {/* Spacer */}
-                          <div className="flex-1" />
+                  {!isExclusiveEditorOpen && inputMedia.length > 0 && <LocalInputThumbnails inputs={inputs} items={inputMedia} ready={deferredInputs} isDark={isDark} onPreview={onPreviewReference} />}
+                  <div className={isExclusiveEditorOpen ? 'flex flex-col' : `${controlPanelBg} rounded-2xl p-4 flex flex-col gap-3 border`}>
+                       {!isExclusiveEditorOpen && (
+                           <>
+                               {/* Prompt Input */}
+                               <LocalPromptTextarea
+                                   className={`w-full border rounded-xl px-4 py-3 text-sm leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-[#4446CE]/20 min-h-[72px] transition-all ${inputBg}`}
+                                   placeholder="描述你想要生成的图片..."
+                                   value={data.prompt || ''}
+                                   onChange={(value) => updateData(data.id, { prompt: value })}
+                                   isDark={isDark}
+                                   expandedTitle="编辑图片提示词"
+                               />
 
-                          <div className={`hidden sm:flex h-8 items-center rounded-lg border px-2.5 text-[11px] font-semibold whitespace-nowrap ${
-                              data.creditStatus === 'confirmed'
-                                  ? (isDark ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300' : 'border-emerald-100 bg-emerald-50 text-emerald-700')
-                                  : data.creditStatus === 'reserved'
-                                      ? (isDark ? 'border-[#4446CE]/20 bg-[#4446CE]/10 text-[#B9BAFF]' : 'border-[#E1E3FF] bg-[#F0F1FF] text-[#3739B0]')
-                                      : data.creditStatus === 'refunded'
-                                          ? (isDark ? 'border-zinc-700 bg-zinc-800 text-zinc-300' : 'border-gray-200 bg-gray-50 text-gray-600')
-                                          : (isDark ? 'border-zinc-700 bg-zinc-900/60 text-zinc-400' : 'border-gray-200 bg-gray-50 text-gray-500')
-                          }`}>
-                              {baseGenerateCredits}分
-                          </div>
-                          
-                          {/* Generate Button */}
-                          <button 
-                              onClick={() => onGenerate(data.id)} 
-                              disabled={data.isLoading || !isConfigured}
-                              title={!isConfigured ? '请在设置中配置 API Key' : (hasResult ? '基于当前参数生成一个新版本' : '开始生成')}
-                              className={`shrink-0 h-8 px-4 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 whitespace-nowrap transition-all active:scale-[0.98] ${
-                                  data.isLoading || !isConfigured 
-                                      ? 'bg-gray-400 text-white cursor-not-allowed' 
-                                      : 'bg-gradient-to-r from-[#4446CE] to-[#4446CE] hover:from-[#4446CE] hover:to-[#8F91F4] text-white shadow-lg shadow-[#4446CE]/25 hover:shadow-[#4446CE]/40'
-                              }`}
-                          >
-                              {data.isLoading ? <Icons.Loader2 className="animate-spin" size={15}/> : <Icons.Wand2 size={15} />}
-                          <span>{data.isLoading ? '生成中' : (hasResult ? '生成版本' : '生成')}</span>
-                          </button>
-                      </div>
+                               {/* Parameters Row - All in one line */}
+                               <div className="flex items-center gap-2">
+                                   <LocalCustomDropdown
+                                       options={imageModels}
+                                       value={data.model || 'Seedream 5.0'}
+                                       onChange={(val: any) => updateData(data.id, { model: val })}
+                                       isOpen={activeDropdown === 'model'}
+                                       onToggle={() => setActiveDropdown(activeDropdown === 'model' ? null : 'model')}
+                                       onClose={() => setActiveDropdown(null)}
+                                       align="left"
+                                       width="w-[130px]"
+                                       isDark={isDark}
+                                   />
+                                   <LocalCustomDropdown icon={Icons.Crop} options={supportedRatios} value={data.aspectRatio || '1:1'} onChange={handleRatioChange} isOpen={activeDropdown === 'ratio'} onToggle={() => setActiveDropdown(activeDropdown === 'ratio' ? null : 'ratio')} onClose={() => setActiveDropdown(null)} isDark={isDark} />
+                                   <LocalCustomDropdown icon={Icons.Monitor} options={supportedResolutions} value={data.resolution || '1k'} onChange={(val: any) => updateData(data.id, { resolution: val })} isOpen={activeDropdown === 'res'} onToggle={() => setActiveDropdown(activeDropdown === 'res' ? null : 'res')} onClose={() => setActiveDropdown(null)} disabledOptions={['1k', '2k', '4k'].filter(r => !supportedResolutions.includes(r))} isDark={isDark} />
+                                   <LocalCustomDropdown icon={Icons.Layers} options={[1, 2, 3, 4]} value={data.count || 1} onChange={(val: any) => updateData(data.id, { count: val })} isOpen={activeDropdown === 'count'} onToggle={() => setActiveDropdown(activeDropdown === 'count' ? null : 'count')} onClose={() => setActiveDropdown(null)} isDark={isDark} />
+
+                                   <div className="flex-1" />
+
+                                   <button
+                                       onClick={() => onGenerate(data.id)}
+                                       disabled={data.isLoading || !isConfigured}
+                                       title={!isConfigured ? '请在设置中配置 API Key' : (hasResult ? '基于当前参数生成一个新版本' : '开始生成')}
+                                       className={`shrink-0 h-8 px-4 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 whitespace-nowrap transition-all active:scale-[0.98] ${
+                                           data.isLoading || !isConfigured
+                                               ? 'bg-gray-400 text-white cursor-not-allowed'
+                                               : 'bg-gradient-to-r from-[#4446CE] to-[#4446CE] hover:from-[#4446CE] hover:to-[#8F91F4] text-white shadow-lg shadow-[#4446CE]/25 hover:shadow-[#4446CE]/40'
+                                       }`}
+                                   >
+                                       <span className="text-[11px] font-bold tabular-nums opacity-85">{baseGenerateCredits}分</span>
+                                       <span className="h-4 w-px bg-white/25" />
+                                       {data.isLoading ? <Icons.Loader2 className="animate-spin" size={15}/> : <Icons.Wand2 size={15} />}
+                                       <span>{data.isLoading ? '生成中' : '生成'}</span>
+                                   </button>
+                               </div>
+                           </>
+                       )}
                       {data.imageSrc && isAngleEditorOpen && (
                           <div className={`rounded-2xl border p-5 flex flex-col gap-4 ${isDark ? 'border-zinc-700 bg-[#202020]' : 'border-gray-200 bg-white shadow-xl'}`}>
                               <div className="flex items-center justify-between gap-3">

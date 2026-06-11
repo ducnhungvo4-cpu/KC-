@@ -24,6 +24,7 @@ const IMAGE_NODE_BASE_SIZE = 400;
 const VIDEO_NODE_BASE_HEIGHT = 400;
 const IMAGE_ASPECT_RATIOS = ['1:1', '3:4', '4:3', '9:16', '16:9'];
 const VIDEO_ASPECT_RATIOS = ['1:1', '3:4', '4:3', '9:16', '16:9', '21:9', '9:21'];
+type LocalExportType = 'video' | 'image' | 'text' | 'audio' | 'all';
 const createDemoAssetPreview = (label: string, accent: string, background: string) => {
     const svg = `
       <svg xmlns="http://www.w3.org/2000/svg" width="640" height="480" viewBox="0 0 640 480">
@@ -736,7 +737,8 @@ const CanvasWithSidebar: React.FC = () => {
   const [addToAssetPanel, setAddToAssetPanel] = useState<AddToAssetPanelState>({ isOpen: false, nodeId: '', nodeType: 'image' });
   const [isCreditDashboardOpen, setIsCreditDashboardOpen] = useState(false);
   const [creditProjectId, setCreditProjectId] = useState('');
-  const [isUserCreditOpen, setIsUserCreditOpen] = useState(false);
+  const [isLocalExportMenuOpen, setIsLocalExportMenuOpen] = useState(false);
+  const [isLocalExporting, setIsLocalExporting] = useState(false);
   const [isMiniMapOpen, setIsMiniMapOpen] = useState(false);
   const [frameExtractTarget, setFrameExtractTarget] = useState<{ nodeId: string; videoSrc: string } | null>(null);
   
@@ -767,6 +769,7 @@ const CanvasWithSidebar: React.FC = () => {
   const assetInputRef = useRef<HTMLInputElement>(null);
   const replaceImageRef = useRef<HTMLInputElement>(null);
   const attachInputRef = useRef<HTMLInputElement>(null);
+  const localExportMenuRef = useRef<HTMLDivElement>(null);
   const nodeToReplaceRef = useRef<string | null>(null);
   const nodeToAttachInputRef = useRef<string | null>(null);
   const assetImportPositionRef = useRef<Point | null>(null);
@@ -1436,6 +1439,17 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
     window.addEventListener('mouseup', handleGlobalMouseUp);
     return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
   }, [isStorageOpen]);
+
+  useEffect(() => {
+    if (!isLocalExportMenuOpen) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!localExportMenuRef.current?.contains(event.target as Node)) {
+        setIsLocalExportMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isLocalExportMenuOpen]);
 
   const handleOpenStorageSettings = () => {
       setIsStorageOpen(true);
@@ -2371,6 +2385,143 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
+      }
+  };
+
+  const sanitizeExportName = (value: string) => value
+      .replace(/[<>:"/\\|?*\u0000-\u001F]/g, '_')
+      .replace(/\s+/g, '_')
+      .replace(/_+/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .slice(0, 80) || '未命名';
+
+  const getExportExtension = (blob: Blob, url: string, fallback: string) => {
+      const mimeExtensions: Record<string, string> = {
+          'image/jpeg': 'jpg',
+          'image/png': 'png',
+          'image/webp': 'webp',
+          'image/gif': 'gif',
+          'image/svg+xml': 'svg',
+          'video/mp4': 'mp4',
+          'video/webm': 'webm',
+          'video/quicktime': 'mov',
+          'audio/mpeg': 'mp3',
+          'audio/mp4': 'm4a',
+          'audio/wav': 'wav',
+          'audio/x-wav': 'wav',
+          'audio/ogg': 'ogg',
+      };
+      if (mimeExtensions[blob.type]) return mimeExtensions[blob.type];
+      const match = url.match(/\.([a-z0-9]{2,5})(?:[?#]|$)/i);
+      return match?.[1]?.toLowerCase() || fallback;
+  };
+
+  const saveLocalExportBlob = async (blob: Blob, filename: string) => {
+      const saved = await storageService.saveFile(blob, filename);
+      if (saved) return;
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+  };
+
+  const handleLocalExport = async (exportType: LocalExportType) => {
+      if (isLocalExporting) return;
+
+      type MediaExportEntry = {
+          type: 'image' | 'video' | 'audio';
+          url: string;
+          title: string;
+          fallbackExtension: string;
+      };
+
+      const mediaEntries: MediaExportEntry[] = [];
+      const textEntries: { title: string; text: string }[] = [];
+      const seenMedia = new Set<string>();
+
+      const addMedia = (entry: MediaExportEntry) => {
+          const key = `${entry.type}:${entry.url}`;
+          if (!entry.url || seenMedia.has(key)) return;
+          seenMedia.add(key);
+          mediaEntries.push(entry);
+      };
+
+      nodes.forEach(node => {
+          const artifacts = node.outputArtifacts || [];
+          if ([NodeType.TEXT_TO_IMAGE, NodeType.IMAGE_TO_IMAGE, NodeType.ORIGINAL_IMAGE].includes(node.type)) {
+              [node.imageSrc, ...artifacts, ...(node.imageVersions || []).map(version => version.url)]
+                  .filter((url): url is string => !!url)
+                  .forEach(url => addMedia({ type: 'image', url, title: node.title, fallbackExtension: 'png' }));
+          }
+          if ([NodeType.TEXT_TO_VIDEO, NodeType.IMAGE_TO_VIDEO, NodeType.START_END_TO_VIDEO].includes(node.type)) {
+              [node.videoSrc, ...artifacts]
+                  .filter((url): url is string => !!url)
+                  .forEach(url => addMedia({ type: 'video', url, title: node.title, fallbackExtension: 'mp4' }));
+          }
+          if (node.type === NodeType.TEXT_TO_AUDIO) {
+              [node.audioSrc, ...artifacts]
+                  .filter((url): url is string => !!url)
+                  .forEach(url => addMedia({ type: 'audio', url, title: node.title, fallbackExtension: 'mp3' }));
+          }
+          if (node.type === NodeType.CREATIVE_DESC) {
+              const text = (node.optimizedPrompt || node.prompt || '').trim();
+              if (text) textEntries.push({ title: node.title, text });
+          }
+      });
+
+      const selectedMedia = exportType === 'all'
+          ? mediaEntries
+          : mediaEntries.filter(entry => entry.type === exportType);
+      const shouldExportText = exportType === 'text' || exportType === 'all';
+      const exportCount = selectedMedia.length + (shouldExportText && textEntries.length ? 1 : 0);
+
+      if (!exportCount) {
+          const typeLabel = { video: '视频', image: '图片', text: '文本', audio: '音频', all: '可导出内容' }[exportType];
+          alert(`当前画布没有${typeLabel}`);
+          setIsLocalExportMenuOpen(false);
+          return;
+      }
+
+      setIsLocalExporting(true);
+      setIsLocalExportMenuOpen(false);
+      let failedCount = 0;
+
+      try {
+          for (let index = 0; index < selectedMedia.length; index += 1) {
+              const entry = selectedMedia[index];
+              try {
+                  const response = await fetch(entry.url);
+                  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                  const blob = await response.blob();
+                  const extension = getExportExtension(blob, entry.url, entry.fallbackExtension);
+                  const filename = `${sanitizeExportName(entry.title)}_${entry.type}_${index + 1}.${extension}`;
+                  await saveLocalExportBlob(blob, filename);
+              } catch (error) {
+                  failedCount += 1;
+                  console.error('Local export failed:', entry.url, error);
+              }
+          }
+
+          if (shouldExportText && textEntries.length) {
+              const textContent = textEntries
+                  .map(entry => `【${entry.title}】\n${entry.text}`)
+                  .join('\n\n--------------------\n\n');
+              const filename = `${sanitizeExportName(projectName)}_文本.txt`;
+              await saveLocalExportBlob(new Blob([textContent], { type: 'text/plain;charset=utf-8' }), filename);
+          }
+
+          const successCount = exportCount - failedCount;
+          if (failedCount) {
+              alert(`已导出 ${successCount} 个文件，${failedCount} 个文件导出失败`);
+          } else {
+              alert(`已导出 ${successCount} 个文件`);
+          }
+      } finally {
+          setIsLocalExporting(false);
       }
   };
 
@@ -3548,53 +3699,6 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
       );
   };
 
-  const renderUserCreditPopover = () => {
-      if (!isUserCreditOpen) return null;
-      const stats = getUserCreditStats();
-      const confirmed = stats.rows.filter(row => row.status === 'confirmed').reduce((sum, row) => sum + row.credit, 0);
-      const reserved = stats.rows.filter(row => row.status === 'reserved').reduce((sum, row) => sum + row.credit, 0);
-
-      return (
-          <div
-              className={`absolute right-4 top-16 z-[120] w-80 rounded-2xl border p-4 shadow-2xl backdrop-blur-xl ${isDark ? 'border-zinc-800 bg-[#18181b]/95 text-zinc-100' : 'border-gray-200 bg-white/95 text-gray-900'}`}
-              onMouseDown={(event) => event.stopPropagation()}
-          >
-              <div className="flex items-center justify-between">
-                  <div>
-                      <div className="text-sm font-bold">当前用户积分</div>
-                      <div className={`mt-1 text-xs ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>{CURRENT_USER_NAME} 的可用额度和使用明细</div>
-                  </div>
-                  <button className={`h-8 w-8 rounded-lg flex items-center justify-center ${isDark ? 'hover:bg-zinc-800 text-zinc-500' : 'hover:bg-gray-100 text-gray-500'}`} onClick={() => setIsUserCreditOpen(false)}>
-                      <Icons.X size={16} />
-                  </button>
-              </div>
-              <div className="mt-4 grid grid-cols-3 gap-2">
-                  {[
-                      ['可用', stats.available],
-                      ['已扣', confirmed],
-                      ['预扣', reserved],
-                  ].map(([label, value]) => (
-                      <div key={String(label)} className={`rounded-xl border p-3 ${isDark ? 'border-zinc-800 bg-zinc-950/45' : 'border-gray-200 bg-gray-50'}`}>
-                          <div className={`text-[11px] ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>{label}</div>
-                          <div className="mt-1 text-lg font-bold tabular-nums">{value}</div>
-                      </div>
-                  ))}
-              </div>
-              <div className="mt-3 max-h-56 overflow-y-auto custom-scrollbar space-y-2">
-                  {stats.rows.slice(0, 6).map(row => (
-                      <div key={row.id} className={`rounded-xl px-3 py-2 text-xs ${isDark ? 'bg-zinc-950/55' : 'bg-gray-50'}`}>
-                          <div className="flex items-center justify-between gap-3">
-                              <span className="truncate font-semibold">{row.nodeTitle}</span>
-                              <span className="tabular-nums">{row.credit}</span>
-                          </div>
-                          <div className={`mt-1 truncate ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>{row.project} / {row.type}</div>
-                      </div>
-                  ))}
-              </div>
-          </div>
-      );
-  };
-
   const renderCanvasNavigator = () => {
       const metrics = getMiniMapMetrics();
       const panelClass = isDark ? 'border-zinc-800 bg-[#18181b]/95 text-zinc-100' : 'border-gray-200 bg-white/95 text-gray-900';
@@ -4288,30 +4392,64 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                     
                     <div className={`hidden w-px h-5 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`} />
 
-                    <button
-                        onClick={() => setIsUserCreditOpen(prev => !prev)}
+                    <div
                         title="当前用户积分余额"
-                        className={`flex h-9 items-center gap-1.5 rounded-xl px-3 text-sm font-semibold transition-all ${
-                            isDark ? 'bg-amber-500/10 text-amber-200 hover:bg-amber-500/20' : 'bg-amber-50 text-amber-700 hover:bg-amber-100'
+                        className={`flex h-9 cursor-default items-center gap-1.5 rounded-xl px-3 text-sm font-semibold ${
+                            isDark ? 'bg-amber-500/10 text-amber-200' : 'bg-amber-50 text-amber-700'
                         }`}
                     >
                         <Icons.Coins size={15} />
                         <span className="tabular-nums">{getUserCreditStats().available}</span>
-                    </button>
+                    </div>
                     
                     <div className={`w-px h-5 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`} />
 
-                    {/* Download backup */}
-                    <button
-                        onClick={() => setIsExportImportOpen(true)}
-                        title="导入/导出备份"
-                        className={`flex h-9 w-9 items-center justify-center rounded-xl text-sm font-medium transition-all ${
-                            isDark ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                        }`}
-                    >
-                        <Icons.Download size={15} />
-                        <span className="sr-only">导入/导出备份</span>
-                    </button>
+                    <div ref={localExportMenuRef} className="relative">
+                        <button
+                            onClick={() => setIsLocalExportMenuOpen(prev => !prev)}
+                            disabled={isLocalExporting}
+                            title="保存文件到本地"
+                            className={`flex h-9 items-center gap-1.5 rounded-xl px-2.5 text-sm font-medium transition-all ${
+                                isLocalExporting
+                                    ? 'cursor-wait opacity-60'
+                                    : isDark
+                                        ? 'text-gray-400 hover:bg-white/5 hover:text-white'
+                                        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                            }`}
+                        >
+                            {isLocalExporting ? <Icons.Loader2 size={15} className="animate-spin" /> : <Icons.Download size={15} />}
+                            <Icons.ChevronDown size={13} className={`transition-transform ${isLocalExportMenuOpen ? 'rotate-180' : ''}`} />
+                            <span className="sr-only">保存文件到本地</span>
+                        </button>
+                        {isLocalExportMenuOpen && (
+                            <div
+                                className={`absolute right-0 top-[calc(100%+8px)] z-[130] w-44 overflow-hidden rounded-xl border p-1.5 shadow-2xl backdrop-blur-xl ${
+                                    isDark ? 'border-zinc-700 bg-[#18181b]/95 text-zinc-100' : 'border-gray-200 bg-white/95 text-gray-900'
+                                }`}
+                                onMouseDown={(event) => event.stopPropagation()}
+                            >
+                                {[
+                                    { type: 'video' as const, label: '导出视频', icon: Icons.Video },
+                                    { type: 'image' as const, label: '导出图片', icon: Icons.Image },
+                                    { type: 'text' as const, label: '导出文本', icon: Icons.FileText },
+                                    { type: 'audio' as const, label: '导出音频', icon: Icons.Music },
+                                    { type: 'all' as const, label: '导出全部', icon: Icons.Download },
+                                ].map(item => (
+                                    <button
+                                        key={item.type}
+                                        type="button"
+                                        className={`flex h-9 w-full items-center gap-2.5 rounded-lg px-3 text-left text-xs font-semibold transition-colors ${
+                                            isDark ? 'text-zinc-300 hover:bg-zinc-800 hover:text-white' : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                                        }`}
+                                        onClick={() => void handleLocalExport(item.type)}
+                                    >
+                                        <item.icon size={14} />
+                                        <span>{item.label}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                     
                     <div className={`w-px h-5 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`} />
 
@@ -4368,7 +4506,6 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                 </div>
             </div>
             {renderCanvasNavigator()}
-            {renderUserCreditPopover()}
             {/* Sub-canvas dropdown outside-click overlay */}
       {isSubCanvasListOpen && (
         <div className="fixed inset-0 z-40" onClick={() => setIsSubCanvasListOpen(false)} />
