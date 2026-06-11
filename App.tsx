@@ -3647,19 +3647,9 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                         <button className={menuItemClass} onClick={() => { performCopy(); setContextMenu(null); }}>
                             <Icons.Copy size={14}/> 复制节点
                         </button>
-                        {isVideoNode && (
-                            <button className={menuItemClass} onClick={() => { if (contextMenu.nodeId) handleOpenAssetSelection(contextMenu.nodeId); setContextMenu(null); }}>
-                                <Icons.Clapperboard size={14}/> 添加到分镜素材
-                            </button>
-                        )}
                         {isTextNode && (
                             <button className={menuItemClass} onClick={() => { if (node?.prompt) navigator.clipboard?.writeText(node.prompt); setContextMenu(null); }}>
                                 <Icons.FileText size={14}/> 复制文本
-                            </button>
-                        )}
-                        {isImageNode && (
-                            <button className={menuItemClass} onClick={() => { if (contextMenu.nodeId) handleOpenAssetSelection(contextMenu.nodeId); setContextMenu(null); }}>
-                                <Icons.Database size={14}/> 添加到资产素材库
                             </button>
                         )}
                         {isImageNode && (
