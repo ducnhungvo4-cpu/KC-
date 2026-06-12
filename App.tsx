@@ -4009,6 +4009,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                     
                     const d = `M ${relSx} ${relSy} C ${relSx + cp} ${relSy}, ${relTx - cp} ${relTy}, ${relTx} ${relTy}`;
                     const isSelected = selectedConnectionId === conn.id;
+                    const isConnectedToSelectedNode = selectedNodeIds.has(conn.sourceId) || selectedNodeIds.has(conn.targetId);
                     
                     // 连接线颜色
                     const lineColor = isSelected ? (isDark ? "#d4d4d8" : "#52525b") : (isDark ? "#71717a" : "#9ca3af");
@@ -4055,46 +4056,50 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                                 opacity={isSelected ? 0.9 : 0.5}
                                 style={{ pointerEvents: 'none' }}
                             />
-                            {/* Slow flowing light-blue glow */}
-                            <path
-                                d={d}
-                                stroke="#7DD3FC"
-                                strokeWidth={isSelected ? 7 : 6}
-                                fill="none"
-                                strokeLinecap="round"
-                                strokeDasharray="14 34"
-                                opacity={isSelected ? 0.34 : 0.24}
-                                style={{
-                                    pointerEvents: 'none',
-                                    filter: 'drop-shadow(0 0 4px rgba(125, 211, 252, 0.9))',
-                                }}
-                            >
-                                <animate
-                                    attributeName="stroke-dashoffset"
-                                    from="0"
-                                    to="-48"
-                                    dur="4.8s"
-                                    repeatCount="indefinite"
-                                />
-                            </path>
-                            <path
-                                d={d}
-                                stroke="#BAE6FD"
-                                strokeWidth={isSelected ? 2.2 : 1.6}
-                                fill="none"
-                                strokeLinecap="round"
-                                strokeDasharray="14 34"
-                                opacity={isSelected ? 0.9 : 0.72}
-                                style={{ pointerEvents: 'none' }}
-                            >
-                                <animate
-                                    attributeName="stroke-dashoffset"
-                                    from="0"
-                                    to="-48"
-                                    dur="4.8s"
-                                    repeatCount="indefinite"
-                                />
-                            </path>
+                            {/* Flowing glow only for connections touching the selected node. */}
+                            {isConnectedToSelectedNode && (
+                                <>
+                                    <path
+                                        d={d}
+                                        stroke="#7DD3FC"
+                                        strokeWidth={isSelected ? 7 : 6}
+                                        fill="none"
+                                        strokeLinecap="round"
+                                        strokeDasharray="14 34"
+                                        opacity={isSelected ? 0.34 : 0.24}
+                                        style={{
+                                            pointerEvents: 'none',
+                                            filter: 'drop-shadow(0 0 4px rgba(125, 211, 252, 0.9))',
+                                        }}
+                                    >
+                                        <animate
+                                            attributeName="stroke-dashoffset"
+                                            from="0"
+                                            to="-48"
+                                            dur="4.8s"
+                                            repeatCount="indefinite"
+                                        />
+                                    </path>
+                                    <path
+                                        d={d}
+                                        stroke="#BAE6FD"
+                                        strokeWidth={isSelected ? 2.2 : 1.6}
+                                        fill="none"
+                                        strokeLinecap="round"
+                                        strokeDasharray="14 34"
+                                        opacity={isSelected ? 0.9 : 0.72}
+                                        style={{ pointerEvents: 'none' }}
+                                    >
+                                        <animate
+                                            attributeName="stroke-dashoffset"
+                                            from="0"
+                                            to="-48"
+                                            dur="4.8s"
+                                            repeatCount="indefinite"
+                                        />
+                                    </path>
+                                </>
+                            )}
                             {/* 删除按钮 - 使用纯 SVG 实现 */}
                             {isSelected && (
                                 <g 

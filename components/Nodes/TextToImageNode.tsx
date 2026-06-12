@@ -66,10 +66,6 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
     const [lightElevation, setLightElevation] = useState(30);
     const lightPadRef = useRef<HTMLDivElement>(null);
     const [isHdRestoreOpen, setIsHdRestoreOpen] = useState(false);
-    const [hdScale, setHdScale] = useState<'2x' | '4x'>('2x');
-    const [hdDetail, setHdDetail] = useState(55);
-    const [hdDenoise, setHdDenoise] = useState(30);
-    const [hdFaceRestore, setHdFaceRestore] = useState(true);
 
     const isSelectedAndStable = selected && !isSelecting;
     // Panel stays a constant screen size while zooming via the --panel-inverse-scale CSS var,
@@ -233,9 +229,10 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
         onLighting?.(data.id);
     };
 
-    const handleHdRestoreGenerate = () => {
+    const handleHdRestoreGenerate = (resolution: '2K' | '4K') => {
         if (!data.imageSrc || data.isLoading) return;
-        window.alert('一键高清前端入口已就绪，等待后端高清接口接入。');
+        setIsHdRestoreOpen(false);
+        window.alert(`${resolution} 一键高清前端入口已就绪，等待后端高清接口接入。`);
     };
 
     const resetLighting = () => {
@@ -246,13 +243,6 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
         setLightSmartMode(false);
         setLightAzimuth(0);
         setLightElevation(30);
-    };
-
-    const resetHdRestore = () => {
-        setHdScale('2x');
-        setHdDetail(55);
-        setHdDenoise(30);
-        setHdFaceRestore(true);
     };
 
     const handleRatioChange = (ratio: string) => {
@@ -289,7 +279,10 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
     const baseGenerateCredits = data.creditEstimate || ((data.count || 1) * 2);
     const multiAngleCredits = 4;
     const lightingCredits = 2;
-    const hdRestoreCredits = hdScale === '4x' ? 8 : 4;
+    const hdRestoreOptions = [
+        { resolution: '2K' as const, credits: 4 },
+        { resolution: '4K' as const, credits: 8 },
+    ];
     const renderCreditBadge = (credits: number, tone: 'default' | 'cyan' | 'amber' | 'violet' = 'default') => {
         const toneClass = tone === 'cyan'
             ? (isDark ? 'bg-[#4446CE]/15 text-[#C7C8FF] border-[#8F91F4]/20' : 'bg-[#F0F1FF] text-[#3739B0] border-[#E1E3FF]')
@@ -410,10 +403,40 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
                         <Icons.Crop size={16} />
                         <span>裁剪</span>
                     </button>
-                    <button className={`h-9 px-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-colors ${isHdRestoreOpen ? (isDark ? 'bg-[#4446CE]/15 text-[#C7C8FF]' : 'bg-[#F0F1FF] text-[#3739B0]') : (isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100')}`} onClick={() => { setIsHdRestoreOpen(true); setIsAngleEditorOpen(false); setIsLightingOpen(false); }} title="一键提升图片分辨率">
-                        <Icons.TrendingUp size={16} />
-                        <span>一键高清</span>
-                    </button>
+                    <div className="relative">
+                        <button
+                            className={`h-9 px-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-colors ${isHdRestoreOpen ? (isDark ? 'bg-[#4446CE]/15 text-[#C7C8FF]' : 'bg-[#F0F1FF] text-[#3739B0]') : (isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100')}`}
+                            onClick={() => {
+                                setIsHdRestoreOpen(value => !value);
+                                setIsAngleEditorOpen(false);
+                                setIsLightingOpen(false);
+                            }}
+                            title="选择一键高清分辨率"
+                        >
+                            <Icons.TrendingUp size={16} />
+                            <span>一键高清</span>
+                            <Icons.ChevronDown size={13} className={`transition-transform ${isHdRestoreOpen ? 'rotate-180' : ''}`} />
+                        </button>
+                        {isHdRestoreOpen && (
+                            <div className={`absolute left-1/2 top-[calc(100%+8px)] z-[100] w-40 -translate-x-1/2 rounded-xl border p-1.5 shadow-2xl backdrop-blur-xl ${isDark ? 'border-zinc-700 bg-[#202020]/95' : 'border-gray-200 bg-white/95'}`}>
+                                {hdRestoreOptions.map(option => (
+                                    <button
+                                        key={option.resolution}
+                                        type="button"
+                                        disabled={data.isLoading}
+                                        className={`flex h-10 w-full items-center justify-between rounded-lg px-3 text-xs font-semibold transition-colors ${data.isLoading ? 'cursor-not-allowed opacity-50' : (isDark ? 'text-zinc-200 hover:bg-zinc-800' : 'text-gray-700 hover:bg-gray-100')}`}
+                                        onClick={() => handleHdRestoreGenerate(option.resolution)}
+                                    >
+                                        <span>{option.resolution}</span>
+                                        <span className={`flex items-center gap-1 tabular-nums ${isDark ? 'text-amber-300' : 'text-amber-700'}`}>
+                                            <Icons.Coins size={13} />
+                                            <span>{option.credits}</span>
+                                        </span>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                     <button className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'}`} onClick={() => onUpload?.(data.id)} title="上传">
                         <Icons.Upload size={17} />
                     </button>
@@ -628,81 +651,6 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
                                       {renderCreditBadge(multiAngleCredits, 'cyan')}
                                       <button className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all ${data.isLoading ? 'bg-gray-400 text-white cursor-not-allowed' : 'bg-white text-zinc-950 hover:bg-[#E1E3FF] shadow-lg'}`} disabled={data.isLoading} onClick={handleMultiAngleGenerate} title="生成多角度图片">
                                           {data.isLoading ? <Icons.Loader2 size={22} className="animate-spin" /> : <Icons.ArrowUp size={26} />}
-                                      </button>
-                                  </div>
-                              </div>
-                          </div>
-                      )}
-                      {data.imageSrc && isHdRestoreOpen && (
-                          <div className={`rounded-2xl border p-5 flex flex-col gap-4 ${isDark ? 'border-zinc-700 bg-[#202020]' : 'border-gray-200 bg-white shadow-xl'}`}>
-                              <div className="flex items-center justify-between gap-3">
-                                  <div>
-                                      <div className={`text-lg font-semibold ${isDark ? 'text-zinc-100' : 'text-gray-900'}`}>一键高清</div>
-                                      <div className={`mt-1 text-xs ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>提升清晰度、细节和画面洁净度</div>
-                                  </div>
-                                  <button
-                                      className={`w-9 h-9 rounded-lg flex items-center justify-center ${isDark ? 'hover:bg-zinc-800 text-zinc-400' : 'hover:bg-gray-100 text-gray-500'}`}
-                                      onClick={() => setIsHdRestoreOpen(false)}
-                                      title="收起"
-                                  >
-                                      <Icons.X size={22} />
-                                  </button>
-                              </div>
-                              <div className="grid grid-cols-[220px_minmax(280px,1fr)] gap-5">
-                                  <div className={`relative h-[220px] rounded-2xl overflow-hidden flex items-center justify-center ${isDark ? 'bg-zinc-900' : 'bg-gray-100'}`}>
-                                      <img src={data.imageSrc} className="max-w-full max-h-full object-contain" draggable={false} />
-                                      <div className={`absolute left-3 top-3 rounded-lg border px-2 py-1 text-[10px] font-semibold ${isDark ? 'border-[#8F91F4]/20 bg-[#4446CE]/15 text-[#E1E3FF]' : 'border-[#E1E3FF] bg-[#F0F1FF] text-[#3739B0]'}`}>高清预览</div>
-                                  </div>
-                                  <div className="flex flex-col justify-center gap-4">
-                                      <div>
-                                          <div className={`mb-2 text-sm font-semibold ${isDark ? 'text-zinc-200' : 'text-gray-800'}`}>输出倍率</div>
-                                          <div className={`grid grid-cols-2 gap-1 rounded-xl border p-1 ${isDark ? 'border-zinc-700 bg-zinc-950/30' : 'border-gray-200 bg-gray-50'}`}>
-                                              {(['2x', '4x'] as const).map(scale => (
-                                                  <button
-                                                      key={scale}
-                                                      className={`h-9 rounded-lg text-sm font-semibold transition-colors ${hdScale === scale ? 'bg-[#4446CE] text-white' : (isDark ? 'text-zinc-400 hover:text-white hover:bg-zinc-800' : 'text-gray-600 hover:text-gray-900 hover:bg-white')}`}
-                                                      onClick={() => setHdScale(scale)}
-                                                  >
-                                                      {scale}
-                                                  </button>
-                                              ))}
-                                          </div>
-                                      </div>
-                                      {[
-                                          { label: '细节增强', value: hdDetail, setter: setHdDetail },
-                                          { label: '画面降噪', value: hdDenoise, setter: setHdDenoise },
-                                      ].map(item => (
-                                          <div key={item.label} className="grid grid-cols-[72px_1fr_42px] items-center gap-3">
-                                              <span className={`text-sm ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>{item.label}</span>
-                                              <input
-                                                  type="range"
-                                                  min={0}
-                                                  max={100}
-                                                  value={item.value}
-                                                  onChange={(event) => item.setter(Number(event.target.value))}
-                                                  className="w-full accent-[#4446CE]"
-                                              />
-                                              <span className={`text-sm font-semibold text-right ${isDark ? 'text-zinc-100' : 'text-gray-900'}`}>{item.value}%</span>
-                                          </div>
-                                      ))}
-                                      <div className="flex items-center justify-between">
-                                          <span className={`text-sm ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>人脸增强</span>
-                                          <button className={`relative w-10 h-5 rounded-full transition-colors ${hdFaceRestore ? 'bg-[#4446CE]' : (isDark ? 'bg-zinc-700' : 'bg-gray-300')}`} onClick={() => setHdFaceRestore(value => !value)}>
-                                              <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${hdFaceRestore ? 'translate-x-5' : 'translate-x-0.5'}`} />
-                                          </button>
-                                      </div>
-                                  </div>
-                              </div>
-                              <div className="flex items-center justify-between pt-1">
-                                  <button className={`h-8 px-3 rounded-lg text-sm flex items-center gap-2 ${isDark ? 'text-zinc-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'}`} onClick={resetHdRestore}>
-                                      <Icons.RotateCcw size={15} />
-                                      <span>重置参数</span>
-                                  </button>
-                                  <div className="flex items-center gap-2">
-                                      {renderCreditBadge(hdRestoreCredits, 'violet')}
-                                      <button className={`h-11 px-5 rounded-xl flex items-center gap-2 text-sm font-semibold transition-all ${data.isLoading ? 'bg-gray-400 text-white cursor-not-allowed' : 'bg-[#4446CE] text-white hover:bg-[#4446CE] shadow-lg shadow-[#4446CE]/25'}`} disabled={data.isLoading} onClick={handleHdRestoreGenerate} title="生成高清图片">
-                                          {data.isLoading ? <Icons.Loader2 size={18} className="animate-spin" /> : <Icons.TrendingUp size={18} />}
-                                          <span>{data.isLoading ? '生成中' : '生成'}</span>
                                       </button>
                                   </div>
                               </div>
