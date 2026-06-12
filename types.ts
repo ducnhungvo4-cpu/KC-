@@ -20,6 +20,8 @@ export interface VideoPromptReference {
   type: Exclude<InputMediaType, 'text'>;
   url: string;
   title?: string;
+  // Character offset in the plain prompt. Used to render the media chip inline.
+  offset?: number;
 }
 
 export interface ImageVersionSnapshot {

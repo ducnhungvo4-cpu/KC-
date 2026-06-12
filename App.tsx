@@ -4550,18 +4550,16 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                     
                     <div className={`w-px h-5 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`} />
                     
-                    {/* Storage */}
+                    {/* Canvas import / export */}
                     <button
-                        onClick={handleOpenStorageSettings}
-                        title="存储设置"
+                        onClick={() => setIsExportImportOpen(true)}
+                        title="导入/导出画布"
                         className={`flex h-9 w-9 items-center justify-center rounded-xl text-sm font-medium transition-all ${
-                            storageDirName 
-                                ? (isDark ? 'text-emerald-400 hover:bg-emerald-500/10' : 'text-emerald-600 hover:bg-emerald-50')
-                                : (isDark ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100')
+                            isDark ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                         }`}
                     >
                         <Icons.FolderOpen size={15} />
-                        <span className="sr-only">存储设置</span>
+                        <span className="sr-only">导入/导出画布</span>
                     </button>
                     
                 </div>

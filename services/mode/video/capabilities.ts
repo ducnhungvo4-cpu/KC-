@@ -15,13 +15,21 @@ export const VIDEO_MODE_LABELS: Record<VideoGenerationMode, string> = {
     omni: '全能参考',
 };
 
+const ACTIVE_MODES: VideoGenerationMode[] = ['start_end', 'omni'];
 const ALL_MODES: VideoGenerationMode[] = ['text', 'image', 'omni', 'start_end'];
 const TEXT_IMAGE_MODES: VideoGenerationMode[] = ['text', 'image'];
 
 const CAPABILITIES: Record<string, VideoModeCapability> = {
     'Seedance 2.0': {
-        modes: ALL_MODES,
-        defaultMode: 'text',
+        modes: ACTIVE_MODES,
+        defaultMode: 'omni',
+        maxImages: 99,
+        maxVideos: 99,
+        maxAudio: 99,
+    },
+    'Seedance 2.0 Fast': {
+        modes: ACTIVE_MODES,
+        defaultMode: 'omni',
         maxImages: 99,
         maxVideos: 99,
         maxAudio: 99,

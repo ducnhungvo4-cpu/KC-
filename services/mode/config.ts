@@ -42,6 +42,7 @@ export const MODEL_REGISTRY: Record<string, ModelDef> = {
 
   // --- Video Models ---
   'Seedance 2.0': { id: 'doubao-seedance-2-0', name: 'Seedance 2.0', type: 'VIDEO_GEN_STD', category: 'VIDEO', defaultEndpoint: '/v1/videos' },
+  'Seedance 2.0 Fast': { id: 'doubao-seedance-2-0-fast', name: 'Seedance 2.0 Fast', type: 'VIDEO_GEN_STD', category: 'VIDEO', defaultEndpoint: '/v1/videos' },
   'Kling O3': { id: 'kling-o3', name: 'Kling O3', type: 'KLING_OMNI', category: 'VIDEO', defaultEndpoint: '/kling/v1/videos/omni-video' },
   'Happy Horse 1.0': { id: 'happy-horse-1.0', name: 'Happy Horse 1.0', type: 'VIDEO_GEN_STD', category: 'VIDEO', defaultEndpoint: '/v1/videos' },
   'Wan2.7': {
@@ -252,6 +253,7 @@ export const getVisibleModels = (): string[] => {
     const kcDefaults = [
         'Seedream 5.0',
         'Seedance 2.0',
+        'Seedance 2.0 Fast',
         'Kling O3',
         'Happy Horse 1.0',
         'Wan2.7',

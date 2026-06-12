@@ -14,7 +14,9 @@ import { Icons } from '../../Icons';
 import { LocalCustomDropdown } from './LocalNodeComponents';
 import { VideoReferencePromptEditor } from './VideoReferencePromptEditor';
 
-const VIDEO_MODES: VideoGenerationMode[] = ['text', 'image', 'omni', 'start_end'];
+// Text-to-video and image-to-video stay implemented but are temporarily hidden.
+const VIDEO_MODES: VideoGenerationMode[] = ['start_end', 'omni'];
+const ACTIVE_VIDEO_MODELS = ['Seedance 2.0', 'Seedance 2.0 Fast'];
 
 const getMediaId = (item: InputMedia) =>
     item.id || `${item.sourceNodeId || 'media'}:${item.type}:${item.url}`;
@@ -47,7 +49,7 @@ export const VideoGenerationControls: React.FC<VideoGenerationControlsProps> = (
     isDark,
 }) => {
     const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
-    const currentModel = data.model || 'Seedance 2.0';
+    const currentModel = ACTIVE_VIDEO_MODELS.includes(data.model || '') ? data.model! : 'Seedance 2.0';
     const connectedImages = inputMedia.filter(item => item.type === 'image');
     const connectedMedia = inputMedia.filter(item => item.type === 'image' || item.type === 'video' || item.type === 'audio');
     const hasConnectedImage = connectedImages.length > 0;
@@ -56,10 +58,15 @@ export const VideoGenerationControls: React.FC<VideoGenerationControlsProps> = (
     const capability = getVideoModelCapability(currentModel);
 
     useEffect(() => {
-        if (data.videoMode !== mode) updateData(data.id, { videoMode: mode });
-    }, [data.id, data.videoMode, mode, updateData]);
+        const updates: Partial<NodeData> = {};
+        if (data.model !== currentModel) updates.model = currentModel;
+        if (data.videoMode !== mode) updates.videoMode = mode;
+        if (Object.keys(updates).length) updateData(data.id, updates);
+    }, [currentModel, data.id, data.model, data.videoMode, mode, updateData]);
 
-    const getVideoModels = () => getVisibleModels().filter(name => MODEL_REGISTRY[name]?.category === 'VIDEO');
+    const getVideoModels = () => getVisibleModels().filter(name => (
+        ACTIVE_VIDEO_MODELS.includes(name) && MODEL_REGISTRY[name]?.category === 'VIDEO'
+    ));
     const [videoModels, setVideoModels] = useState<string[]>(getVideoModels);
 
     useEffect(() => {
@@ -68,10 +75,10 @@ export const VideoGenerationControls: React.FC<VideoGenerationControlsProps> = (
         return () => window.removeEventListener('modelRegistryUpdated', updateModels);
     }, []);
 
-    const orderedVideoModels = useMemo(() => {
-        const preferred = ['Seedance 2.0', 'Kling O3', 'Happy Horse 1.0', 'Wan2.7'];
-        return [...preferred.filter(model => videoModels.includes(model)), ...videoModels.filter(model => !preferred.includes(model))];
-    }, [videoModels]);
+    const orderedVideoModels = useMemo(
+        () => ACTIVE_VIDEO_MODELS.filter(model => videoModels.includes(model)),
+        [videoModels],
+    );
 
     const handler = VIDEO_HANDLERS[currentModel] || VIDEO_HANDLERS['Seedance 1.5 Pro'];
     const rules = handler?.rules || { resolutions: ['720p'], durations: ['5s'], ratios: ['16:9'] };

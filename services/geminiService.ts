@@ -144,6 +144,9 @@ const getVideoStatus = (result: any): string => {
 
 const getVideoUrl = (result: any): string => {
     return (
+        // Volcengine Ark Seedance returns the URL under content.video_url
+        result?.content?.video_url ||
+        result?.data?.content?.video_url ||
         result?.video_url ||
         result?.videoUrl ||
         result?.remixed_from_video_id ||

@@ -745,6 +745,62 @@ const agnesRequest = async ({ url, apiKey, method = 'GET', payload, timeoutMs = 
   }
 };
 
+// --- Volcengine Ark Seedance (doubao-seedance) — async task-based video generation ---
+// Create: POST /api/v3/contents/generations/tasks -> { id }
+// Poll:   GET  /api/v3/contents/generations/tasks/{id} -> { status, content: { video_url } }
+const SEEDANCE_DEFAULT_BASE = 'https://ark.cn-beijing.volces.com';
+const SEEDANCE_DEFAULT_ENDPOINT = '/api/v3/contents/generations/tasks';
+
+const buildSeedancePayload = (body) => {
+  const images = Array.isArray(body.inputImages) ? body.inputImages.filter(Boolean) : [];
+  const duration = Math.round(parseDurationSeconds(body.duration));
+  const watermark = process.env.SEEDANCE_WATERMARK === 'true';
+
+  const flags = [
+    `--resolution ${String(body.resolution || '720p')}`,
+    `--duration ${duration}`,
+    `--watermark ${watermark}`,
+    '--camerafixed false',
+  ];
+  // For image-to-video the ratio is derived from the input image; only force --ratio for text-to-video.
+  if (images.length === 0) flags.push(`--ratio ${String(body.aspectRatio || '16:9')}`);
+
+  const prompt = (body.prompt && body.prompt.trim()) || process.env.SEEDANCE_DEFAULT_PROMPT || '';
+  const content = [{ type: 'text', text: `${prompt} ${flags.join(' ')}`.trim() }];
+
+  if (body.isStartEndMode && images.length >= 2) {
+    content.push({ role: 'first_frame', type: 'image_url', image_url: { url: images[0] } });
+    content.push({ role: 'last_frame', type: 'image_url', image_url: { url: images[images.length - 1] } });
+  } else {
+    for (const url of images) content.push({ type: 'image_url', image_url: { url } });
+  }
+
+  return { model: process.env.SEEDANCE_MODEL_ID || 'doubao-seedance-1-5-pro-251215', content };
+};
+
+// Create one Seedance task and return immediately. The browser polls for completion.
+const createSeedanceTask = async (body) => {
+  const apiKey = process.env.SEEDANCE_API_KEY;
+  const baseUrl = (process.env.SEEDANCE_BASE_URL || SEEDANCE_DEFAULT_BASE).replace(/\/$/, '');
+  const createEndpoint = process.env.SEEDANCE_CREATE_ENDPOINT || process.env.SEEDANCE_VIDEO_ENDPOINT || SEEDANCE_DEFAULT_ENDPOINT;
+  const createTimeoutMs = Number(process.env.SEEDANCE_CREATE_TIMEOUT_MS) || 120000;
+
+  const created = await agnesRequest({
+    url: joinUrl(baseUrl, createEndpoint),
+    apiKey,
+    method: 'POST',
+    payload: buildSeedancePayload(body),
+    timeoutMs: createTimeoutMs,
+  });
+
+  const taskId = created.id || created?.data?.id;
+  if (!taskId) throw new Error('SEEDANCE_VIDEO_NO_TASK_ID');
+  if (String(created.status).toLowerCase() === 'failed') {
+    throw new Error(created?.error?.message || 'SEEDANCE_VIDEO_TASK_FAILED');
+  }
+  return { taskId, videoUrl: created?.content?.video_url || null };
+};
+
 // Create one Agnes task and return immediately. The browser polls for completion.
 const createAgnesTask = async (body) => {
   const apiKey = process.env.AGNES_VIDEO_API_KEY;
@@ -773,37 +829,18 @@ const handleVideoCreate = async (req, res) => {
   const body = await readBody(req);
   const count = Math.max(1, Math.min(Number(body.count) || 1, 4));
 
-  // Agnes Video V2.0 is the primary video provider when configured.
+  // Primary provider: Volcengine Ark Seedance (doubao-seedance).
+  if (process.env.SEEDANCE_API_KEY) {
+    const tasks = await Promise.all(Array.from({ length: count }, () => createSeedanceTask(body)));
+    if (tasks.every((task) => task.videoUrl)) return json(res, 200, { urls: tasks.map((task) => task.videoUrl) });
+    return json(res, 200, { taskIds: tasks.map((task) => task.taskId), provider: 'seedance' });
+  }
+
+  // Fallback provider: Agnes Video V2.0.
   if (process.env.AGNES_VIDEO_API_KEY) {
     const tasks = await Promise.all(Array.from({ length: count }, () => createAgnesTask(body)));
     if (tasks.every((task) => task.videoUrl)) return json(res, 200, { urls: tasks.map((task) => task.videoUrl) });
-    return json(res, 200, { taskIds: tasks.map((task) => task.taskId) });
-  }
-
-  // Legacy Seedance fallback (synchronous single POST).
-  if (process.env.SEEDANCE_API_KEY) {
-    const payload = {
-      model: process.env.SEEDANCE_MODEL_ID || 'doubao-seedance-1-5-pro',
-      prompt: body.prompt || '',
-      aspect_ratio: body.aspectRatio || '16:9',
-      resolution: body.resolution || '720p',
-      duration: String(body.duration || '5s').replace('s', ''),
-      images: body.inputImages || [],
-      image: body.inputImages?.[0],
-      first_frame: body.inputImages?.[0],
-      last_frame: body.isStartEndMode ? body.inputImages?.[1] : undefined,
-    };
-
-    const result = await callModelApi({
-      baseUrl: process.env.SEEDANCE_BASE_URL,
-      endpoint: process.env.SEEDANCE_VIDEO_ENDPOINT || '/v1/videos',
-      apiKey: process.env.SEEDANCE_API_KEY,
-      payload,
-      timeoutMs: 600000,
-    });
-    const urls = extractUrls(result);
-    if (!urls.length) throw new Error('NO_VIDEO_URL_RETURNED');
-    return json(res, 200, { urls });
+    return json(res, 200, { taskIds: tasks.map((task) => task.taskId), provider: 'agnes' });
   }
 
   return json(res, 501, { error: 'VIDEO_API_NOT_CONFIGURED' });
@@ -813,17 +850,32 @@ const handleVideoPoll = async (req, res) => {
   const { searchParams } = new URL(req.url, `http://${req.headers.host}`);
   const taskId = searchParams.get('taskId');
   if (!taskId) return json(res, 400, { error: 'TASK_ID_REQUIRED' });
-  if (!process.env.AGNES_VIDEO_API_KEY) return json(res, 501, { error: 'VIDEO_API_NOT_CONFIGURED' });
 
-  const baseUrl = (process.env.AGNES_VIDEO_BASE_URL || 'https://apihub.agnes-ai.com').replace(/\/$/, '');
-  const queryEndpoint = process.env.AGNES_VIDEO_QUERY_ENDPOINT || '/v1/videos';
-  const result = await agnesRequest({
-    url: joinUrl(baseUrl, `${queryEndpoint}/${encodeURIComponent(taskId)}`),
-    apiKey: process.env.AGNES_VIDEO_API_KEY,
-    timeoutMs: 20000,
-  });
+  // Primary provider: Volcengine Ark Seedance. Must match the provider used by handleVideoCreate.
+  if (process.env.SEEDANCE_API_KEY) {
+    const baseUrl = (process.env.SEEDANCE_BASE_URL || SEEDANCE_DEFAULT_BASE).replace(/\/$/, '');
+    const queryEndpoint = process.env.SEEDANCE_QUERY_ENDPOINT || process.env.SEEDANCE_CREATE_ENDPOINT || process.env.SEEDANCE_VIDEO_ENDPOINT || SEEDANCE_DEFAULT_ENDPOINT;
+    const result = await agnesRequest({
+      url: joinUrl(baseUrl, `${queryEndpoint}/${encodeURIComponent(taskId)}`),
+      apiKey: process.env.SEEDANCE_API_KEY,
+      timeoutMs: 20000,
+    });
+    return json(res, 200, result);
+  }
 
-  return json(res, 200, result);
+  // Fallback provider: Agnes Video V2.0.
+  if (process.env.AGNES_VIDEO_API_KEY) {
+    const baseUrl = (process.env.AGNES_VIDEO_BASE_URL || 'https://apihub.agnes-ai.com').replace(/\/$/, '');
+    const queryEndpoint = process.env.AGNES_VIDEO_QUERY_ENDPOINT || '/v1/videos';
+    const result = await agnesRequest({
+      url: joinUrl(baseUrl, `${queryEndpoint}/${encodeURIComponent(taskId)}`),
+      apiKey: process.env.AGNES_VIDEO_API_KEY,
+      timeoutMs: 20000,
+    });
+    return json(res, 200, result);
+  }
+
+  return json(res, 501, { error: 'VIDEO_API_NOT_CONFIGURED' });
 };
 
 const handleAudioGeneration = async (req, res) => {

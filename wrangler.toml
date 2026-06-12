@@ -19,7 +19,16 @@ QWEN_EDIT_ENDPOINT = "/services/aigc/multimodal-generation/generation"
 QWEN_EDIT_MODEL = "qwen-image-edit-plus-2025-12-15"
 QWEN_EDIT_WATERMARK = "true"
 
-# Agnes Video V2.0 (non-secret config). API key is set separately as a secret:
+# Seedance video — Volcengine Ark / doubao-seedance (PRIMARY, non-secret config).
+# API key is set separately as a secret:
+#   npx wrangler secret put SEEDANCE_API_KEY
+SEEDANCE_BASE_URL = "https://ark.cn-beijing.volces.com"
+SEEDANCE_MODEL_ID = "doubao-seedance-1-5-pro-251215"
+SEEDANCE_CREATE_ENDPOINT = "/api/v3/contents/generations/tasks"
+SEEDANCE_QUERY_ENDPOINT = "/api/v3/contents/generations/tasks"
+# SEEDANCE_WATERMARK = "false"
+
+# Agnes Video V2.0 (fallback, used only if SEEDANCE_API_KEY is unset). API key is a secret:
 #   AGNES_VIDEO_API_KEY  (npx wrangler secret put AGNES_VIDEO_API_KEY)
 AGNES_VIDEO_BASE_URL = "https://apihub.agnes-ai.com"
 AGNES_VIDEO_MODEL_ID = "agnes-video-v2.0"
