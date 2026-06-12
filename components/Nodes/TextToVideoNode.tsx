@@ -4,6 +4,7 @@ import { InputMedia, NodeData } from '../../types';
 import { Icons } from '../Icons';
 import { LocalEditableTitle, LocalInputThumbnails, LocalMediaStack } from './Shared/LocalNodeComponents';
 import { VideoGenerationControls } from './Shared/VideoGenerationControls';
+import { inferVideoMode, resolveVideoMode } from '../../services/mode/video/capabilities';
 
 interface TextToVideoNodeProps {
   data: NodeData;
@@ -60,6 +61,11 @@ export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
     const emptyStateIconColor = isDark ? 'bg-zinc-800/50 text-zinc-500' : 'bg-gray-100 text-gray-400';
     const emptyStateTextColor = isDark ? 'text-zinc-500' : 'text-gray-400';
     const hasResult = !!data.videoSrc && !data.isLoading;
+    const resolvedVideoMode = resolveVideoMode(
+        inferVideoMode(data),
+        data.model,
+        inputMedia.some(item => item.type === 'image'),
+    );
     const hasShotContext = Boolean(data.shotId);
     const shotLabel = hasShotContext
         ? `第${data.episodeNo || '-'}集 / 第${data.sceneNo || '-'}场 / 分镜${String(data.shotNo || '-').padStart(2, '0')}`
@@ -183,9 +189,11 @@ export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
 
         {/* Control Panel */}
         {isSelectedAndStable && showControls && (
-          <div className="absolute top-full left-1/2 min-w-[580px] pt-4 z-[70] pointer-events-auto" style={panelTransform} onMouseDown={(e) => e.stopPropagation()}>
-               {inputMedia.length > 0 && <LocalInputThumbnails inputs={inputs} items={inputMedia} ready={deferredInputs} isDark={isDark} onPreview={onPreviewReference} />}
-              <div className={`${controlPanelBg} rounded-2xl p-4 flex flex-col gap-3 border`}>
+          <div className="absolute top-full left-1/2 w-[680px] max-w-[calc(100vw-32px)] pt-4 z-[70] pointer-events-auto" style={panelTransform} onMouseDown={(e) => e.stopPropagation()}>
+               {inputMedia.length > 0 && resolvedVideoMode !== 'start_end' && (
+                   <LocalInputThumbnails inputs={inputs} items={inputMedia} ready={deferredInputs} isDark={isDark} onPreview={onPreviewReference} />
+               )}
+              <div className={`${controlPanelBg} rounded-[20px] p-4 flex flex-col gap-3 border shadow-[0_18px_55px_rgba(0,0,0,0.28)]`}>
                   {hasShotContext && (
                       <div className={`rounded-xl border px-3 py-2.5 ${isDark ? 'bg-zinc-900/70 border-zinc-800' : 'bg-gray-50 border-gray-200'}`}>
                           <div className="flex items-center justify-between gap-3">

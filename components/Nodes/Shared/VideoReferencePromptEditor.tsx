@@ -49,6 +49,7 @@ interface VideoReferencePromptEditorProps {
     placeholder: string;
     isDark: boolean;
     allowExpand?: boolean;
+    headerContent?: React.ReactNode;
 }
 
 export const VideoReferencePromptEditor: React.FC<VideoReferencePromptEditorProps> = ({
@@ -61,6 +62,7 @@ export const VideoReferencePromptEditor: React.FC<VideoReferencePromptEditorProp
     placeholder,
     isDark,
     allowExpand = true,
+    headerContent,
 }) => {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const [mentionStart, setMentionStart] = useState<number | null>(null);
@@ -153,11 +155,13 @@ export const VideoReferencePromptEditor: React.FC<VideoReferencePromptEditorProp
     const connectedMediaById = new Map(inputMedia.map(item => [getReferenceId(item), item]));
     const visibleReferences = (references || []).filter(reference => allowedTypes.has(reference.type));
     const showMention = mentionStart !== null;
-    const border = isDark ? 'border-zinc-700 bg-zinc-800/80 text-zinc-100' : 'border-gray-200 bg-gray-50 text-gray-900';
+    const border = isDark
+        ? 'border-zinc-700/80 bg-gradient-to-b from-zinc-800/90 to-zinc-900/85 text-zinc-100 shadow-inner shadow-black/10'
+        : 'border-gray-200 bg-gradient-to-b from-white to-gray-50 text-gray-900 shadow-inner shadow-gray-200/40';
 
     return (
         <div className="relative">
-            <div className={`min-h-[112px] rounded-xl border px-3 py-2.5 transition-colors focus-within:border-[#4446CE] focus-within:ring-2 focus-within:ring-[#4446CE]/20 ${border}`}>
+            <div className={`min-h-[126px] rounded-[14px] border px-3.5 py-3 transition-all focus-within:border-[#4446CE]/80 focus-within:ring-2 focus-within:ring-[#4446CE]/15 ${border}`}>
                 {allowExpand && (
                     <button
                         type="button"
@@ -169,6 +173,11 @@ export const VideoReferencePromptEditor: React.FC<VideoReferencePromptEditorProp
                     >
                         <Icons.Maximize2 size={12} />
                     </button>
+                )}
+                {headerContent && (
+                    <div className="mb-2.5 pr-8">
+                        {headerContent}
+                    </div>
                 )}
                 {visibleReferences.length > 0 && (
                     <div className="mb-2 flex flex-wrap gap-1.5">
@@ -316,6 +325,7 @@ export const VideoReferencePromptEditor: React.FC<VideoReferencePromptEditorProp
                                 placeholder={placeholder}
                                 isDark={isDark}
                                 allowExpand={false}
+                                headerContent={headerContent}
                             />
                         </div>
                     </div>

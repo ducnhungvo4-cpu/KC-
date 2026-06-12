@@ -68,13 +68,9 @@ export const VideoGenerationControls: React.FC<VideoGenerationControlsProps> = (
         return () => window.removeEventListener('modelRegistryUpdated', updateModels);
     }, []);
 
-    const groupedVideoModels = useMemo(() => {
-        const primary = ['Seedance 2.0', 'Kling O3', 'Happy Horse 1.0', 'Wan2.7'].filter(model => videoModels.includes(model));
-        const legacy = videoModels.filter(model => !primary.includes(model));
-        return [
-            ...(primary.length ? [{ label: '模式能力模型', items: primary }] : []),
-            ...(legacy.length ? [{ label: '其他模型', items: legacy }] : []),
-        ];
+    const orderedVideoModels = useMemo(() => {
+        const preferred = ['Seedance 2.0', 'Kling O3', 'Happy Horse 1.0', 'Wan2.7'];
+        return [...preferred.filter(model => videoModels.includes(model)), ...videoModels.filter(model => !preferred.includes(model))];
     }, [videoModels]);
 
     const handler = VIDEO_HANDLERS[currentModel] || VIDEO_HANDLERS['Seedance 1.5 Pro'];
@@ -172,18 +168,71 @@ export const VideoGenerationControls: React.FC<VideoGenerationControlsProps> = (
     const tabClass = (tabMode: VideoGenerationMode, disabled: boolean) => {
         if (disabled) {
             return isDark
-                ? 'cursor-not-allowed border-zinc-800 bg-zinc-900/50 text-zinc-600'
-                : 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400';
+                ? 'cursor-not-allowed text-zinc-600'
+                : 'cursor-not-allowed text-gray-400';
         }
-        if (tabMode === mode) return 'border-[#4446CE] bg-[#4446CE] text-white shadow-md shadow-[#4446CE]/20';
+        if (tabMode === mode) {
+            return 'bg-gradient-to-b from-[#5557DB] to-[#4446CE] text-white shadow-[0_5px_14px_rgba(68,70,206,0.28),inset_0_1px_0_rgba(255,255,255,0.18)]';
+        }
         return isDark
-            ? 'border-zinc-700 bg-zinc-800/80 text-zinc-300 hover:border-zinc-600 hover:text-white'
-            : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:text-gray-900';
+            ? 'text-zinc-400 hover:bg-white/[0.055] hover:text-zinc-100'
+            : 'text-gray-500 hover:bg-white hover:text-gray-900';
     };
+
+    const startEndHeader = mode === 'start_end' ? (
+        <div className="flex items-center gap-2">
+            {(['首帧', '尾帧'] as const).map((label, index) => {
+                const item = orderedImages[index];
+                return (
+                    <React.Fragment key={label}>
+                        {index === 1 && (
+                            <button
+                                type="button"
+                                className={`flex h-7 w-7 items-center justify-center rounded-full border transition-all disabled:cursor-not-allowed disabled:opacity-30 ${
+                                    isDark
+                                        ? 'border-zinc-700 bg-zinc-900/80 text-zinc-500 hover:border-[#4446CE]/60 hover:text-[#B9BAFF]'
+                                        : 'border-gray-200 bg-white text-gray-400 hover:border-[#4446CE]/40 hover:text-[#4446CE]'
+                                }`}
+                                disabled={connectedImages.length < 2}
+                                title="交换首尾帧"
+                                onClick={() => updateData(data.id, { swapFrames: !data.swapFrames })}
+                            >
+                                <Icons.ArrowRightLeft size={13} />
+                            </button>
+                        )}
+                        <div className={`flex h-11 items-center gap-2 rounded-xl border p-1 pr-2.5 ${
+                            item
+                                ? isDark
+                                    ? 'border-zinc-700 bg-zinc-950/65'
+                                    : 'border-gray-200 bg-white'
+                                : isDark
+                                    ? 'border-dashed border-zinc-700 bg-zinc-900/45'
+                                    : 'border-dashed border-gray-300 bg-gray-50'
+                        }`}>
+                            {item ? (
+                                <img src={item.url} className="h-8 w-8 rounded-lg object-cover ring-1 ring-[#4446CE]/35" draggable={false} />
+                            ) : (
+                                <span className={`flex h-8 w-8 items-center justify-center rounded-lg ${
+                                    isDark ? 'bg-zinc-800/80 text-zinc-600' : 'bg-gray-100 text-gray-400'
+                                }`}>
+                                    <Icons.Frame size={13} />
+                                </span>
+                            )}
+                            <span className={`text-[10px] font-semibold ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>{label}</span>
+                        </div>
+                    </React.Fragment>
+                );
+            })}
+        </div>
+    ) : undefined;
 
     return (
         <>
-            <div className="grid grid-cols-4 gap-2">
+            <div className={`inline-flex w-fit items-center gap-0.5 self-start rounded-xl border p-1 ${
+                isDark
+                    ? 'border-zinc-800 bg-black/20 shadow-inner shadow-black/20'
+                    : 'border-gray-200 bg-gray-100/80 shadow-inner shadow-gray-200/50'
+            }`}>
                 {VIDEO_MODES.map(tabMode => {
                     const disabledReason = getVideoModeDisabledReason(tabMode, currentModel, hasConnectedImage);
                     return (
@@ -192,7 +241,7 @@ export const VideoGenerationControls: React.FC<VideoGenerationControlsProps> = (
                             type="button"
                             disabled={Boolean(disabledReason)}
                             title={disabledReason || VIDEO_MODE_LABELS[tabMode]}
-                            className={`h-9 rounded-lg border px-3 text-xs font-semibold transition-all ${tabClass(tabMode, Boolean(disabledReason))}`}
+                            className={`h-7 min-w-[82px] rounded-lg px-3 text-[11px] font-semibold tracking-[0.01em] transition-all duration-200 ${tabClass(tabMode, Boolean(disabledReason))}`}
                             onClick={() => updateData(data.id, { videoMode: tabMode })}
                         >
                             {VIDEO_MODE_LABELS[tabMode]}
@@ -200,40 +249,6 @@ export const VideoGenerationControls: React.FC<VideoGenerationControlsProps> = (
                     );
                 })}
             </div>
-
-            {mode === 'start_end' && (
-                <div className={`flex items-center justify-center gap-4 rounded-xl border p-3 ${isDark ? 'border-zinc-700 bg-zinc-900/50' : 'border-gray-200 bg-gray-50'}`}>
-                    {(['首帧', '尾帧'] as const).map((label, index) => {
-                        const item = orderedImages[index];
-                        return (
-                            <React.Fragment key={label}>
-                                {index === 1 && (
-                                    <button
-                                        type="button"
-                                        className="rounded-lg p-2 text-zinc-400 transition-colors hover:bg-zinc-700 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
-                                        disabled={connectedImages.length < 2}
-                                        title="交换首尾帧"
-                                        onClick={() => updateData(data.id, { swapFrames: !data.swapFrames })}
-                                    >
-                                        <Icons.ArrowRightLeft size={18} />
-                                    </button>
-                                )}
-                                <div className="flex items-center gap-2">
-                                    {index === 0 && <span className="text-xs font-semibold text-zinc-400">{label}</span>}
-                                    {item ? (
-                                        <img src={item.url} className="h-14 w-14 rounded-lg border-2 border-[#4446CE]/60 object-cover" draggable={false} />
-                                    ) : (
-                                        <span className="flex h-14 w-14 items-center justify-center rounded-lg border border-dashed border-zinc-600 text-zinc-500">
-                                            <Icons.Frame size={18} />
-                                        </span>
-                                    )}
-                                    {index === 1 && <span className="text-xs font-semibold text-zinc-400">{label}</span>}
-                                </div>
-                            </React.Fragment>
-                        );
-                    })}
-                </div>
-            )}
 
             <VideoReferencePromptEditor
                 value={data.prompt || ''}
@@ -252,6 +267,7 @@ export const VideoGenerationControls: React.FC<VideoGenerationControlsProps> = (
                                 : '描述视频并输入 @ 引用图片、视频或音频...'
                 }
                 isDark={isDark}
+                headerContent={startEndHeader}
             />
 
             {validationMessage && (
@@ -265,7 +281,7 @@ export const VideoGenerationControls: React.FC<VideoGenerationControlsProps> = (
 
             <div className="flex items-center gap-2">
                 <LocalCustomDropdown
-                    options={groupedVideoModels}
+                    options={orderedVideoModels}
                     value={currentModel}
                     onChange={(model: string) => {
                         const nextMode = resolveVideoMode(mode, model, hasConnectedImage);
@@ -275,7 +291,7 @@ export const VideoGenerationControls: React.FC<VideoGenerationControlsProps> = (
                     onToggle={() => setActiveDropdown(activeDropdown === 'model' ? null : 'model')}
                     onClose={() => setActiveDropdown(null)}
                     align="left"
-                    width="w-[150px]"
+                    width="w-[190px]"
                     isDark={isDark}
                 />
                 <LocalCustomDropdown
