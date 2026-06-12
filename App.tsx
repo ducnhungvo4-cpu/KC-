@@ -16,6 +16,7 @@ import { CropModal } from './components/CropModal';
 import { VideoFrameExtractPanel } from './components/VideoFrameExtractPanel';
 import { LoginScreen } from './components/LoginScreen';
 import { authService } from './services/authService';
+import { getVideoModelCapability, inferVideoMode, resolveVideoMode } from './services/mode/video/capabilities';
 
 const DEFAULT_NODE_WIDTH = 320;
 const DEFAULT_NODE_HEIGHT = 240; 
@@ -261,7 +262,7 @@ const DEMO_LINEAR_SHOT = {
     shotName: '第1集 第2场 分镜03',
     shotDescription: '男主推门进入废弃仓库，看到远处闪烁的蓝色光源，镜头从背后缓慢推近。',
     prompt: '废弃仓库内，男主推门进入，远处蓝色光源闪烁，低角度跟拍，悬疑短剧质感，冷色调，细节清晰，电影感灯光。',
-    model: 'Seedance 1.5 Pro',
+    model: 'Seedance 2.0',
     aspectRatio: '16:9',
     resolution: '720p',
     duration: '5s',
@@ -286,11 +287,11 @@ const NODE_MEDIA_CATEGORY: Record<NodeType, MediaCategory> = {
 
 // 目标节点（下游）允许接收的来源节点（上游）类别：
 // - 图片节点：可接图片、文字
-// - 视频节点：可接图片、文字
+// - 视频节点：可接图片、视频、音频/文字
 // - 文字节点：可接图片、视频、文字
 const ALLOWED_SOURCE_CATEGORIES: Record<MediaCategory, MediaCategory[]> = {
     image: ['image', 'text'],
-    video: ['image', 'text'],
+    video: ['image', 'video', 'text'],
     text: ['image', 'video', 'text'],
 };
 
@@ -803,12 +804,14 @@ const CanvasWithSidebar: React.FC = () => {
         map[node.id] = connections
             .filter(c => c.targetId === node.id)
             .map(c => nodes.find(n => n.id === c.sourceId))
-            .filter((n): n is NodeData => Boolean(n && (n.imageSrc || n.videoSrc || n.prompt || n.optimizedPrompt)))
+            .filter((n): n is NodeData => Boolean(n && (n.imageSrc || n.videoSrc || n.audioSrc || n.prompt || n.optimizedPrompt)))
             .map(n => {
-                if (n.videoSrc) return { type: 'video', url: n.videoSrc, title: n.title } satisfies InputMedia;
-                if (n.imageSrc) return { type: 'image', url: n.imageSrc, title: n.title } satisfies InputMedia;
+                const base = { id: n.id, sourceNodeId: n.id, title: n.title };
+                if (n.videoSrc) return { ...base, type: 'video', url: n.videoSrc } satisfies InputMedia;
+                if (n.imageSrc) return { ...base, type: 'image', url: n.imageSrc } satisfies InputMedia;
+                if (n.audioSrc) return { ...base, type: 'audio', url: n.audioSrc } satisfies InputMedia;
                 const text = n.optimizedPrompt || n.prompt || '';
-                return { type: 'text', url: `text://${n.id}`, text, title: n.title } satisfies InputMedia;
+                return { ...base, type: 'text', url: `text://${n.id}`, text } satisfies InputMedia;
             });
     });
     return map;
@@ -1007,7 +1010,7 @@ const CanvasWithSidebar: React.FC = () => {
             case NodeType.TEXT_TO_IMAGE:
                 return 'Seedream 5.0';
             case NodeType.TEXT_TO_VIDEO:
-                return 'Seedance 1.5 Pro';
+                return 'Seedance 2.0';
             case NodeType.TEXT_TO_AUDIO:
                 return 'Minimax-speech-2.8-hd';
             case NodeType.CREATIVE_DESC:
@@ -1081,7 +1084,7 @@ const CanvasWithSidebar: React.FC = () => {
               case NodeType.TEXT_TO_IMAGE:
                   return 'Seedream 5.0';
               case NodeType.TEXT_TO_VIDEO:
-                  return 'Seedance 1.5 Pro';
+                  return 'Seedance 2.0';
               case NodeType.TEXT_TO_AUDIO:
                   return 'Minimax-speech-2.8-hd';
               case NodeType.CREATIVE_DESC:
@@ -1290,7 +1293,7 @@ const CanvasWithSidebar: React.FC = () => {
       title: clip.shotName,
       prompt: clip.prompt || '',
       videoSrc: clip.videoUrl || undefined,
-      model: 'Seedance 1.5 Pro',
+      model: 'Seedance 2.0',
       aspectRatio: '16:9',
       resolution: '720p',
       duration: '5s',
@@ -1556,6 +1559,54 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
   const handleGenerate = async (nodeId: string) => {
     const node = nodes.find(n => n.id === nodeId);
     if (!node) return;
+
+    const connectedMedia = getInputMedia(node.id);
+    const connectedImages = connectedMedia.filter(item => item.type === 'image');
+    const isVideoNode = node.type === NodeType.TEXT_TO_VIDEO
+        || node.type === NodeType.IMAGE_TO_VIDEO
+        || node.type === NodeType.START_END_TO_VIDEO;
+    const requestedVideoMode = inferVideoMode(node);
+    const videoMode = resolveVideoMode(requestedVideoMode, node.model, connectedImages.length > 0);
+    const connectedMediaById = new Map(
+        connectedMedia.map(item => [item.id || item.sourceNodeId || `${item.type}:${item.url}`, item]),
+    );
+    const selectedVideoMedia = node.videoPromptReferences === undefined
+        ? connectedMedia.filter(item => (
+            videoMode === 'image' ? item.type === 'image'
+                : videoMode === 'omni' ? item.type === 'image' || item.type === 'video' || item.type === 'audio'
+                    : videoMode === 'start_end' ? item.type === 'image'
+                        : false
+        ))
+        : node.videoPromptReferences
+            .map(reference => connectedMediaById.get(reference.id))
+            .filter((item): item is InputMedia => Boolean(item))
+            .filter(item => (
+                videoMode === 'image' ? item.type === 'image'
+                    : videoMode === 'omni' ? item.type === 'image' || item.type === 'video' || item.type === 'audio'
+                        : false
+            ));
+
+    if (isVideoNode) {
+        const capability = getVideoModelCapability(node.model);
+        const imageCount = videoMode === 'start_end'
+            ? connectedImages.length
+            : selectedVideoMedia.filter(item => item.type === 'image').length;
+        const videoCount = selectedVideoMedia.filter(item => item.type === 'video').length;
+        const audioCount = selectedVideoMedia.filter(item => item.type === 'audio').length;
+        const validationMessage =
+            videoMode === 'image' && imageCount === 0 ? '请连接并 @ 引用至少一张图片'
+                : videoMode === 'start_end' && connectedImages.length < 2 ? '请连接两张图片作为首帧和尾帧'
+                    : videoMode === 'omni' && selectedVideoMedia.length === 0 ? '请连接并 @ 引用至少一个图片、视频或音频素材'
+                        : imageCount > capability.maxImages ? `当前模型最多支持 ${capability.maxImages} 张图片`
+                            : videoCount > capability.maxVideos ? `当前模型最多支持 ${capability.maxVideos} 个视频`
+                                : audioCount > capability.maxAudio ? `当前模型最多支持 ${capability.maxAudio} 个音频`
+                                    : '';
+        if (validationMessage) {
+            alert(validationMessage);
+            return;
+        }
+    }
+
     const creditEstimate = node.creditEstimate || getEstimatedCredits(node);
     updateNodeData(nodeId, { isLoading: true, errorMessage: undefined, creditEstimate, creditStatus: 'reserved' });
     
@@ -1563,14 +1614,11 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
 
     // Image-to-video compliance gate: when generating a video from upstream image nodes,
     // auto-submit each reference image node for Seedance 2.0 audit.
-    const isVideoNode = node.type === NodeType.TEXT_TO_VIDEO
-        || node.type === NodeType.IMAGE_TO_VIDEO
-        || node.type === NodeType.START_END_TO_VIDEO;
     if (isVideoNode) {
-        connections
-            .filter(c => c.targetId === node.id)
-            .map(c => nodes.find(n => n.id === c.sourceId))
-            .filter((n): n is NodeData => Boolean(n && n.imageSrc))
+        (videoMode === 'start_end' ? connectedImages : selectedVideoMedia)
+            .filter(item => item.type === 'image' && item.sourceNodeId)
+            .map(item => nodes.find(n => n.id === item.sourceNodeId))
+            .filter((n): n is NodeData => Boolean(n))
             .forEach(n => handleSeedanceAudit(n.id));
     }
 
@@ -1590,20 +1638,24 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                 node.prompt || '', node.aspectRatio, node.model, node.resolution, node.count || 1, inputs, false
             );
           }
-          // Video generation 
-          else if (node.type === NodeType.TEXT_TO_VIDEO) {
+          // Unified video generation: model capability + selected mode determine inputs.
+          else if (isVideoNode) {
+            const selectedImages = videoMode === 'start_end'
+                ? connectedImages.map(item => item.url)
+                : selectedVideoMedia.filter(item => item.type === 'image').map(item => item.url);
+            const orderedInputs = videoMode === 'start_end' && node.swapFrames && selectedImages.length >= 2
+                ? [selectedImages[1], selectedImages[0], ...selectedImages.slice(2)]
+                : selectedImages;
             results = await generateVideo(
-                node.prompt || '', inputs, node.aspectRatio, node.model, node.resolution, node.duration, node.count || 1, false
-            );
-          }
-          // Start-End Frame to Video generation (首尾帧模式)
-          else if (node.type === NodeType.START_END_TO_VIDEO) {
-            // 添加 _FL 后缀来标识首尾帧模式
-            const modelWithFL = (node.model || 'Seedance 1.5 Pro') + '_FL';
-            // 如果设置了 swapFrames，交换首尾帧顺序
-            const orderedInputs = node.swapFrames && inputs.length >= 2 ? [inputs[1], inputs[0]] : inputs;
-            results = await generateVideo(
-                node.prompt || '', orderedInputs, node.aspectRatio, modelWithFL, node.resolution, node.duration, node.count || 1, false
+                node.prompt || '',
+                orderedInputs,
+                node.aspectRatio,
+                node.model,
+                node.resolution,
+                node.duration,
+                node.count || 1,
+                false,
+                { mode: videoMode, inputMedia: selectedVideoMedia },
             );
           }
 
@@ -1623,7 +1675,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                       node.imageVersions,
                       node
                   );
-              } else if (node.type === NodeType.TEXT_TO_VIDEO || node.type === NodeType.START_END_TO_VIDEO) {
+              } else if (isVideoNode) {
                   updates.videoSrc = results[0];
               }
               
@@ -1840,6 +1892,11 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
   const handlePreviewReference = (item: InputMedia) => {
       if (item.type === 'text') {
           setPreviewText({ title: item.title || '参考文本', text: item.text || '' });
+          return;
+      }
+      if (item.type === 'audio') {
+          const audio = new Audio(item.url);
+          void audio.play();
           return;
       }
       setPreviewMedia({ url: item.url, type: item.type });
@@ -3081,7 +3138,6 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
       // - 图片节点有素材 → 作为 target 时上游只能是图片节点
       // - 文字节点有素材 → 不能作为 target（禁止上游连入）
       if (nodeHasMedia(target)) {
-          if (targetCategory === 'video') return false;
           if (targetCategory === 'text') return false;
           if (targetCategory === 'image' && sourceCategory !== 'image') return false;
       }

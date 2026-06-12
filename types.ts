@@ -10,6 +10,18 @@ export enum NodeType {
   ORIGINAL_IMAGE = 'ORIGINAL_IMAGE',
 }
 
+export type VideoGenerationMode = 'text' | 'image' | 'start_end' | 'omni';
+
+export type InputMediaType = 'image' | 'video' | 'audio' | 'text';
+
+export interface VideoPromptReference {
+  id: string;
+  sourceNodeId: string;
+  type: Exclude<InputMediaType, 'text'>;
+  url: string;
+  title?: string;
+}
+
 export interface ImageVersionSnapshot {
   url: string;
   prompt: string;
@@ -51,6 +63,10 @@ export interface NodeData {
   model?: string;
   promptOptimize?: boolean; // Prompt Extension/Optimization switch
   swapFrames?: boolean; // For START_END_TO_VIDEO: swap first/last frame order
+  videoMode?: VideoGenerationMode;
+  // Undefined keeps legacy nodes using all eligible connected media. Once the
+  // user edits @ references, this becomes an explicit ordered selection.
+  videoPromptReferences?: VideoPromptReference[];
   voiceId?: string;
   voiceSpeed?: number;
   voicePitch?: number;
@@ -138,7 +154,9 @@ export interface MultiAngleResult {
 }
 
 export interface InputMedia {
-  type: 'image' | 'video' | 'text';
+  id?: string;
+  sourceNodeId?: string;
+  type: InputMediaType;
   url: string;
   text?: string;
   title?: string;

@@ -1,11 +1,9 @@
 ﻿
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { InputMedia, NodeData } from '../../types';
 import { Icons } from '../Icons';
-import { getModelConfig, MODEL_REGISTRY, getVisibleModels } from '../../services/geminiService';
-import { VIDEO_HANDLERS } from '../../services/mode/video/configurations';
-import { getVideoConstraints, getAutoCorrectedVideoSettings } from '../../services/mode/video/rules';
-import { LocalEditableTitle, LocalCustomDropdown, LocalInputThumbnails, LocalMediaStack, LocalPromptTextarea } from './Shared/LocalNodeComponents';
+import { LocalEditableTitle, LocalInputThumbnails, LocalMediaStack } from './Shared/LocalNodeComponents';
+import { VideoGenerationControls } from './Shared/VideoGenerationControls';
 
 interface TextToVideoNodeProps {
   data: NodeData;
@@ -38,11 +36,8 @@ interface TextToVideoNodeProps {
 export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
     data, updateData, onGenerate, selected, showControls, inputs = [], inputMedia = [], onPreviewReference, onMaximize, onPreviewMedia, onUseVideoVersion, onDownload, onUpload, onSaveResult, onExtractFrames, onExtractSingleFrame, onRemoveSubtitles, onEnhanceVideo, onRemoveBGM, onToggleFavoriteArtifact, isArtifactFavorited, onAddToAssetLibrary, isDark = true, isSelecting, canvasScale = 1
 }) => {
-    const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
     const [deferredInputs, setDeferredInputs] = useState(false);
     const [progress, setProgress] = useState(0);
-    const [isConfigured, setIsConfigured] = useState(true);
-    const [videoModels, setVideoModels] = useState<string[]>([]);
 
     const isSelectedAndStable = selected && !isSelecting;
     // Panel stays a constant screen size while zooming via the --panel-inverse-scale CSS var,
@@ -56,119 +51,12 @@ export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
         transformOrigin: 'bottom center',
     };
 
-    const checkConfig = useCallback(() => {
-         const mName = data.model || 'Agnes Video V2.0';
-         const cfg = getModelConfig(mName);
-         // KC backend-proxied video models run through /api/generate/video, so the API key
-         // lives on the backend (Cloudflare AGNES_VIDEO_API_KEY), not in the browser.
-         const isBackendModel = mName === 'Agnes Video V2.0' || mName === 'Seedance 1.5 Pro';
-         setIsConfigured(isBackendModel || !!cfg.key);
-    }, [data.model]);
-
-    const updateModels = useCallback(() => {
-        const visibleModels = getVisibleModels();
-        const models = visibleModels.filter(k => MODEL_REGISTRY[k]?.category === 'VIDEO');
-        setVideoModels(models);
-    }, []);
-
-    useEffect(() => { 
-        checkConfig(); 
-        updateModels();
-        window.addEventListener('modelConfigUpdated', checkConfig); 
-        window.addEventListener('modelRegistryUpdated', updateModels);
-        return () => {
-            window.removeEventListener('modelConfigUpdated', checkConfig);
-            window.removeEventListener('modelRegistryUpdated', updateModels);
-        };
-    }, [checkConfig, updateModels]);
-
-    // Group models for split-pane/flyout dropdown
-    const groupedVideoModels = useMemo(() => {
-        const groups: Record<string, string[]> = {
-            'Kling': [],
-            'Hailuo': [],
-            'Veo': [],
-            'Wan': []
-        };
-        const ungrouped: string[] = [];
-        
-        videoModels.forEach(m => {
-            const lower = m.toLowerCase();
-            if (m.startsWith('Kling') || m.includes('可灵')) {
-                 groups['Kling'].push(m);
-            } else if (m.startsWith('海螺') || lower.includes('hailuo')) {
-                 groups['Hailuo'].push(m);
-            } else if (m.startsWith('Veo')) {
-                 groups['Veo'].push(m);
-            } else if (m.startsWith('Wan') || lower.includes('wan')) {
-                 groups['Wan'].push(m);
-            } else {
-                 ungrouped.push(m);
-            }
-        });
-        
-        const result = Object.entries(groups)
-            .filter(([_, items]) => items.length > 0)
-            .map(([label, items]) => ({ label, items }));
-            
-        // Return mixed array: Objects for groups, Strings for ungrouped items
-        return [...result, ...ungrouped];
-    }, [videoModels]);
-
     useEffect(() => { if (isSelectedAndStable && showControls) { const t = setTimeout(() => setDeferredInputs(true), 100); return () => clearTimeout(t); } else setDeferredInputs(false); }, [isSelectedAndStable, showControls]);
     useEffect(() => { let interval: any; if (data.isLoading) { setProgress(0); interval = setInterval(() => { setProgress(prev => (prev >= 95 ? 95 : prev + Math.max(0.5, (95 - prev) / 20))); }, 200); } else setProgress(0); return () => clearInterval(interval); }, [data.isLoading]);
-
-    const handleRatioChange = (ratio: string) => {
-        const currentShort = Math.min(data.width, data.height);
-        const baseSize = Math.max(currentShort, 400); // Preserve current scale, min 400px
-
-        const [wStr, hStr] = ratio.split(':');
-        const wR = parseFloat(wStr);
-        const hR = parseFloat(hStr);
-        const r = wR / hR;
-
-        let newW, newH;
-        if (r >= 1) {
-            newH = baseSize;
-            newW = baseSize * r;
-        } else {
-            newW = baseSize;
-            newH = baseSize / r;
-        }
-        updateData(data.id, { aspectRatio: ratio, width: Math.round(newW), height: Math.round(newH) });
-    };
-
-
-    const currentModel = data.model || 'Seedance 1.5 Pro';
-    const handler = VIDEO_HANDLERS[currentModel] || VIDEO_HANDLERS['Seedance 1.5 Pro'];
-    const rules = handler.rules;
-
-    const resOptions = rules.resolutions || ['720p'];
-    const durOptions = rules.durations || ['5s'];
-    const ratioOptions = rules.ratios || ['16:9'];
-
-    // Constraints & Auto-Correction
-    const constraints = getVideoConstraints(currentModel, data.resolution, data.duration, inputs.length);
-    const displayResValue = (data.model?.includes('海螺') && (data.resolution === '720p' || data.resolution === '768p')) ? '768p' : data.resolution;
-
-    useEffect(() => {
-        let updates: Partial<NodeData> = {};
-        const corrections = getAutoCorrectedVideoSettings(currentModel, data.resolution, data.duration, inputs.length);
-        if (corrections.resolution) updates.resolution = corrections.resolution;
-        if (corrections.duration) updates.duration = corrections.duration;
-
-        // Basic validation
-        if (data.resolution && !resOptions.includes(data.resolution)) updates.resolution = resOptions[0];
-        if (data.duration && !durOptions.includes(data.duration)) updates.duration = durOptions[0];
-        if (data.aspectRatio && !ratioOptions.includes(data.aspectRatio)) updates.aspectRatio = ratioOptions[0];
-
-        if (Object.keys(updates).length > 0) updateData(data.id, updates);
-    }, [data.model, data.resolution, data.duration, data.aspectRatio, resOptions, durOptions, ratioOptions, currentModel, inputs.length, updateData, data.id]);
 
     const containerBg = isDark ? 'bg-[#1a1a1a]' : 'bg-white';
     const containerBorder = selected ? 'border-[#4446CE] ring-2 ring-[#4446CE]/30' : (isDark ? 'border-zinc-700/50' : 'border-gray-200');
     const controlPanelBg = isDark ? 'bg-[#1a1a1a]/95 backdrop-blur-xl border-zinc-700/50' : 'bg-white/95 backdrop-blur-xl border-gray-200 shadow-xl';
-    const inputBg = isDark ? 'bg-zinc-800/80 hover:bg-zinc-800 border-zinc-700 focus:border-[#4446CE] text-white placeholder-zinc-500' : 'bg-gray-50 hover:bg-white border-gray-200 focus:border-[#4446CE] text-gray-900 placeholder-gray-400';
     const emptyStateIconColor = isDark ? 'bg-zinc-800/50 text-zinc-500' : 'bg-gray-100 text-gray-400';
     const emptyStateTextColor = isDark ? 'text-zinc-500' : 'text-gray-400';
     const hasResult = !!data.videoSrc && !data.isLoading;
@@ -176,13 +64,6 @@ export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
     const shotLabel = hasShotContext
         ? `第${data.episodeNo || '-'}集 / 第${data.sceneNo || '-'}场 / 分镜${String(data.shotNo || '-').padStart(2, '0')}`
         : '';
-    const creditLabel = data.creditStatus === 'reserved'
-        ? '已预扣'
-        : data.creditStatus === 'confirmed'
-            ? '已扣减'
-            : data.creditStatus === 'refunded'
-                ? '已返还'
-                : '预计';
 
     return (
       <>
@@ -332,62 +213,15 @@ export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
                       </div>
                   )}
 
-                  {/* Prompt Input */}
-                  <LocalPromptTextarea
-                      className={`w-full border rounded-xl px-4 py-3 text-sm leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-[#4446CE]/20 min-h-[72px] transition-all ${inputBg}`}
-                      placeholder="描述你想要生成的视频场景..."
-                      value={data.prompt || ''}
-                      onChange={(value) => updateData(data.id, { prompt: value })}
+                  <VideoGenerationControls
+                      data={data}
+                      updateData={updateData}
+                      onGenerate={onGenerate}
+                      inputMedia={inputMedia}
+                      progress={progress}
+                      hasResult={hasResult}
                       isDark={isDark}
-                      expandedTitle="编辑视频提示词"
                   />
-                  
-                  {/* Parameters Row - All in one line */}
-                  <div className="flex items-center gap-2">
-                       <LocalCustomDropdown 
-                           options={groupedVideoModels} 
-                           value={data.model || 'Seedance 1.5 Pro'} 
-                           onChange={(val: any) => updateData(data.id, { model: val })} 
-                           isOpen={activeDropdown === 'model'} 
-                           onToggle={() => setActiveDropdown(activeDropdown === 'model' ? null : 'model')} 
-                           onClose={() => setActiveDropdown(null)} 
-                           align="left" 
-                           width="w-[130px]" 
-                           isDark={isDark} 
-                       />
-                      <LocalCustomDropdown icon={Icons.Crop} options={ratioOptions} value={data.aspectRatio || '16:9'} onChange={handleRatioChange} isOpen={activeDropdown === 'ratio'} onToggle={() => setActiveDropdown(activeDropdown === 'ratio' ? null : 'ratio')} onClose={() => setActiveDropdown(null)} disabledOptions={constraints.disabledRatios} isDark={isDark} />
-                      <LocalCustomDropdown icon={Icons.Monitor} options={resOptions} value={displayResValue || '720p'} onChange={(val: any) => updateData(data.id, { resolution: val })} isOpen={activeDropdown === 'res'} onToggle={() => setActiveDropdown(activeDropdown === 'res' ? null : 'res')} onClose={() => setActiveDropdown(null)} disabledOptions={constraints.disabledRes} isDark={isDark} />
-                      <LocalCustomDropdown icon={Icons.Clock} options={durOptions} value={data.duration || '5s'} onChange={(val: any) => updateData(data.id, { duration: val })} isOpen={activeDropdown === 'duration'} onToggle={() => setActiveDropdown(activeDropdown === 'duration' ? null : 'duration')} onClose={() => setActiveDropdown(null)} disabledOptions={constraints.disabledDurations} isDark={isDark} />
-                       {/* Spacer */}
-                       <div className="flex-1" />
-
-                       <div className={`hidden sm:flex h-8 items-center rounded-lg border px-2.5 text-[11px] font-semibold whitespace-nowrap ${
-                           data.creditStatus === 'confirmed'
-                               ? (isDark ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300' : 'border-emerald-100 bg-emerald-50 text-emerald-700')
-                               : data.creditStatus === 'reserved'
-                                   ? (isDark ? 'border-[#4446CE]/20 bg-[#4446CE]/10 text-[#B9BAFF]' : 'border-[#E1E3FF] bg-[#F0F1FF] text-[#3739B0]')
-                                   : data.creditStatus === 'refunded'
-                                       ? (isDark ? 'border-zinc-700 bg-zinc-800 text-zinc-300' : 'border-gray-200 bg-gray-50 text-gray-600')
-                                       : (isDark ? 'border-zinc-700 bg-zinc-900/60 text-zinc-400' : 'border-gray-200 bg-gray-50 text-gray-500')
-                       }`}>
-                           {data.creditEstimate || 14}分
-                       </div>
-                       
-                       {/* Generate Button */}
-                       <button
-                           onClick={() => onGenerate(data.id)}
-                           disabled={data.isLoading}
-                           title={hasResult ? '基于当前参数生成一个新版本' : '开始生成'}
-                           className={`shrink-0 h-8 px-4 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 whitespace-nowrap transition-all active:scale-[0.98] ${
-                               data.isLoading
-                                   ? 'bg-gray-400 text-white cursor-not-allowed'
-                                   : 'bg-gradient-to-r from-[#4446CE] to-[#4446CE] hover:from-[#4446CE] hover:to-[#8F91F4] text-white shadow-lg shadow-[#4446CE]/25 hover:shadow-[#4446CE]/40'
-                           }`}
-                       >
-                           {data.isLoading ? <Icons.Loader2 className="animate-spin" size={15}/> : <Icons.Wand2 size={15} />}
-                           <span>{data.isLoading ? `${Math.floor(progress)}%` : (hasResult ? '生成版本' : '生成')}</span>
-                       </button>
-                  </div>
               </div>
           </div>
         )}

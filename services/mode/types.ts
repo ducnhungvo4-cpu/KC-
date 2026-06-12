@@ -1,4 +1,6 @@
 
+import type { VideoGenerationMode } from '../../types';
+
 export type StrategyType = 
   | 'CHAT' 
   | 'IMAGE_GEN' 
@@ -45,6 +47,10 @@ export interface VideoModelRules {
     ratios: string[];
     maxInputImages: number;
     hasPromptExtend?: boolean;
+    supportedModes?: VideoGenerationMode[];
+    defaultMode?: VideoGenerationMode;
+    maxInputVideos?: number;
+    maxInputAudio?: number;
 }
 
 export interface VideoConstraints {

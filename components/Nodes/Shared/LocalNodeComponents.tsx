@@ -343,6 +343,11 @@ export const LocalThumbnailItem = memo(({ item, index, isDark, onPreview }: { it
                         <Icons.Play size={16} className="text-white drop-shadow" fill="currentColor" />
                     </div>
                 </>
+            ) : item.type === 'audio' ? (
+                <div className={`absolute inset-0 flex flex-col items-center justify-center px-1 ${isDark ? 'text-violet-300' : 'text-violet-700'}`}>
+                    <Icons.Music size={17} />
+                    <span className="mt-0.5 max-w-full truncate text-[8px]">{item.title || '音频'}</span>
+                </div>
             ) : item.type === 'text' ? (
                 <div className={`absolute inset-0 flex flex-col items-center justify-center px-1 ${isDark ? 'text-zinc-200' : 'text-gray-700'}`}>
                     <Icons.FileText size={16} />
@@ -426,7 +431,7 @@ export const LocalMediaStack: React.FC<{
     const artifacts = data.outputArtifacts || [];
     const sortedArtifacts = currentSrc ? [currentSrc, ...artifacts.filter(a => a !== currentSrc)] : artifacts;
     const isImageHistory = data.type === NodeType.TEXT_TO_IMAGE;
-    const isVideoHistory = data.type === NodeType.TEXT_TO_VIDEO || data.type === NodeType.START_END_TO_VIDEO;
+    const isVideoHistory = data.type === NodeType.TEXT_TO_VIDEO || data.type === NodeType.IMAGE_TO_VIDEO || data.type === NodeType.START_END_TO_VIDEO;
     const imageVersionUrls = artifacts.length > 0 ? artifacts : (currentSrc ? [currentSrc] : []);
     const showBadge = !!selected && !data.isStackOpen && artifacts.length > 1;
     const snapshotByUrl = new Map<string, ImageVersionSnapshot>(
@@ -722,7 +727,7 @@ export const LocalMediaStack: React.FC<{
     
     // Improved detection: Prioritize strict node type check, then file extension.
     // Removed naive .includes('video') which triggers on random signatures in URLs.
-    const isVideo = data.type === 'TEXT_TO_VIDEO' || data.type === 'START_END_TO_VIDEO' || (currentSrc && /\.(mp4|webm|mov|mkv)(\?|$)/i.test(currentSrc));
+    const isVideo = data.type === 'TEXT_TO_VIDEO' || data.type === 'IMAGE_TO_VIDEO' || data.type === 'START_END_TO_VIDEO' || (currentSrc && /\.(mp4|webm|mov|mkv)(\?|$)/i.test(currentSrc));
     return (
         <>
            {isVideo ? (

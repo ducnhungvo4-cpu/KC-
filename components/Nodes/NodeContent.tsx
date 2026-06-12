@@ -2,7 +2,6 @@ import React, { memo } from 'react';
 import { ImageVersionSnapshot, InputMedia, MultiAngleOptions, NodeData, NodeType } from '../../types';
 import { TextToImageNode } from './TextToImageNode';
 import { TextToVideoNode } from './TextToVideoNode';
-import { StartEndToVideoNode } from './StartEndToVideoNode';
 import { OriginalImageNode } from './OriginalImageNode';
 import { CreativeDescNode } from './CreativeDescNode';
 import { TextToAudioNode } from './TextToAudioNode';
@@ -53,11 +52,11 @@ const NodeContentComponent: React.FC<NodeContentProps> = (props) => {
         case NodeType.TEXT_TO_IMAGE:
             return <TextToImageNode {...props} />;
         case NodeType.TEXT_TO_VIDEO:
+        case NodeType.IMAGE_TO_VIDEO:
+        case NodeType.START_END_TO_VIDEO:
             return <TextToVideoNode {...props} />;
         case NodeType.TEXT_TO_AUDIO:
             return <TextToAudioNode {...props} />;
-        case NodeType.START_END_TO_VIDEO:
-            return <StartEndToVideoNode {...props} />;
         case NodeType.ORIGINAL_IMAGE:
             return <OriginalImageNode {...props} />;
         case NodeType.CREATIVE_DESC:

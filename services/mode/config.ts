@@ -41,6 +41,17 @@ export const MODEL_REGISTRY: Record<string, ModelDef> = {
   'Zimage': { id: 'z-image-turbo', name: 'Qwen Zimage', type: 'IMAGE_GEN', category: 'IMAGE', defaultEndpoint: '/v1/images/generations' },
 
   // --- Video Models ---
+  'Seedance 2.0': { id: 'doubao-seedance-2-0', name: 'Seedance 2.0', type: 'VIDEO_GEN_STD', category: 'VIDEO', defaultEndpoint: '/v1/videos' },
+  'Kling O3': { id: 'kling-o3', name: 'Kling O3', type: 'KLING_OMNI', category: 'VIDEO', defaultEndpoint: '/kling/v1/videos/omni-video' },
+  'Happy Horse 1.0': { id: 'happy-horse-1.0', name: 'Happy Horse 1.0', type: 'VIDEO_GEN_STD', category: 'VIDEO', defaultEndpoint: '/v1/videos' },
+  'Wan2.7': {
+      id: 'wan2.7',
+      name: 'Qwen Wan 2.7',
+      type: 'VIDEO_GEN_STD',
+      category: 'VIDEO',
+      defaultEndpoint: '/alibailian/api/v1/services/aigc/video-generation/video-synthesis',
+      defaultQueryEndpoint: '/alibailian/api/v1/tasks/{id}'
+  },
   'Sora 2': { id: 'sora-2', name: 'Sora 2', type: 'VIDEO_GEN_CHAT', category: 'VIDEO', defaultEndpoint: '/v1/chat/completions' },
   'Veo 3.1 Fast': { id: 'veo3.1', name: 'Veo 3.1 Fast', type: 'VIDEO_GEN_STD', category: 'VIDEO', defaultEndpoint: '/v1/video/create', defaultQueryEndpoint: '/v1/video/query' },
   'Veo 3.1 Pro': { id: 'veo3.1-pro', name: 'Veo 3.1 Pro', type: 'VIDEO_GEN_STD', category: 'VIDEO', defaultEndpoint: '/v1/video/create', defaultQueryEndpoint: '/v1/video/query' },
@@ -238,7 +249,16 @@ export const isCustomModel = (key: string): boolean => {
 
 // 获取可见的模型列表（用于下拉框）
 export const getVisibleModels = (): string[] => {
-    const kcDefaults = ['Seedream 5.0', 'Agnes Video V2.0', 'Seedance 1.5 Pro', 'Minimax-speech-2.8-hd'];
+    const kcDefaults = [
+        'Seedream 5.0',
+        'Seedance 2.0',
+        'Kling O3',
+        'Happy Horse 1.0',
+        'Wan2.7',
+        'Agnes Video V2.0',
+        'Seedance 1.5 Pro',
+        'Minimax-speech-2.8-hd',
+    ];
     const customVisible = Object.keys(loadCustomModels()).filter(key => MODEL_REGISTRY[key]);
     return [...kcDefaults.filter(key => MODEL_REGISTRY[key]), ...customVisible.filter(key => !kcDefaults.includes(key))];
 };

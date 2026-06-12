@@ -1,7 +1,7 @@
 
 import { MODEL_REGISTRY, getModelConfig, saveModelConfig, registerCustomModel, deleteModel, isCustomModel, getVisibleModels } from "./mode/config";
 import type { ModelConfig } from "./mode/config";
-import type { InputMedia, MultiAngleOptions, MultiAngleResult } from "../types";
+import type { InputMedia, MultiAngleOptions, MultiAngleResult, VideoGenerationMode } from "../types";
 import { generateMockImage } from "./mockGeneration";
 import { apiFetch } from "./authService";
 
@@ -218,18 +218,38 @@ export const generateVideo = async (
     resolution: string = "720p", 
     duration: string = "5s",
     count: number = 1,
-    promptOptimize: boolean = false
+    promptOptimize: boolean = false,
+    options?: {
+        mode?: VideoGenerationMode;
+        inputMedia?: InputMedia[];
+    }
 ): Promise<string[]> => {
     let realModelName = modelName;
-    const isStartEndMode = modelName.endsWith('_FL');
+    const isStartEndMode = options?.mode === 'start_end' || modelName.endsWith('_FL');
     if (isStartEndMode) realModelName = modelName.replace('_FL', '');
     
     try {
         const videoInputImages = await prepareVideoInputImages(inputImages);
+        const normalizedInputMedia = await Promise.all((options?.inputMedia || []).map(async media => {
+            if (media.type === 'image') {
+                return { ...media, url: await ensurePublicImageUrl(media.url) };
+            }
+            return await normalizeMediaForModel(media);
+        }));
         const result = await apiFetch('/api/generate/video', {
           method: 'POST',
           body: JSON.stringify({
-            prompt, inputImages: videoInputImages, aspectRatio, modelName: realModelName, resolution, duration, count, promptOptimize, isStartEndMode
+            prompt,
+            inputImages: videoInputImages,
+            inputMedia: normalizedInputMedia,
+            videoMode: options?.mode || (isStartEndMode ? 'start_end' : videoInputImages.length ? 'image' : 'text'),
+            aspectRatio,
+            modelName: realModelName,
+            resolution,
+            duration,
+            count,
+            promptOptimize,
+            isStartEndMode,
           }),
         });
         if (Array.isArray(result.urls) && result.urls.length > 0) return result.urls;

@@ -73,14 +73,14 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onClose, isD
                                     默认模型
                                 </h4>
                                 <p className={`text-xs mt-1 leading-relaxed ${isDark ? 'text-emerald-300/80' : 'text-emerald-600'}`}>
-                                    图片节点默认 Seedream 5.0，视频节点默认 Seedance 1.5 Pro。当前没有 API Key 时会生成本地模拟图，方便业务先试用交互效果。
+                                    图片节点默认 Seedream 5.0，视频节点默认 Seedance 2.0。当前没有 API Key 时会生成本地模拟图，方便业务先试用交互效果。
                                 </p>
                                 <div className={`mt-2 flex flex-wrap gap-2`}>
                                     <span className={`inline-flex items-center px-2 py-1 rounded-md text-[10px] font-medium ${isDark ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-700'}`}>
                                         Seedream 5.0 生图
                                     </span>
                                     <span className={`inline-flex items-center px-2 py-1 rounded-md text-[10px] font-medium ${isDark ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-700'}`}>
-                                        Seedance 1.5 Pro 视频
+                                        Seedance 2.0 视频
                                     </span>
                                 </div>
                             </div>

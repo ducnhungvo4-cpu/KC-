@@ -238,6 +238,10 @@ export const AgnesVideoHandler = {
 };
 
 export const VIDEO_HANDLERS: Record<string, any> = {
+    'Seedance 2.0': SeedanceHandler,
+    'Kling O3': KlingO1ProHandler,
+    'Happy Horse 1.0': SeedanceHandler,
+    'Wan2.7': WanHandler,
     'Agnes Video V2.0': AgnesVideoHandler,
     'Seedance 1.5 Pro': SeedanceHandler,
     'Sora 2': Sora2Handler,
