@@ -783,7 +783,7 @@ const createAgnesTask = async (body, env) => {
   const apiKey = env.AGNES_VIDEO_API_KEY;
   const baseUrl = (env.AGNES_VIDEO_BASE_URL || 'https://apihub.agnes-ai.com').replace(/\/$/, '');
   const createEndpoint = env.AGNES_VIDEO_CREATE_ENDPOINT || '/v1/videos';
-  const createTimeoutMs = Number(env.AGNES_VIDEO_CREATE_TIMEOUT_MS) || 30000;
+  const createTimeoutMs = Number(env.AGNES_VIDEO_CREATE_TIMEOUT_MS) || 120000;
 
   const created = await agnesRequest({
     url: joinUrl(baseUrl, createEndpoint),
