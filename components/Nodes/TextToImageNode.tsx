@@ -499,27 +499,28 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
                            </>
                        )}
                       {data.imageSrc && isAngleEditorOpen && (
-                          <div className={`rounded-2xl border p-5 flex flex-col gap-4 ${isDark ? 'border-zinc-700 bg-[#202020]' : 'border-gray-200 bg-white shadow-xl'}`}>
-                              <div className="flex items-center justify-between gap-3">
-                                  <div className={`text-lg font-semibold ${isDark ? 'text-zinc-100' : 'text-gray-900'}`}>多角度编辑器</div>
+                          <div className={`rounded-2xl border p-4 flex flex-col gap-3 ${isDark ? 'border-zinc-700 bg-[#242424]' : 'border-gray-200 bg-white shadow-xl'}`}>
+                              <div className="flex items-center justify-between">
+                                  <div className={`text-base font-semibold ${isDark ? 'text-zinc-100' : 'text-gray-900'}`}>多角度编辑器</div>
                                   <button
-                                      className={`w-9 h-9 rounded-lg flex items-center justify-center ${isDark ? 'hover:bg-zinc-800 text-zinc-400' : 'hover:bg-gray-100 text-gray-500'}`}
+                                      className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${isDark ? 'hover:bg-zinc-800 text-zinc-400' : 'hover:bg-gray-100 text-gray-500'}`}
                                       onClick={() => setIsAngleEditorOpen(false)}
-                                      title="收起"
+                                      title="关闭多角度编辑器"
                                   >
-                                      <Icons.X size={22} />
+                                      <Icons.X size={20} />
                                   </button>
                               </div>
-                              <div className="flex flex-wrap gap-3">
+
+                              <div className="grid grid-cols-7 gap-2">
                                   {anglePresets.map(preset => {
                                       const active = anglePreset === preset.key;
                                       return (
                                           <button
                                               key={preset.key}
-                                              className={`h-9 px-4 rounded-lg text-sm font-semibold border transition-all ${
+                                              className={`h-8 rounded-lg px-2 text-xs font-medium whitespace-nowrap border transition-all ${
                                                   active
                                                       ? (isDark ? 'bg-zinc-600 border-zinc-500 text-white' : 'bg-gray-900 border-gray-900 text-white')
-                                                      : (isDark ? 'border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-600' : 'border-gray-200 text-gray-600 hover:text-gray-900 hover:border-gray-300')
+                                                      : (isDark ? 'border-zinc-700/70 bg-zinc-800/25 text-zinc-400 hover:text-white hover:border-zinc-600' : 'border-gray-200 text-gray-600 hover:text-gray-900')
                                               }`}
                                               onClick={() => applyAnglePreset(preset)}
                                           >
@@ -528,52 +529,84 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
                                       );
                                   })}
                               </div>
-                              <div className="grid grid-cols-[360px_minmax(320px,1fr)] gap-6">
+
+                              <div className="grid grid-cols-[240px_minmax(0,1fr)] gap-4">
                                   <div
                                       ref={anglePadRef}
-                                      className={`relative h-[360px] rounded-2xl overflow-hidden flex items-center justify-center cursor-grab active:cursor-grabbing touch-none ${isDark ? 'bg-zinc-800' : 'bg-gray-100'}`}
+                                      className={`relative h-[240px] rounded-xl overflow-hidden flex items-center justify-center cursor-grab active:cursor-grabbing touch-none ${isDark ? 'bg-[#303030]' : 'bg-gray-100'}`}
                                       onPointerDown={handleAnglePointerDown}
                                       onPointerMove={handleAnglePointerMove}
                                       onPointerUp={handleAnglePointerUp}
                                       onPointerCancel={handleAnglePointerUp}
-                                      title="拖动预览图区域调整水平环绕和垂直俯仰"
+                                      title="拖动球形区域调整水平环绕和垂直俯仰"
                                   >
-                                      <div className={`absolute inset-12 rounded-full border ${isDark ? 'border-zinc-500/60' : 'border-gray-400/60'}`} />
-                                      <div className={`absolute inset-16 rounded-full border ${isDark ? 'border-zinc-500/40' : 'border-gray-400/40'}`} />
-                                      <div className={`absolute left-1/2 top-12 bottom-12 w-px ${isDark ? 'bg-zinc-500/40' : 'bg-gray-400/40'}`} />
-                                      <div className={`absolute top-1/2 left-12 right-12 h-px ${isDark ? 'bg-zinc-500/40' : 'bg-gray-400/40'}`} />
-                                      <div className={`absolute top-1/2 left-14 right-14 h-px rounded-full ${isDark ? 'bg-zinc-500/40' : 'bg-gray-400/40'}`} style={{ transform: `rotate(${pitch / 2}deg)` }} />
-                                      <div className={`absolute left-1/2 top-14 bottom-14 w-px rounded-full ${isDark ? 'bg-zinc-500/40' : 'bg-gray-400/40'}`} style={{ transform: `rotate(${yaw / 8}deg)` }} />
-                                      <button className={`absolute left-8 top-1/2 -translate-y-1/2 z-20 ${isDark ? 'text-zinc-400' : 'text-gray-500'}`} onPointerDown={(event) => event.stopPropagation()} onClick={() => setYaw(v => Math.max(-180, v - 15))}>‹</button>
-                                      <button className={`absolute right-8 top-1/2 -translate-y-1/2 z-20 ${isDark ? 'text-zinc-400' : 'text-gray-500'}`} onPointerDown={(event) => event.stopPropagation()} onClick={() => setYaw(v => Math.min(180, v + 15))}>›</button>
-                                      <button className={`absolute top-8 left-1/2 -translate-x-1/2 z-20 ${isDark ? 'text-zinc-400' : 'text-gray-500'}`} onPointerDown={(event) => event.stopPropagation()} onClick={() => setPitch(v => Math.min(90, v + 10))}>⌃</button>
-                                      <button className={`absolute bottom-8 left-1/2 -translate-x-1/2 z-20 ${isDark ? 'text-zinc-400' : 'text-gray-500'}`} onPointerDown={(event) => event.stopPropagation()} onClick={() => setPitch(v => Math.max(-90, v - 10))}>⌄</button>
-                                      <div
-                                          className={`absolute z-10 w-3 h-3 rounded-full border ${isDark ? 'border-white/70 bg-white/20' : 'border-gray-700/60 bg-gray-900/10'}`}
-                                          style={{
-                                              left: `${50 + (yaw / 180) * 34}%`,
-                                              top: `${50 - (pitch / 90) * 34}%`,
-                                              transform: 'translate(-50%, -50%)',
-                                          }}
+                                      <svg className="absolute inset-[34px] w-[172px] h-[172px] opacity-75 pointer-events-none" viewBox="0 0 172 172" fill="none">
+                                          <circle cx="86" cy="86" r="72" stroke="currentColor" className={isDark ? 'text-zinc-500' : 'text-gray-400'} />
+                                          <ellipse cx="86" cy="86" rx="32" ry="72" stroke="currentColor" className={isDark ? 'text-zinc-500' : 'text-gray-400'} />
+                                          <ellipse cx="86" cy="86" rx="58" ry="72" stroke="currentColor" className={isDark ? 'text-zinc-600' : 'text-gray-300'} />
+                                          <ellipse cx="86" cy="86" rx="72" ry="28" stroke="currentColor" className={isDark ? 'text-zinc-500' : 'text-gray-400'} />
+                                          <ellipse cx="86" cy="86" rx="72" ry="52" stroke="currentColor" className={isDark ? 'text-zinc-600' : 'text-gray-300'} />
+                                          <path d="M14 86H158M86 14V158" stroke="currentColor" className={isDark ? 'text-zinc-600' : 'text-gray-300'} />
+                                      </svg>
+
+                                      <button
+                                          className={`absolute left-4 top-1/2 -translate-y-1/2 z-20 w-7 h-7 rounded-full flex items-center justify-center ${isDark ? 'text-zinc-400 hover:bg-white/5 hover:text-white' : 'text-gray-500 hover:bg-white'}`}
+                                          onPointerDown={(event) => event.stopPropagation()}
+                                          onClick={() => { setAnglePreset('custom'); setYaw(value => Math.max(-180, value - 15)); }}
+                                          title="向左环绕 15°"
+                                      >
+                                          <Icons.ChevronLeft size={17} />
+                                      </button>
+                                      <button
+                                          className={`absolute right-4 top-1/2 -translate-y-1/2 z-20 w-7 h-7 rounded-full flex items-center justify-center ${isDark ? 'text-zinc-400 hover:bg-white/5 hover:text-white' : 'text-gray-500 hover:bg-white'}`}
+                                          onPointerDown={(event) => event.stopPropagation()}
+                                          onClick={() => { setAnglePreset('custom'); setYaw(value => Math.min(180, value + 15)); }}
+                                          title="向右环绕 15°"
+                                      >
+                                          <Icons.ChevronRight size={17} />
+                                      </button>
+                                      <button
+                                          className={`absolute top-3 left-1/2 -translate-x-1/2 z-20 w-7 h-7 rounded-full flex items-center justify-center ${isDark ? 'text-zinc-400 hover:bg-white/5 hover:text-white' : 'text-gray-500 hover:bg-white'}`}
+                                          onPointerDown={(event) => event.stopPropagation()}
+                                          onClick={() => { setAnglePreset('custom'); setPitch(value => Math.min(90, value + 10)); }}
+                                          title="向上俯仰 10°"
+                                      >
+                                          <Icons.ChevronDown size={17} className="rotate-180" />
+                                      </button>
+                                      <button
+                                          className={`absolute bottom-3 left-1/2 -translate-x-1/2 z-20 w-7 h-7 rounded-full flex items-center justify-center ${isDark ? 'text-zinc-400 hover:bg-white/5 hover:text-white' : 'text-gray-500 hover:bg-white'}`}
+                                          onPointerDown={(event) => event.stopPropagation()}
+                                          onClick={() => { setAnglePreset('custom'); setPitch(value => Math.max(-90, value - 10)); }}
+                                          title="向下俯仰 10°"
+                                      >
+                                          <Icons.ChevronDown size={17} />
+                                      </button>
+
+                                      <img
+                                          src={data.imageSrc}
+                                          className="absolute z-10 w-[70px] h-[70px] object-cover rounded-lg shadow-2xl ring-1 ring-white/20 pointer-events-none"
+                                          draggable={false}
+                                          style={{ transform: `scale(${zoom === 'wide' ? 0.86 : zoom === 'close' ? 1.12 : 1})` }}
                                       />
                                       <img
                                           src={data.imageSrc}
-                                          className="absolute z-10 max-w-[145px] max-h-[145px] object-contain rounded-lg shadow-2xl transition-[transform,left,top] duration-150 pointer-events-none"
+                                          className="absolute z-20 w-7 h-7 object-cover rounded border border-white/50 shadow-lg pointer-events-none transition-[left,top] duration-100"
                                           draggable={false}
                                           style={{
-                                              left: `${50 + (yaw / 180) * 34}%`,
-                                              top: `${50 - (pitch / 90) * 34}%`,
-                                              transform: `translate(-50%, -50%) perspective(700px) rotateY(${yaw / 5}deg) rotateX(${-pitch / 5}deg) scale(${zoom === 'wide' ? 0.82 : zoom === 'close' ? 1.18 : 1})`,
+                                              left: `${50 + (yaw / 180) * 31}%`,
+                                              top: `${50 - (pitch / 90) * 31}%`,
+                                              transform: 'translate(-50%, -50%)',
                                           }}
                                       />
                                   </div>
-                                  <div className="flex flex-col gap-5 justify-center">
+
+                                  <div className="flex flex-col justify-center gap-4">
                                       {[
-                                          { label: '水平环绕', value: yaw, min: -180, max: 180, setter: setYaw, suffix: '°' },
-                                          { label: '垂直俯仰', value: pitch, min: -90, max: 90, setter: setPitch, suffix: '°' },
+                                          { label: '水平环绕', value: yaw, min: -180, max: 180, setter: setYaw, valueLabel: `${yaw}°` },
+                                          { label: '垂直俯仰', value: pitch, min: -90, max: 90, setter: setPitch, valueLabel: `${pitch}°` },
                                       ].map(item => (
-                                          <div key={item.label} className="grid grid-cols-[90px_1fr_50px] items-center gap-4">
-                                              <span className={`text-sm ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>{item.label}</span>
+                                          <div key={item.label} className="grid grid-cols-[72px_1fr_44px] items-center gap-3">
+                                              <span className={`text-xs ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>{item.label}</span>
                                               <input
                                                   type="range"
                                                   min={item.min}
@@ -583,40 +616,39 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
                                                       setAnglePreset('custom');
                                                       item.setter(Number(event.target.value));
                                                   }}
-                                                  className="w-full accent-white"
+                                                  className="w-full accent-[#67D8E8]"
                                               />
-                                              <span className={`text-sm font-semibold text-right ${isDark ? 'text-zinc-100' : 'text-gray-900'}`}>{item.value}{item.suffix}</span>
+                                              <span className={`text-xs font-semibold text-right tabular-nums ${isDark ? 'text-zinc-100' : 'text-gray-900'}`}>{item.valueLabel}</span>
                                           </div>
                                       ))}
-                                      <div className="grid grid-cols-[90px_1fr_50px] items-center gap-4">
-                                          <span className={`text-sm ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>景别缩放</span>
-                                          <div className={`h-9 rounded-lg border p-0.5 flex items-center ${isDark ? 'border-zinc-700 bg-zinc-950/30' : 'border-gray-200 bg-white'}`}>
-                                              {[
-                                                  { value: 'wide' as const, label: '全景' },
-                                                  { value: 'medium' as const, label: '中景' },
-                                                  { value: 'close' as const, label: '近景' },
-                                              ].map(item => (
-                                                  <button
-                                                      key={item.value}
-                                                      className={`flex-1 h-7 rounded-md text-xs font-semibold transition-colors ${zoom === item.value ? 'bg-zinc-100 text-zinc-950' : (isDark ? 'text-zinc-400 hover:text-white' : 'text-gray-500 hover:text-gray-900')}`}
-                                                      onClick={() => { setAnglePreset('custom'); setZoom(item.value); }}
-                                                  >
-                                                      {item.label}
-                                                  </button>
-                                              ))}
-                                          </div>
-                                          <span className={`text-sm font-semibold text-right ${isDark ? 'text-zinc-100' : 'text-gray-900'}`}>{zoom === 'wide' ? '全景' : zoom === 'close' ? '近景' : '中景'}</span>
+                                      <div className="grid grid-cols-[72px_1fr_44px] items-center gap-3">
+                                          <span className={`text-xs ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>景别缩放</span>
+                                          <input
+                                              type="range"
+                                              min={0}
+                                              max={2}
+                                              step={1}
+                                              value={zoom === 'wide' ? 0 : zoom === 'close' ? 2 : 1}
+                                              onChange={(event) => {
+                                                  setAnglePreset('custom');
+                                                  setZoom((['wide', 'medium', 'close'] as const)[Number(event.target.value)]);
+                                              }}
+                                              className="w-full accent-[#67D8E8]"
+                                          />
+                                          <span className={`text-xs font-semibold text-right ${isDark ? 'text-zinc-100' : 'text-gray-900'}`}>{zoom === 'wide' ? '全景' : zoom === 'close' ? '近景' : '中景'}</span>
                                       </div>
-                                      <div className="grid grid-cols-[90px_1fr] items-center gap-4">
-                                          <span className={`text-sm ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>提示词</span>
-                                          <button
-                                              className={`relative w-10 h-5 rounded-full transition-colors ${showAnglePrompt ? 'bg-[#4446CE]' : (isDark ? 'bg-zinc-700' : 'bg-gray-300')}`}
-                                              onClick={() => setShowAnglePrompt(value => !value)}
-                                              title="展开补充提示词"
-                                          >
-                                              <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${showAnglePrompt ? 'translate-x-5' : 'translate-x-0.5'}`} />
-                                          </button>
-                                      </div>
+
+                                      <button
+                                          className={`self-start h-7 px-2.5 rounded-lg border text-[11px] transition-colors ${showAnglePrompt ? 'border-[#67D8E8]/50 text-[#9CE8F1] bg-[#67D8E8]/10' : (isDark ? 'border-zinc-700 text-zinc-500 hover:text-zinc-200' : 'border-gray-200 text-gray-500')}`}
+                                          onClick={() => setShowAnglePrompt(value => !value)}
+                                      >
+                                          {showAnglePrompt ? '收起高级参数' : '高级参数'}
+                                      </button>
+                                  </div>
+                              </div>
+
+                              {showAnglePrompt && (
+                                  <div className={`rounded-xl border p-3 flex flex-col gap-3 ${isDark ? 'border-zinc-700 bg-zinc-900/45' : 'border-gray-200 bg-gray-50'}`}>
                                       <div className="flex flex-wrap items-center gap-2">
                                           <LocalCustomDropdown icon={Icons.Crop} options={angleAspectOptions} value={angleAspectRatio} onChange={(val: any) => setAngleAspectRatio(val)} isOpen={activeDropdown === 'angleAspect'} onToggle={() => setActiveDropdown(activeDropdown === 'angleAspect' ? null : 'angleAspect')} onClose={() => setActiveDropdown(null)} isDark={isDark} />
                                           <div className={`h-8 rounded-lg border p-0.5 flex items-center ${isDark ? 'border-zinc-700 bg-zinc-950/30' : 'border-gray-200 bg-white'}`}>
@@ -630,27 +662,43 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
                                               ))}
                                           </div>
                                       </div>
+                                      <LocalPromptTextarea
+                                          className={`w-full border rounded-xl px-3 py-2 text-xs leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-[#4446CE]/20 min-h-[52px] transition-all ${inputBg}`}
+                                          placeholder="补充材质、光线、风格要求，例如：保持场景空间关系、电影感光线、不要改变建筑布局..."
+                                          value={anglePrompt}
+                                          onChange={setAnglePrompt}
+                                          isDark={isDark}
+                                          expandedTitle="编辑多角度补充提示词"
+                                      />
                                   </div>
-                              </div>
-                              {showAnglePrompt && (
-                                  <LocalPromptTextarea
-                                      className={`w-full border rounded-xl px-3 py-2 text-xs leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-[#4446CE]/20 min-h-[58px] transition-all ${inputBg}`}
-                                      placeholder="补充材质、光线、风格要求，例如：保持场景空间关系、电影感光线、不要改变建筑布局..."
-                                      value={anglePrompt}
-                                      onChange={setAnglePrompt}
-                                      isDark={isDark}
-                                      expandedTitle="编辑多角度补充提示词"
-                                  />
                               )}
+
                               <div className="flex items-center justify-between">
-                                  <button className={`h-8 px-3 rounded-lg text-sm flex items-center gap-2 ${isDark ? 'text-zinc-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'}`} onClick={() => { setAnglePreset('custom'); setYaw(0); setPitch(0); setZoom('medium'); setAnglePrompt(''); }}>
+                                  <button
+                                      className={`h-8 px-2 rounded-lg text-xs flex items-center gap-2 transition-colors ${isDark ? 'text-zinc-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'}`}
+                                      onClick={() => {
+                                          setAnglePreset('custom');
+                                          setYaw(0);
+                                          setPitch(0);
+                                          setZoom('medium');
+                                          setAnglePrompt('');
+                                          setAngleConsistency('high');
+                                          setAngleBackground('clean');
+                                          setAngleAspectRatio('沿原图');
+                                      }}
+                                  >
                                       <Icons.RotateCcw size={15} />
                                       <span>重置参数</span>
                                   </button>
                                   <div className="flex items-center gap-2">
                                       {renderCreditBadge(multiAngleCredits, 'cyan')}
-                                      <button className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all ${data.isLoading ? 'bg-gray-400 text-white cursor-not-allowed' : 'bg-white text-zinc-950 hover:bg-[#E1E3FF] shadow-lg'}`} disabled={data.isLoading} onClick={handleMultiAngleGenerate} title="生成多角度图片">
-                                          {data.isLoading ? <Icons.Loader2 size={22} className="animate-spin" /> : <Icons.ArrowUp size={26} />}
+                                      <button
+                                          className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${data.isLoading ? 'bg-gray-400 text-white cursor-not-allowed' : 'bg-white text-zinc-950 hover:bg-[#E1E3FF] shadow-lg'}`}
+                                          disabled={data.isLoading}
+                                          onClick={handleMultiAngleGenerate}
+                                          title="生成多角度图片"
+                                      >
+                                          {data.isLoading ? <Icons.Loader2 size={19} className="animate-spin" /> : <Icons.ArrowUp size={22} />}
                                       </button>
                                   </div>
                               </div>
