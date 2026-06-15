@@ -26,6 +26,11 @@ const VIDEO_NODE_BASE_HEIGHT = 400;
 const IMAGE_ASPECT_RATIOS = ['1:1', '3:4', '4:3', '9:16', '16:9'];
 const VIDEO_ASPECT_RATIOS = ['1:1', '3:4', '4:3', '9:16', '16:9', '21:9', '9:21'];
 type LocalExportType = 'video' | 'image' | 'text' | 'audio' | 'all';
+interface DeleteHistoryEntry {
+    nodes: NodeData[];
+    connections: Connection[];
+}
+
 const createDemoAssetPreview = (label: string, accent: string, background: string) => {
     const svg = `
       <svg xmlns="http://www.w3.org/2000/svg" width="640" height="480" viewBox="0 0 640 480">
@@ -454,6 +459,13 @@ const CanvasWithSidebar: React.FC = () => {
   const [dragMode, setDragMode] = useState<DragMode | 'RESIZE_NODE' | 'SELECT'>('NONE');
   const dragModeRef = useRef(dragMode);
   const blockedSubCanvasStorageKeysRef = useRef<Set<string>>(new Set());
+  const deleteHistoryRef = useRef<DeleteHistoryEntry[]>([]);
+  const [deleteHistoryCount, setDeleteHistoryCount] = useState(0);
+
+  const clearDeleteHistory = useCallback(() => {
+      deleteHistoryRef.current = [];
+      setDeleteHistoryCount(0);
+  }, []);
 
   const getEmptySubCanvasState = (): SubCanvasState => ({
       nodes: [],
@@ -463,6 +475,7 @@ const CanvasWithSidebar: React.FC = () => {
 
   const loadSubCanvasState = (state?: Partial<SubCanvasState>) => {
       const fallback = getEmptySubCanvasState();
+      clearDeleteHistory();
       setNodes(Array.isArray(state?.nodes) ? state.nodes : fallback.nodes);
       setConnections(Array.isArray(state?.connections) ? state.connections : fallback.connections);
       setTransform(state?.transform || fallback.transform);
@@ -815,6 +828,37 @@ const CanvasWithSidebar: React.FC = () => {
   const assetImportConnectionRef = useRef<{ sourceId: string; direction?: 'forward' | 'backward' } | null>(null);
 
   const spacePressed = useRef(false);
+
+  const recordDeleteHistory = useCallback((entry: DeleteHistoryEntry) => {
+      if (entry.nodes.length === 0 && entry.connections.length === 0) return;
+      deleteHistoryRef.current = [...deleteHistoryRef.current.slice(-49), entry];
+      setDeleteHistoryCount(deleteHistoryRef.current.length);
+  }, []);
+
+  const undoLastDelete = useCallback(() => {
+      const entry = deleteHistoryRef.current.pop();
+      if (!entry) return;
+
+      const restoredNodeIds = new Set(entry.nodes.map(node => node.id));
+      setNodes(prev => {
+          const existingIds = new Set(prev.map(node => node.id));
+          return [...prev, ...entry.nodes.filter(node => !existingIds.has(node.id))];
+      });
+      setConnections(prev => {
+          const existingIds = new Set(prev.map(connection => connection.id));
+          return [...prev, ...entry.connections.filter(connection => !existingIds.has(connection.id))];
+      });
+      if (restoredNodeIds.size > 0) {
+          setDeletedNodes(prev => prev.filter(node => !restoredNodeIds.has(node.id)));
+          setSelectedNodeIds(restoredNodeIds);
+          setSelectedConnectionId(null);
+      } else if (entry.connections.length > 0) {
+          setSelectedNodeIds(new Set());
+          setSelectedConnectionId(entry.connections[0].id);
+      }
+      setContextMenu(null);
+      setDeleteHistoryCount(deleteHistoryRef.current.length);
+  }, []);
 
   const screenToWorld = (x: number, y: number) => ({
     x: (x - transform.x) / transform.k,
@@ -1402,6 +1446,31 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
     return () => document.removeEventListener('paste', handlePaste);
   }, [handlePaste]);
 
+  const deleteCanvasItems = useCallback((nodeIds: Set<string>, connectionIds: Set<string>) => {
+      const nodesToDelete = nodes.filter(node => nodeIds.has(node.id));
+      const connectionsToDelete = connections.filter(connection =>
+          connectionIds.has(connection.id)
+          || nodeIds.has(connection.sourceId)
+          || nodeIds.has(connection.targetId)
+      );
+      if (nodesToDelete.length === 0 && connectionsToDelete.length === 0) return;
+
+      recordDeleteHistory({ nodes: nodesToDelete, connections: connectionsToDelete });
+      const withContent = nodesToDelete.filter(node => node.imageSrc || node.videoSrc || node.audioSrc);
+      if (withContent.length > 0) {
+          setDeletedNodes(prev => [...prev, ...withContent]);
+      }
+      if (nodeIds.size > 0) {
+          setNodes(prev => prev.filter(node => !nodeIds.has(node.id)));
+      }
+      if (connectionsToDelete.length > 0) {
+          const deletedConnectionIds = new Set(connectionsToDelete.map(connection => connection.id));
+          setConnections(prev => prev.filter(connection => !deletedConnectionIds.has(connection.id)));
+      }
+      setSelectedNodeIds(new Set());
+      setSelectedConnectionId(null);
+  }, [connections, nodes, recordDeleteHistory]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
         const target = e.target as HTMLElement;
@@ -1411,22 +1480,15 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
             || target.isContentEditable
             || Boolean(target.closest('[contenteditable="true"], [role="textbox"]'));
         if (!isInput) {
-            if (e.key === 'Delete' || e.key === 'Backspace') {
-                 if (selectedNodeIds.size > 0) {
-                     const nodesToDelete = nodes.filter(n => selectedNodeIds.has(n.id));
-                     const withContent = nodesToDelete.filter(n => n.imageSrc || n.videoSrc);
-                     if (withContent.length > 0) {
-                         setDeletedNodes(prev => [...prev, ...withContent]);
-                     }
-                     setNodes(prev => prev.filter(n => !selectedNodeIds.has(n.id)));
-                     setConnections(prev => prev.filter(c => !selectedNodeIds.has(c.sourceId) && !selectedNodeIds.has(c.targetId)));
-                     setSelectedNodeIds(new Set());
-                 }
-                 if (selectedConnectionId) {
-                     setConnections(prev => prev.filter(c => c.id !== selectedConnectionId));
-                     setSelectedConnectionId(null);
-                 }
+            if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z') {
+                e.preventDefault();
+                undoLastDelete();
+                return;
             }
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                 const connectionIds = selectedConnectionId ? new Set([selectedConnectionId]) : new Set<string>();
+                 deleteCanvasItems(selectedNodeIds, connectionIds);
+             }
             if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
                 e.preventDefault();
                 performCopy();
@@ -1457,7 +1519,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
         window.removeEventListener('keydown', handleKeyDown);
         window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [selectedNodeIds, selectedConnectionId, previewMedia, previewText, contextMenu, nodes, connections, quickAddMenu, showNewWorkflowDialog, isStorageOpen, isExportImportOpen, handleAlign]);
+  }, [selectedNodeIds, selectedConnectionId, previewMedia, previewText, contextMenu, quickAddMenu, showNewWorkflowDialog, isStorageOpen, isExportImportOpen, handleAlign, deleteCanvasItems, undoLastDelete]);
 
   useEffect(() => {
     // Load storage directory name for the top-right indicator
@@ -1504,7 +1566,8 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
       // 保存当前有内容的节点到历史
       const withContent = nodes.filter(n => n.imageSrc || n.videoSrc);
       if (withContent.length > 0) setDeletedNodes(prev => [...prev, ...withContent]);
-      
+
+      clearDeleteHistory();
       setNodes(data.nodes);
       setConnections(data.connections);
       if (data.transform) setTransform(data.transform);
@@ -2429,6 +2492,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
   const clearCanvasState = (nextProjectName = `${DEMO_PROJECT_META.name} 无限画布`) => {
       const withContent = nodes.filter(n => n.imageSrc || n.videoSrc);
       if (withContent.length > 0) setDeletedNodes(prev => [...prev, ...withContent]);
+      clearDeleteHistory();
       setNodes([]);
       setConnections([]);
       setTransform({ x: 0, y: 0, k: 1 });
@@ -2439,6 +2503,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
   };
 
   const openProject = (project: ProjectDashboardItem) => {
+      clearDeleteHistory();
       let loaded = false;
       try {
           const saved = localStorage.getItem(`${KC_PROJECT_STORAGE_PREFIX}${project.id}`);
@@ -3305,13 +3370,12 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
   };
 
   const deleteNode = (id: string) => {
-      const node = nodes.find(n => n.id === id);
-      if (node && (node.imageSrc || node.videoSrc)) setDeletedNodes(prev => [...prev, node]);
-      setNodes(prev => prev.filter(n => n.id !== id));
-      setConnections(prev => prev.filter(c => c.sourceId !== id && c.targetId !== id));
+      deleteCanvasItems(new Set([id]), new Set());
   };
 
-  const removeConnection = (id: string) => { setConnections(prev => prev.filter(c => c.id !== id)); setSelectedConnectionId(null); };
+  const removeConnection = (id: string) => {
+      deleteCanvasItems(new Set(), new Set([id]));
+  };
 
   const renderNewWorkflowDialog = () => {
       if (!showNewWorkflowDialog) return null;
@@ -3966,6 +4030,20 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
     if (!contextMenu) return null;
     return (
         <div className={`fixed z-50 border rounded-xl shadow-2xl py-2 min-w-[180px] flex flex-col backdrop-blur-xl animate-in fade-in zoom-in-95 duration-100 ${isDark ? 'bg-zinc-900/95 border-zinc-700/80' : 'bg-white/95 border-gray-200'}`} style={{ left: contextMenu.x, top: contextMenu.y }} onMouseDown={(e) => e.stopPropagation()}>
+            <button
+                className={`mx-1 flex items-center gap-2.5 rounded-md px-3 py-2 text-left text-xs transition-all duration-150 ${
+                    deleteHistoryCount > 0
+                        ? (isDark ? 'text-gray-300 hover:bg-zinc-800/80 hover:text-white' : 'text-gray-700 hover:bg-gray-100 hover:text-black')
+                        : (isDark ? 'cursor-not-allowed text-zinc-600' : 'cursor-not-allowed text-gray-300')
+                }`}
+                onClick={undoLastDelete}
+                disabled={deleteHistoryCount === 0}
+            >
+                <Icons.RotateCcw size={14} />
+                <span className="flex-1">撤回删除</span>
+                <span className={`text-[9px] ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>Ctrl/⌘+Z</span>
+            </button>
+            <div className={`h-px my-1.5 mx-2 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`}></div>
             {contextMenu.type === 'NODE' && contextMenu.nodeId && (() => {
                 const menuItemClass = `text-left px-3 py-2 text-xs transition-all duration-150 flex items-center gap-2.5 rounded-md mx-1 ${isDark ? 'text-gray-300 hover:bg-zinc-800/80 hover:text-white' : 'text-gray-700 hover:bg-gray-100 hover:text-black'}`;
                 const node = nodes.find(n => n.id === contextMenu.nodeId);
