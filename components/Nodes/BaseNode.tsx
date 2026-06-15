@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { NodeData, NodeType } from '../../types';
 import { Icons } from '../Icons';
 
@@ -77,6 +78,27 @@ const BaseNode: React.FC<BaseNodeProps> = ({
   const hasContent = Boolean(data.imageSrc || data.videoSrc || data.audioSrc);
   const [isAuditDetailOpen, setIsAuditDetailOpen] = useState(false);
   const [auditErrorCopied, setAuditErrorCopied] = useState(false);
+  const [auditDetailPosition, setAuditDetailPosition] = useState({ left: 16, top: 16 });
+  const auditBadgeRef = useRef<HTMLButtonElement>(null);
+
+  const toggleAuditDetail = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isAuditDetailOpen) {
+      setIsAuditDetailOpen(false);
+      return;
+    }
+
+    const badgeRect = auditBadgeRef.current?.getBoundingClientRect();
+    if (badgeRect) {
+      const detailWidth = Math.min(280, window.innerWidth - 32);
+      const centeredLeft = badgeRect.left + badgeRect.width / 2 - detailWidth / 2;
+      setAuditDetailPosition({
+        left: Math.min(Math.max(16, centeredLeft), window.innerWidth - detailWidth - 16),
+        top: badgeRect.bottom + 8,
+      });
+    }
+    setIsAuditDetailOpen(true);
+  };
 
   const copyAuditError = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -131,22 +153,21 @@ const BaseNode: React.FC<BaseNodeProps> = ({
               {auditState === 'failed' && (
                 <div className="relative">
                   <button
+                    ref={auditBadgeRef}
                     type="button"
                     className="w-5 h-5 rounded-full bg-red-500/25 border border-red-500/70 flex items-center justify-center shadow-lg cursor-pointer hover:bg-red-500/35 transition-colors"
                     aria-label="查看审核未通过原因"
                     onMouseDown={(e) => e.stopPropagation()}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setIsAuditDetailOpen(open => !open);
-                    }}
+                    onClick={toggleAuditDetail}
                   >
                     <svg viewBox="0 0 24 24" fill="none" className="w-3 h-3 text-red-400">
                       <path d="M8 8l8 8M16 8l-8 8" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
                     </svg>
                   </button>
-                  {isAuditDetailOpen && (
+                  {isAuditDetailOpen && createPortal(
                     <div
-                      className="absolute left-0 top-full mt-2 w-[280px] rounded-xl border border-red-500/30 bg-zinc-950/95 px-3 py-2.5 shadow-2xl backdrop-blur-xl"
+                      className="fixed z-[430] w-[280px] max-w-[calc(100vw-32px)] rounded-xl border border-red-500/30 bg-zinc-950/95 px-3 py-2.5 shadow-2xl backdrop-blur-xl"
+                      style={{ left: auditDetailPosition.left, top: auditDetailPosition.top }}
                       onMouseDown={(e) => e.stopPropagation()}
                       onClick={(e) => e.stopPropagation()}
                     >
@@ -170,7 +191,8 @@ const BaseNode: React.FC<BaseNodeProps> = ({
                           </div>
                         )}
                       </div>
-                    </div>
+                    </div>,
+                    document.body,
                   )}
                 </div>
               )}

@@ -4097,29 +4097,30 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
         />
         {auditFailureNotice && (
             <div
-                className="fixed inset-0 z-[420] flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
+                className="pointer-events-none fixed inset-x-0 top-4 z-[420] flex justify-center px-4"
                 onMouseDown={(e) => e.stopPropagation()}
             >
-                <div className={`w-[min(420px,92vw)] rounded-2xl border p-5 shadow-2xl ${isDark ? 'bg-[#18181b] border-zinc-700' : 'bg-white border-gray-200'}`}>
-                    <div className="flex items-start gap-3">
-                        <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-500/15 text-red-400">
-                            <Icons.AlertTriangle size={20} />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                            <h3 className={`text-base font-semibold ${isDark ? 'text-zinc-100' : 'text-gray-900'}`}>部分图片审核未通过</h3>
-                            <p className={`mt-2 text-sm leading-6 ${isDark ? 'text-zinc-400' : 'text-gray-600'}`}>
-                                检测到 {auditFailureNotice.count} 张参考图片未通过审核，已在画布中标红。请查看节点左上角的审核状态，调整图片后重新生成。
-                            </p>
-                        </div>
+                <div className="pointer-events-auto flex w-fit max-w-[min(760px,calc(100vw-32px))] items-center gap-3 rounded-xl border border-red-300/30 bg-red-500/80 px-4 py-2.5 text-white shadow-[0_12px_36px_rgba(127,29,29,0.35)] backdrop-blur-xl">
+                    <Icons.AlertCircle size={17} className="shrink-0" />
+                    <div className="min-w-0 text-sm leading-5">
+                        <span className="font-semibold">部分图片审核未通过：</span>
+                        <span>
+                            检测到 {auditFailureNotice.count} 张参考图片未通过审核，已在画布中标红。请查看节点左上角的审核状态，调整图片后重新生成。
+                        </span>
                     </div>
-                    <div className="mt-5 flex justify-end">
+                    <div className="ml-1 h-5 w-px shrink-0 bg-white/25" />
+                    <div className="relative shrink-0 group/audit-notice-close">
                         <button
                             type="button"
                             onClick={() => setAuditFailureNotice(null)}
-                            className="rounded-lg bg-[#4446CE] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#3739B0]"
+                            className="flex h-7 w-7 items-center justify-center rounded-lg text-white/80 transition-colors hover:bg-white/15 hover:text-white"
+                            aria-label="关闭审核提示"
                         >
-                            我知道了
+                            <Icons.X size={16} />
                         </button>
+                        <div className="pointer-events-none absolute right-0 top-full mt-1.5 whitespace-nowrap rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-[9px] text-zinc-200 opacity-0 shadow-lg transition-opacity group-hover/audit-notice-close:opacity-100">
+                            关闭
+                        </div>
                     </div>
                 </div>
             </div>
