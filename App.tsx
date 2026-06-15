@@ -4114,7 +4114,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                     <div className="min-w-0 text-sm leading-5">
                         <span className="font-semibold">部分图片审核未通过：</span>
                         <span>
-                            检测到 {auditFailureNotice.count} 张参考图片未通过审核，已在画布中标红。请查看节点左上角的审核状态，调整图片后重新生成。
+                            检测到 {auditFailureNotice.count} 张参考图片未通过审核，相关图片节点已标红。请点击视频节点内的“审核未通过”查看原因，调整图片后重新生成。
                         </span>
                     </div>
                     <div className="ml-1 h-5 w-px shrink-0 bg-white/25" />
