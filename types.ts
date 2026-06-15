@@ -56,6 +56,8 @@ export interface NodeData {
   errorMessage?: string;
   isStackOpen?: boolean; // UI State for expanded gallery
   auditStatus?: 'auditing' | 'passed' | 'failed'; // Seedance 2.0 compliance audit status
+  auditFailureReason?: string; // Short user-facing reason shown beside the node
+  auditErrorDetail?: string; // Full provider error retained for support/debug copy
   
   // Configs
   aspectRatio?: string;

@@ -191,6 +191,43 @@ type CreditRow = {
 
 const USER_CREDIT_LIMIT = 1200;
 const CURRENT_USER_NAME = '导演A';
+const MOCK_AUDIT_IMAGE_MARKER = 'ce014d0c-34b4-4504-baeb-1f0833481cc4';
+const MOCK_AUDIT_IMAGE_SHA256 = '98dc76d48476d11c6ec26dae0c45dc9bc09fe126c5489241105e7ffa447b9c26';
+const MOCK_AUDIT_IMAGE_BYTES = 1142944;
+const MOCK_AUDIT_REASON = '参考图片中的人物内容未通过平台安全审核，请调整或更换图片后重试';
+const MOCK_AUDIT_ERROR_DETAIL = [
+    'Seedance 2.0 content moderation rejected one of the submitted reference images before video task creation.',
+    'The input asset did not pass the provider safety review and cannot be used for generation.',
+    'Please replace or modify the affected image and submit the request again.',
+    'moderation_code=InputImageSensitiveContent;',
+    `asset=${MOCK_AUDIT_IMAGE_MARKER}.png;`,
+    'request_stage=input_image_review;',
+    'trace_id=mock-seedance-audit-001.',
+].join(' ');
+
+const getSha256 = async (value: ArrayBuffer) => {
+    const digest = await crypto.subtle.digest('SHA-256', value);
+    return Array.from(new Uint8Array(digest))
+        .map(byte => byte.toString(16).padStart(2, '0'))
+        .join('');
+};
+
+const isMockRejectedAuditImage = async (item: InputMedia, sourceNode?: NodeData) => {
+    const searchable = `${item.url} ${item.title || ''} ${sourceNode?.title || ''}`.toLowerCase();
+    if (searchable.includes(MOCK_AUDIT_IMAGE_MARKER)) return true;
+    if (!item.url || !globalThis.crypto?.subtle) return false;
+
+    try {
+        const response = await fetch(item.url);
+        if (!response.ok) return false;
+        const buffer = await response.arrayBuffer();
+        if (buffer.byteLength !== MOCK_AUDIT_IMAGE_BYTES) return false;
+        return (await getSha256(buffer)) === MOCK_AUDIT_IMAGE_SHA256;
+    } catch (error) {
+        console.warn('[Mock Seedance audit] Unable to inspect image bytes:', error);
+        return false;
+    }
+};
 
 const KC_PROJECT_STORAGE_PREFIX = 'KC_CANVAS_PROJECT_';
 const KC_PROJECT_SUMMARIES_KEY = 'KC_CANVAS_PROJECT_SUMMARIES';
@@ -728,6 +765,7 @@ const CanvasWithSidebar: React.FC = () => {
   const [suggestedNodes, setSuggestedNodes] = useState<NodeData[]>([]);
   const [previewMedia, setPreviewMedia] = useState<{ url: string, type: 'image' | 'video' } | null>(null);
   const [previewText, setPreviewText] = useState<{ title: string, text: string } | null>(null);
+  const [auditFailureNotice, setAuditFailureNotice] = useState<{ count: number } | null>(null);
   const [cropTarget, setCropTarget] = useState<{ nodeId: string; imageSrc: string; title: string; aspectRatio: string } | null>(null);
   const [saveResultTarget, setSaveResultTarget] = useState<{ nodeId: string; url: string; type: 'image' | 'video'; title: string } | null>(null);
   const [saveResultMode, setSaveResultMode] = useState<'material' | 'new_asset' | 'update_asset'>('material');
@@ -1474,15 +1512,37 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
     setNodes(prev => prev.map(n => n.id === id ? { ...n, ...updates } : n));
   }, []);
 
-  // Seedance 2.0 compliance audit (mock). Status lives on the node's data so it drives
-  // the node's own corner badge / red outline. Without a real audit backend, the result
-  // is randomized after a short delay to demo both pass and fail states.
-  const handleSeedanceAudit = useCallback((nodeId: string) => {
-    updateNodeData(nodeId, { auditStatus: 'auditing' });
-    setTimeout(() => {
-      updateNodeData(nodeId, { auditStatus: Math.random() < 0.5 ? 'passed' : 'failed' });
-    }, 3000);
-  }, [updateNodeData]);
+  // Frontend-only Seedance audit prototype. The specified test image is detected by
+  // filename/URL marker or exact SHA-256, so blob: and data: uploads still work.
+  const handleSeedanceAudit = useCallback(async (nodeId: string) => {
+    const target = nodes.find(node => node.id === nodeId);
+    if (!target?.imageSrc) return;
+
+    updateNodeData(nodeId, {
+        auditStatus: 'auditing',
+        auditFailureReason: undefined,
+        auditErrorDetail: undefined,
+    });
+    await new Promise(resolve => window.setTimeout(resolve, 650));
+    const failed = await isMockRejectedAuditImage({
+        id: target.id,
+        sourceNodeId: target.id,
+        type: 'image',
+        url: target.imageSrc,
+        title: target.title,
+    }, target);
+
+    updateNodeData(nodeId, failed ? {
+        auditStatus: 'failed',
+        auditFailureReason: MOCK_AUDIT_REASON,
+        auditErrorDetail: MOCK_AUDIT_ERROR_DETAIL,
+    } : {
+        auditStatus: 'passed',
+        auditFailureReason: undefined,
+        auditErrorDetail: undefined,
+    });
+    if (failed) setAuditFailureNotice({ count: 1 });
+  }, [nodes, updateNodeData]);
 
   const getEstimatedCredits = (node: NodeData) => {
       const count = node.count || 1;
@@ -1609,17 +1669,66 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
 
     const creditEstimate = node.creditEstimate || getEstimatedCredits(node);
     updateNodeData(nodeId, { isLoading: true, errorMessage: undefined, creditEstimate, creditStatus: 'reserved' });
-    
+
     const inputs = getInputImages(node.id);
 
-    // Image-to-video compliance gate: when generating a video from upstream image nodes,
-    // auto-submit each reference image node for Seedance 2.0 audit.
-    if (isVideoNode) {
-        (videoMode === 'start_end' ? connectedImages : selectedVideoMedia)
-            .filter(item => item.type === 'image' && item.sourceNodeId)
-            .map(item => nodes.find(n => n.id === item.sourceNodeId))
-            .filter((n): n is NodeData => Boolean(n))
-            .forEach(n => handleSeedanceAudit(n.id));
+    // Frontend-only Seedance 2.0 audit gate. It blocks the real request only when the
+    // designated prototype image is present, then marks the exact source image node.
+    if (isVideoNode && (node.model === 'Seedance 2.0' || node.model === 'Seedance 2.0 Fast')) {
+        const auditMedia = (videoMode === 'start_end' ? connectedImages : selectedVideoMedia)
+            .filter((item): item is InputMedia => item.type === 'image' && Boolean(item.sourceNodeId));
+        const uniqueAuditMedia = Array.from(new Map(
+            auditMedia.map(item => [item.sourceNodeId as string, item]),
+        ).values());
+
+        if (uniqueAuditMedia.length > 0) {
+            const auditNodeIds = new Set(uniqueAuditMedia.map(item => item.sourceNodeId as string));
+            setNodes(prev => prev.map(candidate => auditNodeIds.has(candidate.id) ? {
+                ...candidate,
+                auditStatus: 'auditing',
+                auditFailureReason: undefined,
+                auditErrorDetail: undefined,
+            } : candidate));
+
+            await new Promise(resolve => window.setTimeout(resolve, 650));
+            const auditResults = await Promise.all(uniqueAuditMedia.map(async item => {
+                const sourceNode = nodes.find(candidate => candidate.id === item.sourceNodeId);
+                return {
+                    nodeId: item.sourceNodeId as string,
+                    failed: await isMockRejectedAuditImage(item, sourceNode),
+                };
+            }));
+            const failedNodeIds = new Set(auditResults.filter(result => result.failed).map(result => result.nodeId));
+
+            setNodes(prev => prev.map(candidate => {
+                if (!auditNodeIds.has(candidate.id)) return candidate;
+                if (failedNodeIds.has(candidate.id)) {
+                    return {
+                        ...candidate,
+                        auditStatus: 'failed',
+                        auditFailureReason: MOCK_AUDIT_REASON,
+                        auditErrorDetail: MOCK_AUDIT_ERROR_DETAIL,
+                    };
+                }
+                return {
+                    ...candidate,
+                    auditStatus: 'passed',
+                    auditFailureReason: undefined,
+                    auditErrorDetail: undefined,
+                };
+            }));
+
+            if (failedNodeIds.size > 0) {
+                updateNodeData(nodeId, {
+                    isLoading: false,
+                    errorMessage: undefined,
+                    creditEstimate,
+                    creditStatus: 'refunded',
+                });
+                setAuditFailureNotice({ count: failedNodeIds.size });
+                return;
+            }
+        }
     }
 
     // Debug: Log input images for troubleshooting
@@ -2101,6 +2210,9 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                         aspectRatio,
                         outputArtifacts: newArtifacts,
                         errorMessage: undefined,
+                        auditStatus: undefined,
+                        auditFailureReason: undefined,
+                        auditErrorDetail: undefined,
                     });
                };
                img.src = event.target?.result as string;
@@ -3983,6 +4095,35 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
             transform={transform}
             onImport={handleImportWorkflow}
         />
+        {auditFailureNotice && (
+            <div
+                className="fixed inset-0 z-[420] flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
+                onMouseDown={(e) => e.stopPropagation()}
+            >
+                <div className={`w-[min(420px,92vw)] rounded-2xl border p-5 shadow-2xl ${isDark ? 'bg-[#18181b] border-zinc-700' : 'bg-white border-gray-200'}`}>
+                    <div className="flex items-start gap-3">
+                        <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-500/15 text-red-400">
+                            <Icons.AlertTriangle size={20} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                            <h3 className={`text-base font-semibold ${isDark ? 'text-zinc-100' : 'text-gray-900'}`}>部分图片审核未通过</h3>
+                            <p className={`mt-2 text-sm leading-6 ${isDark ? 'text-zinc-400' : 'text-gray-600'}`}>
+                                检测到 {auditFailureNotice.count} 张参考图片未通过审核，已在画布中标红。请查看节点左上角的审核状态，调整图片后重新生成。
+                            </p>
+                        </div>
+                    </div>
+                    <div className="mt-5 flex justify-end">
+                        <button
+                            type="button"
+                            onClick={() => setAuditFailureNotice(null)}
+                            className="rounded-lg bg-[#4446CE] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#3739B0]"
+                        >
+                            我知道了
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
 
         <Sidebar 
           onAddNode={addNode} 

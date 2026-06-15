@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { NodeData, NodeType } from '../../types';
 import { Icons } from '../Icons';
 
@@ -75,6 +75,20 @@ const BaseNode: React.FC<BaseNodeProps> = ({
 }) => {
   const showInputPort = data.type !== NodeType.ORIGINAL_IMAGE;
   const hasContent = Boolean(data.imageSrc || data.videoSrc || data.audioSrc);
+  const [isAuditDetailOpen, setIsAuditDetailOpen] = useState(false);
+  const [auditErrorCopied, setAuditErrorCopied] = useState(false);
+
+  const copyAuditError = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!data.auditErrorDetail) return;
+    try {
+      await navigator.clipboard.writeText(data.auditErrorDetail);
+      setAuditErrorCopied(true);
+      window.setTimeout(() => setAuditErrorCopied(false), 1400);
+    } catch (error) {
+      console.error('Failed to copy audit error', error);
+    }
+  };
 
   return (
     <div 
@@ -115,10 +129,49 @@ const BaseNode: React.FC<BaseNodeProps> = ({
                 </div>
               )}
               {auditState === 'failed' && (
-                <div className="w-5 h-5 rounded-full bg-red-500/25 border border-red-500/70 flex items-center justify-center shadow-lg cursor-default" title="合规审核未通过">
-                  <svg viewBox="0 0 24 24" fill="none" className="w-3 h-3 text-red-400">
-                    <path d="M8 8l8 8M16 8l-8 8" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
-                  </svg>
+                <div className="relative">
+                  <button
+                    type="button"
+                    className="w-5 h-5 rounded-full bg-red-500/25 border border-red-500/70 flex items-center justify-center shadow-lg cursor-pointer hover:bg-red-500/35 transition-colors"
+                    aria-label="查看审核未通过原因"
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsAuditDetailOpen(open => !open);
+                    }}
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" className="w-3 h-3 text-red-400">
+                      <path d="M8 8l8 8M16 8l-8 8" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
+                    </svg>
+                  </button>
+                  {isAuditDetailOpen && (
+                    <div
+                      className="absolute left-0 top-full mt-2 w-[280px] rounded-xl border border-red-500/30 bg-zinc-950/95 px-3 py-2.5 shadow-2xl backdrop-blur-xl"
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex items-start gap-2">
+                        <p className="min-w-0 flex-1 text-[11px] leading-5 text-red-300">
+                          审核未通过：{data.auditFailureReason || '图片未通过平台内容安全审核'}
+                        </p>
+                        {data.auditErrorDetail && (
+                          <div className="relative shrink-0 group/copy-audit">
+                            <button
+                              type="button"
+                              className="w-6 h-6 rounded-md flex items-center justify-center text-red-300 hover:text-white hover:bg-red-500/20 transition-colors"
+                              aria-label="复制具体报错信息"
+                              onClick={copyAuditError}
+                            >
+                              <Icons.Copy size={13} />
+                            </button>
+                            <div className="absolute right-0 bottom-full mb-1.5 rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-[9px] text-zinc-200 whitespace-nowrap opacity-0 pointer-events-none group-hover/copy-audit:opacity-100 transition-opacity">
+                              {auditErrorCopied ? '已复制' : '复制具体报错信息'}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
