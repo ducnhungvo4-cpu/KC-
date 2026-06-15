@@ -37,6 +37,7 @@ interface VideoGenerationControlsProps {
     progress: number;
     hasResult: boolean;
     isDark: boolean;
+    onPreviewReference?: (item: InputMedia) => void;
 }
 
 export const VideoGenerationControls: React.FC<VideoGenerationControlsProps> = ({
@@ -47,6 +48,7 @@ export const VideoGenerationControls: React.FC<VideoGenerationControlsProps> = (
     progress,
     hasResult,
     isDark,
+    onPreviewReference,
 }) => {
     const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
     const currentModel = ACTIVE_VIDEO_MODELS.includes(data.model || '') ? data.model! : 'Seedance 2.0';
@@ -274,6 +276,7 @@ export const VideoGenerationControls: React.FC<VideoGenerationControlsProps> = (
                                 : '描述视频并输入 @ 引用图片、视频或音频...'
                 }
                 isDark={isDark}
+                onPreviewReference={onPreviewReference}
                 headerContent={startEndHeader}
             />
 

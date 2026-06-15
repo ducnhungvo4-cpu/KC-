@@ -763,7 +763,7 @@ const CanvasWithSidebar: React.FC = () => {
   const [selectionBox, setSelectionBox] = useState<{ x: number, y: number, w: number, h: number } | null>(null);
   const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null);
   const [suggestedNodes, setSuggestedNodes] = useState<NodeData[]>([]);
-  const [previewMedia, setPreviewMedia] = useState<{ url: string, type: 'image' | 'video' } | null>(null);
+  const [previewMedia, setPreviewMedia] = useState<{ url: string, type: 'image' | 'video' | 'audio', title?: string } | null>(null);
   const [previewText, setPreviewText] = useState<{ title: string, text: string } | null>(null);
   const [auditFailureNotice, setAuditFailureNotice] = useState<{ count: number } | null>(null);
   const [cropTarget, setCropTarget] = useState<{ nodeId: string; imageSrc: string; title: string; aspectRatio: string } | null>(null);
@@ -2016,12 +2016,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
           setPreviewText({ title: item.title || '参考文本', text: item.text || '' });
           return;
       }
-      if (item.type === 'audio') {
-          const audio = new Audio(item.url);
-          void audio.play();
-          return;
-      }
-      setPreviewMedia({ url: item.url, type: item.type });
+      setPreviewMedia({ url: item.url, type: item.type, title: item.title });
   };
 
   const handleCropStart = (nodeId: string) => {
@@ -2349,6 +2344,25 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
               });
           };
           video.src = url;
+      } else if (file.type.startsWith('audio/')) {
+          const url = URL.createObjectURL(file);
+          updateNodeData(targetId, {
+              type: NodeType.TEXT_TO_AUDIO,
+              width: 420,
+              height: 260,
+              title: target.shotId ? target.title : baseTitle,
+              audioSrc: url,
+              imageSrc: undefined,
+              videoSrc: undefined,
+              aspectRatio: undefined,
+              model: target.type === NodeType.TEXT_TO_AUDIO ? (target.model || 'Minimax-speech-2.8-hd') : 'Minimax-speech-2.8-hd',
+              outputArtifacts: [
+                  url,
+                  ...(target.type === NodeType.TEXT_TO_AUDIO ? (target.outputArtifacts || []).filter(item => item !== url) : []),
+              ],
+              isLoading: false,
+              errorMessage: undefined,
+          });
       } else {
           const reader = new FileReader();
           reader.onload = (event) => {
@@ -4766,10 +4780,27 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
             {renderSaveResultModal()}
             {renderCreditDashboardV2()}
             {previewMedia && (
-                <div data-media-preview-overlay className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md animate-in fade-in duration-200" onClick={() => setPreviewMedia(null)}>
-                    <div className="relative max-w-[90vw] max-h-[90vh] bg-black rounded-lg shadow-2xl overflow-hidden border border-zinc-700" onClick={(e) => e.stopPropagation()}>
+                <div data-media-preview-overlay className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/80 backdrop-blur-md animate-in fade-in duration-200" onClick={() => setPreviewMedia(null)}>
+                    <div className={`relative bg-black rounded-2xl shadow-2xl overflow-hidden border border-zinc-700 ${previewMedia.type === 'audio' ? 'w-[min(420px,90vw)] p-5' : 'max-w-[90vw] max-h-[90vh]'}`} onClick={(e) => e.stopPropagation()}>
                          <button className="absolute top-2 right-2 bg-black/50 text-white p-2 rounded-full hover:bg-red-500 transition-colors z-10" onClick={() => setPreviewMedia(null)}><Icons.X size={20} /></button>
-                         {previewMedia.type === 'video' ? <video src={previewMedia.url} controls autoPlay className="max-w-full max-h-[90vh]" /> : <img src={previewMedia.url} alt="Preview" className="max-w-full max-h-[90vh] object-contain" />}
+                         {previewMedia.type === 'video' ? (
+                             <video src={previewMedia.url} controls autoPlay className="max-w-full max-h-[90vh]" />
+                         ) : previewMedia.type === 'audio' ? (
+                             <div className="flex flex-col gap-4 pt-7 text-white">
+                                 <div className="flex min-w-0 items-center gap-3">
+                                     <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#4446CE]/25 text-[#C7C8FF]">
+                                         <Icons.Music size={22} />
+                                     </div>
+                                     <div className="min-w-0">
+                                         <div className="text-xs text-zinc-500">音频素材</div>
+                                         <div className="truncate text-sm font-semibold">{previewMedia.title || '音频'}</div>
+                                     </div>
+                                 </div>
+                                 <audio src={previewMedia.url} controls autoPlay className="w-full" />
+                             </div>
+                         ) : (
+                             <img src={previewMedia.url} alt="Preview" className="max-w-full max-h-[90vh] object-contain" />
+                         )}
                     </div>
                 </div>
             )}

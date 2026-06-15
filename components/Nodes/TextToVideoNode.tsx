@@ -313,6 +313,7 @@ export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
                       progress={progress}
                       hasResult={hasResult}
                       isDark={isDark}
+                      onPreviewReference={onPreviewReference}
                   />
               </div>
           </div>

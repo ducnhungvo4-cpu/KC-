@@ -79,13 +79,6 @@ export const TextToAudioNode: React.FC<TextToAudioNodeProps> = ({
   }, [selected, data.id, data.isStackOpen, updateData]);
 
   const voiceOptions = useMemo(() => ['male-qn-qingse', 'female-shaonv', 'male-qn-jingying'], []);
-  const speedOptions = useMemo(() => [0.8, 1, 1.2], []);
-
-  const appendToken = (token: string) => {
-    const next = clampText(`${prompt}${prompt.endsWith(' ') || !prompt ? '' : ' '}${token}`);
-    updateData(data.id, { prompt: next });
-  };
-
   const nodeBorder = selected
     ? (isDark ? 'border-zinc-400 ring-2 ring-zinc-400/20' : 'border-gray-500 ring-2 ring-gray-400/20')
     : (isDark ? 'border-zinc-600' : 'border-gray-300');
@@ -93,10 +86,6 @@ export const TextToAudioNode: React.FC<TextToAudioNodeProps> = ({
   const panelBg = isDark ? 'bg-[#202020]/95 border-zinc-700 text-zinc-200' : 'bg-white/95 border-gray-200 text-gray-900 shadow-xl';
   const mutedText = isDark ? 'text-zinc-500' : 'text-gray-400';
   const inputText = isDark ? 'text-zinc-200 placeholder-zinc-500' : 'text-gray-800 placeholder-gray-400';
-  const chipClass = isDark
-    ? 'bg-zinc-700/80 text-zinc-100 hover:bg-zinc-600'
-    : 'bg-gray-100 text-gray-700 hover:bg-gray-200';
-
   return (
     <>
       <div className="absolute bottom-full left-0 mb-3 flex items-center gap-2 pointer-events-auto">
@@ -110,18 +99,26 @@ export const TextToAudioNode: React.FC<TextToAudioNodeProps> = ({
 
       <div className={`relative h-full w-full overflow-hidden rounded-xl border-[3px] ${nodeBorder} ${isDark ? 'bg-[#222]' : 'bg-white'} shadow-xl transition-colors`}>
         {hasResult ? (
-          <div className="flex h-full flex-col items-center justify-center gap-4 px-8">
-            <div className={`h-14 w-14 rounded-2xl flex items-center justify-center ${isDark ? 'bg-zinc-800/80 text-zinc-300' : 'bg-gray-100 text-gray-500'}`}>
-              <Icons.Volume2 size={26} />
+          <div className="flex h-full flex-col justify-center gap-5 px-6">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${isDark ? 'bg-[#4446CE]/20 text-[#C7C8FF]' : 'bg-[#F0F1FF] text-[#4446CE]'}`}>
+                <Icons.Volume2 size={23} />
+              </div>
+              <div className="min-w-0">
+                <div className={`text-xs font-medium ${mutedText}`}>音频播放器</div>
+                <div className={`mt-0.5 truncate text-sm font-semibold ${isDark ? 'text-zinc-100' : 'text-gray-900'}`}>{data.title || '音频'}</div>
+              </div>
             </div>
             <audio
               src={data.audioSrc}
               controls
-              className="w-full max-w-[260px]"
+              preload="metadata"
+              className="w-full"
               onMouseDown={(event) => event.stopPropagation()}
+              onClick={(event) => event.stopPropagation()}
             />
             <button
-              className={`h-8 rounded-lg px-3 text-xs font-semibold transition-all ${isDark ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900'}`}
+              className={`self-end h-8 rounded-lg px-3 text-xs font-semibold transition-all ${isDark ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900'}`}
               onClick={(event) => {
                 event.stopPropagation();
                 onDownload?.(data.id);
@@ -232,23 +229,6 @@ export const TextToAudioNode: React.FC<TextToAudioNodeProps> = ({
               expandedTitle="编辑音频文本"
             />
 
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                className={`h-9 rounded-lg px-3 text-sm font-semibold transition-all ${chipClass}`}
-                onClick={() => appendToken('<#0.5#>')}
-                title="插入停顿标记"
-              >
-                {'<#> 停顿'}
-              </button>
-              <button
-                className={`h-9 rounded-lg px-3 text-sm font-semibold transition-all ${chipClass}`}
-                onClick={() => appendToken('（轻声）')}
-                title="插入语气词提示"
-              >
-                {'() 语气词'}
-              </button>
-            </div>
-
             <div className="flex items-center gap-3">
               <LocalCustomDropdown
                 options={audioModels}
@@ -273,22 +253,6 @@ export const TextToAudioNode: React.FC<TextToAudioNodeProps> = ({
                 width="w-[180px]"
                 isDark={isDark}
               />
-              <LocalCustomDropdown
-                icon={Icons.Sliders}
-                options={speedOptions}
-                value={data.voiceSpeed || 1}
-                onChange={(value: number) => updateData(data.id, { voiceSpeed: value })}
-                isOpen={activeDropdown === 'speed'}
-                onToggle={() => setActiveDropdown(activeDropdown === 'speed' ? null : 'speed')}
-                onClose={() => setActiveDropdown(null)}
-                isDark={isDark}
-              />
-              <button
-                className={`h-8 w-8 rounded-lg flex items-center justify-center transition-all ${isDark ? 'text-zinc-300 hover:bg-zinc-800' : 'text-gray-500 hover:bg-gray-100'}`}
-                title="多语言/翻译设置"
-              >
-                <Icons.Languages size={17} />
-              </button>
               <div className="flex-1" />
               <span className={`text-sm tabular-nums ${mutedText}`}>{charCount}/50000</span>
               <span className={`inline-flex h-8 items-center gap-1 rounded-lg px-2.5 text-sm font-semibold ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>

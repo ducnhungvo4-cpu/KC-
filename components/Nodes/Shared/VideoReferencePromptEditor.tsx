@@ -49,6 +49,7 @@ interface VideoReferencePromptEditorProps {
     mode: VideoGenerationMode;
     placeholder: string;
     isDark: boolean;
+    onPreviewReference?: (item: InputMedia) => void;
     allowExpand?: boolean;
     headerContent?: React.ReactNode;
 }
@@ -118,6 +119,7 @@ export const VideoReferencePromptEditor: React.FC<VideoReferencePromptEditorProp
     mode,
     placeholder,
     isDark,
+    onPreviewReference,
     allowExpand = true,
     headerContent,
 }) => {
@@ -189,13 +191,17 @@ export const VideoReferencePromptEditor: React.FC<VideoReferencePromptEditorProp
         chip.dataset.videoReferenceId = reference.id;
         chip.contentEditable = 'false';
         chip.title = invalid ? '素材连接已断开' : displayReference.title || MEDIA_LABELS[displayReference.type];
-        chip.className = `mx-1 inline-flex h-8 max-w-[180px] select-none items-center gap-1.5 rounded-lg border p-0.5 pr-1.5 align-middle text-[11px] font-semibold ${
+        chip.className = `mx-1 inline-flex h-8 max-w-[180px] select-none items-center gap-1.5 rounded-lg border p-0.5 pr-1.5 align-middle text-[11px] font-semibold transition-colors ${
             invalid
                 ? 'border-red-500/30 bg-red-500/10 text-red-300'
                 : isDark
-                    ? 'border-zinc-600 bg-zinc-950/85 text-zinc-200'
-                    : 'border-gray-200 bg-white text-gray-700'
+                    ? 'border-zinc-600 bg-zinc-950/85 text-zinc-200 hover:border-[#8F91F4] hover:bg-[#4446CE]/15'
+                    : 'border-gray-200 bg-white text-gray-700 hover:border-[#4446CE] hover:bg-[#F0F1FF]'
         }`;
+        if (displayReference.type === 'audio' || displayReference.type === 'video') {
+            chip.className += ' cursor-pointer';
+            chip.title = displayReference.type === 'audio' ? '点击播放音频' : '点击放大视频';
+        }
 
         if (displayReference.type === 'image') {
             const image = document.createElement('img');
@@ -408,10 +414,23 @@ export const VideoReferencePromptEditor: React.FC<VideoReferencePromptEditorProp
                         event.stopPropagation();
                         const target = event.target as HTMLElement;
                         const removeButton = target.closest<HTMLElement>('[data-remove-reference]');
-                        if (!removeButton?.dataset.removeReference) return;
+                        if (removeButton?.dataset.removeReference) {
+                            event.preventDefault();
+                            onReferencesChange(allReferences.filter(reference => reference.id !== removeButton.dataset.removeReference));
+                            closeMention();
+                            return;
+                        }
+                        const chip = target.closest<HTMLElement>('[data-video-reference-id]');
+                        const reference = allReferences.find(item => item.id === chip?.dataset.videoReferenceId);
+                        if (!reference || (reference.type !== 'audio' && reference.type !== 'video')) return;
                         event.preventDefault();
-                        onReferencesChange(allReferences.filter(reference => reference.id !== removeButton.dataset.removeReference));
-                        closeMention();
+                        onPreviewReference?.({
+                            id: reference.id,
+                            sourceNodeId: reference.sourceNodeId,
+                            type: reference.type,
+                            url: reference.url,
+                            title: reference.title,
+                        });
                     }}
                     onWheelCapture={event => event.stopPropagation()}
                     onPaste={event => {
@@ -501,6 +520,7 @@ export const VideoReferencePromptEditor: React.FC<VideoReferencePromptEditorProp
                                 mode={mode}
                                 placeholder={placeholder}
                                 isDark={isDark}
+                                onPreviewReference={onPreviewReference}
                                 allowExpand={false}
                                 headerContent={headerContent}
                             />
