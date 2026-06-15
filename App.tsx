@@ -1405,7 +1405,11 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
         const target = e.target as HTMLElement;
-        const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA';
+        const isInput = target.tagName === 'INPUT'
+            || target.tagName === 'TEXTAREA'
+            || target.tagName === 'SELECT'
+            || target.isContentEditable
+            || Boolean(target.closest('[contenteditable="true"], [role="textbox"]'));
         if (!isInput) {
             if (e.key === 'Delete' || e.key === 'Backspace') {
                  if (selectedNodeIds.size > 0) {

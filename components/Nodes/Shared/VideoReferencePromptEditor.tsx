@@ -361,8 +361,8 @@ export const VideoReferencePromptEditor: React.FC<VideoReferencePromptEditorProp
         : 'border-gray-200 bg-gradient-to-b from-white to-gray-50 text-gray-900 shadow-inner shadow-gray-200/40';
 
     return (
-        <div className={`relative ${allowExpand ? '' : 'h-full'}`}>
-            <div className={`${allowExpand ? 'min-h-[126px]' : 'h-full min-h-[420px]'} rounded-[14px] border px-3.5 py-3 transition-all focus-within:border-[#4446CE]/80 focus-within:ring-2 focus-within:ring-[#4446CE]/15 ${border}`}>
+        <div className={`relative cursor-default select-text ${allowExpand ? '' : 'h-full'}`}>
+            <div className={`${allowExpand ? 'min-h-[126px]' : 'h-full min-h-[420px]'} cursor-text select-text rounded-[14px] border px-3.5 py-3 transition-all focus-within:border-[#4446CE]/80 focus-within:ring-2 focus-within:ring-[#4446CE]/15 ${border}`}>
                 {allowExpand && (
                     <button
                         type="button"
@@ -383,9 +383,10 @@ export const VideoReferencePromptEditor: React.FC<VideoReferencePromptEditorProp
                     role="textbox"
                     aria-multiline="true"
                     data-placeholder={placeholder}
-                    className={`${allowExpand ? 'min-h-[68px]' : 'min-h-[330px]'} whitespace-pre-wrap break-words bg-transparent pr-7 text-sm leading-8 outline-none empty:before:pointer-events-none empty:before:text-zinc-500 empty:before:content-[attr(data-placeholder)]`}
+                    className={`${allowExpand ? 'min-h-[68px]' : 'min-h-[330px]'} cursor-text select-text whitespace-pre-wrap break-words bg-transparent pr-7 text-sm leading-8 outline-none empty:before:pointer-events-none empty:before:text-zinc-500 empty:before:content-[attr(data-placeholder)]`}
                     onInput={commitEditorState}
                     onKeyDown={event => {
+                        event.stopPropagation();
                         if (!showMention) return;
                         if (event.key === 'ArrowDown') {
                             event.preventDefault();
