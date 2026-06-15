@@ -1,5 +1,6 @@
 ﻿
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { InputMedia, NodeData } from '../../types';
 import { Icons } from '../Icons';
 import { LocalEditableTitle, LocalInputThumbnails, LocalMediaStack } from './Shared/LocalNodeComponents';
@@ -39,6 +40,10 @@ export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
 }) => {
     const [deferredInputs, setDeferredInputs] = useState(false);
     const [progress, setProgress] = useState(0);
+    const [isAuditDetailOpen, setIsAuditDetailOpen] = useState(false);
+    const [auditErrorCopied, setAuditErrorCopied] = useState(false);
+    const [auditDetailPosition, setAuditDetailPosition] = useState({ left: 16, top: 16 });
+    const auditErrorTriggerRef = useRef<HTMLButtonElement>(null);
 
     const isSelectedAndStable = selected && !isSelecting;
     // Panel stays a constant screen size while zooming via the --panel-inverse-scale CSS var,
@@ -70,6 +75,38 @@ export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
     const shotLabel = hasShotContext
         ? `第${data.episodeNo || '-'}集 / 第${data.sceneNo || '-'}场 / 分镜${String(data.shotNo || '-').padStart(2, '0')}`
         : '';
+    const hasAuditError = Boolean(data.auditFailureReason || data.auditErrorDetail);
+
+    const toggleAuditDetail = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (isAuditDetailOpen) {
+            setIsAuditDetailOpen(false);
+            return;
+        }
+
+        const triggerRect = auditErrorTriggerRef.current?.getBoundingClientRect();
+        if (triggerRect) {
+            const detailWidth = Math.min(280, window.innerWidth - 32);
+            const centeredLeft = triggerRect.left + triggerRect.width / 2 - detailWidth / 2;
+            setAuditDetailPosition({
+                left: Math.min(Math.max(16, centeredLeft), window.innerWidth - detailWidth - 16),
+                top: triggerRect.bottom + 8,
+            });
+        }
+        setIsAuditDetailOpen(true);
+    };
+
+    const copyAuditError = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!data.auditErrorDetail) return;
+        try {
+            await navigator.clipboard.writeText(data.auditErrorDetail);
+            setAuditErrorCopied(true);
+            window.setTimeout(() => setAuditErrorCopied(false), 1400);
+        } catch (error) {
+            console.error('Failed to copy audit error', error);
+        }
+    };
 
     return (
       <>
@@ -192,8 +229,58 @@ export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
           <div className="absolute top-full left-1/2 w-[680px] max-w-[calc(100vw-32px)] pt-4 z-[70] pointer-events-auto" style={panelTransform} onMouseDown={(e) => e.stopPropagation()}>
                {inputMedia.length > 0 && resolvedVideoMode !== 'start_end' && (
                    <LocalInputThumbnails inputs={inputs} items={inputMedia} ready={deferredInputs} isDark={isDark} onPreview={onPreviewReference} />
-               )}
+              )}
               <div className={`${controlPanelBg} rounded-[20px] p-4 flex flex-col gap-3 border shadow-[0_18px_55px_rgba(0,0,0,0.28)]`}>
+                  {hasAuditError && (
+                      <>
+                          <button
+                              ref={auditErrorTriggerRef}
+                              type="button"
+                              className={`group/audit-error flex w-fit items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold text-red-400 transition-all ${
+                                  isDark
+                                      ? 'border-red-500/25 bg-red-500/10 hover:border-red-400/50 hover:bg-red-500/15'
+                                      : 'border-red-200 bg-red-50 hover:border-red-300 hover:bg-red-100'
+                              }`}
+                              aria-label="查看审核未通过原因"
+                              onClick={toggleAuditDetail}
+                          >
+                              <span className="flex h-5 w-5 items-center justify-center rounded-full border border-red-500/50 bg-red-500/15 text-red-400 shadow-[0_0_0_rgba(239,68,68,0)] transition-all group-hover/audit-error:border-red-300 group-hover/audit-error:bg-red-500 group-hover/audit-error:text-white group-hover/audit-error:shadow-[0_0_12px_rgba(239,68,68,0.55)]">
+                                  <Icons.AlertCircle size={13} />
+                              </span>
+                              <span>审核未通过</span>
+                          </button>
+                          {isAuditDetailOpen && createPortal(
+                              <div
+                                  className="fixed z-[430] w-[280px] max-w-[calc(100vw-32px)] rounded-xl border border-red-500/30 bg-zinc-950/95 px-3 py-2.5 shadow-2xl backdrop-blur-xl"
+                                  style={{ left: auditDetailPosition.left, top: auditDetailPosition.top }}
+                                  onMouseDown={(e) => e.stopPropagation()}
+                                  onClick={(e) => e.stopPropagation()}
+                              >
+                                  <div className="flex items-start gap-2">
+                                      <p className="min-w-0 flex-1 text-[11px] leading-5 text-red-300">
+                                          审核未通过：{data.auditFailureReason || '图片未通过平台内容安全审核'}
+                                      </p>
+                                      {data.auditErrorDetail && (
+                                          <div className="relative shrink-0 group/copy-audit">
+                                              <button
+                                                  type="button"
+                                                  className="flex h-6 w-6 items-center justify-center rounded-md text-red-300 transition-colors hover:bg-red-500/20 hover:text-white"
+                                                  aria-label="复制具体报错信息"
+                                                  onClick={copyAuditError}
+                                              >
+                                                  <Icons.Copy size={13} />
+                                              </button>
+                                              <div className="pointer-events-none absolute right-0 bottom-full mb-1.5 whitespace-nowrap rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-[9px] text-zinc-200 opacity-0 transition-opacity group-hover/copy-audit:opacity-100">
+                                                  {auditErrorCopied ? '已复制' : '复制具体报错信息'}
+                                              </div>
+                                          </div>
+                                      )}
+                                  </div>
+                              </div>,
+                              document.body,
+                          )}
+                      </>
+                  )}
                   {hasShotContext && (
                       <div className={`rounded-xl border px-3 py-2.5 ${isDark ? 'bg-zinc-900/70 border-zinc-800' : 'bg-gray-50 border-gray-200'}`}>
                           <div className="flex items-center justify-between gap-3">

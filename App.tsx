@@ -1668,7 +1668,14 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
     }
 
     const creditEstimate = node.creditEstimate || getEstimatedCredits(node);
-    updateNodeData(nodeId, { isLoading: true, errorMessage: undefined, creditEstimate, creditStatus: 'reserved' });
+    updateNodeData(nodeId, {
+        isLoading: true,
+        errorMessage: undefined,
+        auditFailureReason: undefined,
+        auditErrorDetail: undefined,
+        creditEstimate,
+        creditStatus: 'reserved',
+    });
 
     const inputs = getInputImages(node.id);
 
@@ -1722,6 +1729,8 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                 updateNodeData(nodeId, {
                     isLoading: false,
                     errorMessage: undefined,
+                    auditFailureReason: MOCK_AUDIT_REASON,
+                    auditErrorDetail: MOCK_AUDIT_ERROR_DETAIL,
                     creditEstimate,
                     creditStatus: 'refunded',
                 });
