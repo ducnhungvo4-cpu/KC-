@@ -170,9 +170,56 @@ export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
                         <Icons.Film size={28} className="opacity-60"/>
                     </div>
                     <span className="text-sm font-medium opacity-70">{hasShotContext ? data.shotName || data.title : '生视频'}</span>
-                    <span className="text-xs opacity-45 mt-1 px-8 text-center line-clamp-2">
-                        {hasShotContext ? data.shotDescription : '选中节点开始创作'}
-                    </span>
+                    {hasAuditError ? (
+                        <>
+                            <button
+                                ref={auditErrorTriggerRef}
+                                type="button"
+                                className="group/audit-error mt-2 flex items-center gap-2 rounded-xl border border-red-500/25 bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-400 transition-all hover:border-red-400/50 hover:bg-red-500/15"
+                                aria-label="查看审核未通过原因"
+                                onClick={toggleAuditDetail}
+                            >
+                                <span className="flex h-5 w-5 items-center justify-center rounded-full border border-red-500/50 bg-red-500/15 text-red-400 shadow-[0_0_0_rgba(239,68,68,0)] transition-all group-hover/audit-error:border-red-300 group-hover/audit-error:bg-red-500 group-hover/audit-error:text-white group-hover/audit-error:shadow-[0_0_12px_rgba(239,68,68,0.55)]">
+                                    <Icons.AlertCircle size={13} />
+                                </span>
+                                <span>审核未通过</span>
+                            </button>
+                            {isAuditDetailOpen && createPortal(
+                                <div
+                                    className="fixed z-[430] w-[280px] max-w-[calc(100vw-32px)] rounded-xl border border-red-500/30 bg-zinc-950/95 px-3 py-2.5 shadow-2xl backdrop-blur-xl"
+                                    style={{ left: auditDetailPosition.left, top: auditDetailPosition.top }}
+                                    onMouseDown={(e) => e.stopPropagation()}
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    <div className="flex items-start gap-2">
+                                        <p className="min-w-0 flex-1 text-[11px] leading-5 text-red-300">
+                                            审核未通过：{data.auditFailureReason || '图片未通过平台内容安全审核'}
+                                        </p>
+                                        {data.auditErrorDetail && (
+                                            <div className="relative shrink-0 group/copy-audit">
+                                                <button
+                                                    type="button"
+                                                    className="flex h-6 w-6 items-center justify-center rounded-md text-red-300 transition-colors hover:bg-red-500/20 hover:text-white"
+                                                    aria-label="复制具体报错信息"
+                                                    onClick={copyAuditError}
+                                                >
+                                                    <Icons.Copy size={13} />
+                                                </button>
+                                                <div className="pointer-events-none absolute right-0 bottom-full mb-1.5 whitespace-nowrap rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-[9px] text-zinc-200 opacity-0 transition-opacity group-hover/copy-audit:opacity-100">
+                                                    {auditErrorCopied ? '已复制' : '复制具体报错信息'}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>,
+                                document.body,
+                            )}
+                        </>
+                    ) : (
+                        <span className="text-xs opacity-45 mt-1 px-8 text-center line-clamp-2">
+                            {hasShotContext ? data.shotDescription : '选中节点开始创作'}
+                        </span>
+                    )}
                 </div>
             )}
             
@@ -231,56 +278,6 @@ export const TextToVideoNode: React.FC<TextToVideoNodeProps> = ({
                    <LocalInputThumbnails inputs={inputs} items={inputMedia} ready={deferredInputs} isDark={isDark} onPreview={onPreviewReference} />
               )}
               <div className={`${controlPanelBg} rounded-[20px] p-4 flex flex-col gap-3 border shadow-[0_18px_55px_rgba(0,0,0,0.28)]`}>
-                  {hasAuditError && (
-                      <>
-                          <button
-                              ref={auditErrorTriggerRef}
-                              type="button"
-                              className={`group/audit-error flex w-fit items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold text-red-400 transition-all ${
-                                  isDark
-                                      ? 'border-red-500/25 bg-red-500/10 hover:border-red-400/50 hover:bg-red-500/15'
-                                      : 'border-red-200 bg-red-50 hover:border-red-300 hover:bg-red-100'
-                              }`}
-                              aria-label="查看审核未通过原因"
-                              onClick={toggleAuditDetail}
-                          >
-                              <span className="flex h-5 w-5 items-center justify-center rounded-full border border-red-500/50 bg-red-500/15 text-red-400 shadow-[0_0_0_rgba(239,68,68,0)] transition-all group-hover/audit-error:border-red-300 group-hover/audit-error:bg-red-500 group-hover/audit-error:text-white group-hover/audit-error:shadow-[0_0_12px_rgba(239,68,68,0.55)]">
-                                  <Icons.AlertCircle size={13} />
-                              </span>
-                              <span>审核未通过</span>
-                          </button>
-                          {isAuditDetailOpen && createPortal(
-                              <div
-                                  className="fixed z-[430] w-[280px] max-w-[calc(100vw-32px)] rounded-xl border border-red-500/30 bg-zinc-950/95 px-3 py-2.5 shadow-2xl backdrop-blur-xl"
-                                  style={{ left: auditDetailPosition.left, top: auditDetailPosition.top }}
-                                  onMouseDown={(e) => e.stopPropagation()}
-                                  onClick={(e) => e.stopPropagation()}
-                              >
-                                  <div className="flex items-start gap-2">
-                                      <p className="min-w-0 flex-1 text-[11px] leading-5 text-red-300">
-                                          审核未通过：{data.auditFailureReason || '图片未通过平台内容安全审核'}
-                                      </p>
-                                      {data.auditErrorDetail && (
-                                          <div className="relative shrink-0 group/copy-audit">
-                                              <button
-                                                  type="button"
-                                                  className="flex h-6 w-6 items-center justify-center rounded-md text-red-300 transition-colors hover:bg-red-500/20 hover:text-white"
-                                                  aria-label="复制具体报错信息"
-                                                  onClick={copyAuditError}
-                                              >
-                                                  <Icons.Copy size={13} />
-                                              </button>
-                                              <div className="pointer-events-none absolute right-0 bottom-full mb-1.5 whitespace-nowrap rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-[9px] text-zinc-200 opacity-0 transition-opacity group-hover/copy-audit:opacity-100">
-                                                  {auditErrorCopied ? '已复制' : '复制具体报错信息'}
-                                              </div>
-                                          </div>
-                                      )}
-                                  </div>
-                              </div>,
-                              document.body,
-                          )}
-                      </>
-                  )}
                   {hasShotContext && (
                       <div className={`rounded-xl border px-3 py-2.5 ${isDark ? 'bg-zinc-900/70 border-zinc-800' : 'bg-gray-50 border-gray-200'}`}>
                           <div className="flex items-center justify-between gap-3">
