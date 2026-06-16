@@ -401,6 +401,16 @@ const mergeImageVersionSnapshots = (
     return urls.map(url => versionByUrl.get(url) || createImageVersionSnapshot(url, fallbackNode, 0));
 };
 
+const normalizeTextNodeContent = (node: NodeData): NodeData => {
+    if (node.type !== NodeType.CREATIVE_DESC || node.textContent !== undefined) return node;
+    return { ...node, textContent: node.optimizedPrompt ?? node.prompt ?? '' };
+};
+
+const getTextNodeOutput = (node: NodeData): string => {
+    if (node.type === NodeType.CREATIVE_DESC) return node.textContent || node.optimizedPrompt || '';
+    return node.optimizedPrompt || node.prompt || '';
+};
+
 // Helper for resizing imported media constraints
 const calculateImportDimensions = (naturalWidth: number, naturalHeight: number) => {
     const ratio = naturalWidth / naturalHeight;
@@ -476,7 +486,7 @@ const CanvasWithSidebar: React.FC = () => {
   const loadSubCanvasState = (state?: Partial<SubCanvasState>) => {
       const fallback = getEmptySubCanvasState();
       clearDeleteHistory();
-      setNodes(Array.isArray(state?.nodes) ? state.nodes : fallback.nodes);
+      setNodes(Array.isArray(state?.nodes) ? state.nodes.map(normalizeTextNodeContent) : fallback.nodes);
       setConnections(Array.isArray(state?.connections) ? state.connections : fallback.connections);
       setTransform(state?.transform || fallback.transform);
       setSelectedNodeIds(new Set());
@@ -886,13 +896,13 @@ const CanvasWithSidebar: React.FC = () => {
         map[node.id] = connections
             .filter(c => c.targetId === node.id)
             .map(c => nodes.find(n => n.id === c.sourceId))
-            .filter((n): n is NodeData => Boolean(n && (n.imageSrc || n.videoSrc || n.audioSrc || n.prompt || n.optimizedPrompt)))
+            .filter((n): n is NodeData => Boolean(n && (n.imageSrc || n.videoSrc || n.audioSrc || getTextNodeOutput(n))))
             .map(n => {
                 const base = { id: n.id, sourceNodeId: n.id, title: n.title };
                 if (n.videoSrc) return { ...base, type: 'video', url: n.videoSrc } satisfies InputMedia;
                 if (n.imageSrc) return { ...base, type: 'image', url: n.imageSrc } satisfies InputMedia;
                 if (n.audioSrc) return { ...base, type: 'audio', url: n.audioSrc } satisfies InputMedia;
-                const text = n.optimizedPrompt || n.prompt || '';
+                const text = getTextNodeOutput(n);
                 return { ...base, type: 'text', url: `text://${n.id}`, text } satisfies InputMedia;
             });
     });
@@ -1119,6 +1129,7 @@ const CanvasWithSidebar: React.FC = () => {
       duration: dataOverride?.duration || (isVideoType ? '5s' : undefined),
       count: 1,
       prompt: dataOverride?.prompt || '',
+      textContent: type === NodeType.CREATIVE_DESC ? (dataOverride?.textContent ?? '') : dataOverride?.textContent,
       imageSrc: dataOverride?.imageSrc,
       videoSrc: dataOverride?.videoSrc,
       outputArtifacts: dataOverride?.outputArtifacts || (dataOverride?.imageSrc || dataOverride?.videoSrc ? [dataOverride.imageSrc || dataOverride.videoSrc!] : [])
@@ -1192,6 +1203,7 @@ const CanvasWithSidebar: React.FC = () => {
           duration: isVideoType ? '5s' : undefined,
           count: 1,
           prompt: '',
+          textContent: type === NodeType.CREATIVE_DESC ? '' : undefined,
           outputArtifacts: []
       };
 
@@ -1813,7 +1825,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
     try {
       if (node.type === NodeType.CREATIVE_DESC) {
         const res = await generateCreativeDescription(node.prompt || '', node.model === 'TEXT_TO_VIDEO' ? 'VIDEO' : 'IMAGE', node.model);
-        updateNodeData(nodeId, { optimizedPrompt: res, isLoading: false, creditEstimate, creditStatus: 'confirmed' });
+        updateNodeData(nodeId, { textContent: res, optimizedPrompt: res, isLoading: false, creditEstimate, creditStatus: 'confirmed' });
       } else {
           let results: string[] = [];
           
@@ -1890,8 +1902,8 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
       try {
           const text = await analyzeConnectedMedia(node.prompt || '', inputMedia, node.model);
           updateNodeData(nodeId, {
+              textContent: text,
               optimizedPrompt: text,
-              prompt: node.prompt || text,
               isLoading: false,
               creditEstimate,
               creditStatus: 'confirmed'
@@ -1915,7 +1927,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
       updateNodeData(nodeId, { isLoading: true, creditEstimate, creditStatus: 'reserved' });
       try {
           const text = await analyzeScriptAssets(node.prompt, node.model);
-          updateNodeData(nodeId, { optimizedPrompt: text, isLoading: false, creditEstimate, creditStatus: 'confirmed' });
+          updateNodeData(nodeId, { textContent: text, optimizedPrompt: text, isLoading: false, creditEstimate, creditStatus: 'confirmed' });
       } catch (e) {
           console.error(e);
           alert(`剧本分析失败: ${(e as Error).message}`);
@@ -2433,7 +2445,8 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
               updateNodeData(targetId, {
                   type: target.type === NodeType.CREATIVE_DESC ? NodeType.CREATIVE_DESC : target.type,
                   title: target.shotId ? target.title : baseTitle,
-                  prompt: text,
+                  prompt: target.type === NodeType.CREATIVE_DESC ? target.prompt : text,
+                  textContent: target.type === NodeType.CREATIVE_DESC ? text : target.textContent,
                   optimizedPrompt: target.type === NodeType.CREATIVE_DESC ? text : target.optimizedPrompt,
               });
           };
@@ -2729,7 +2742,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                   .forEach(url => addMedia({ type: 'audio', url, title: node.title, fallbackExtension: 'mp3' }));
           }
           if (node.type === NodeType.CREATIVE_DESC) {
-              const text = (node.optimizedPrompt || node.prompt || '').trim();
+              const text = (node.textContent || node.optimizedPrompt || node.prompt || '').trim();
               if (text) textEntries.push({ title: node.title, text });
           }
       });
@@ -2932,7 +2945,9 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                   width: 520,
                   height: 520,
                   title: file.name,
-                  prompt: text,
+                  prompt: '',
+                  textContent: text,
+                  optimizedPrompt: text,
                   model: 'Xiaomi MiMo 2.5 Pro',
                   source: 'local_upload',
               });
@@ -3345,7 +3360,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
           if (targetCategory === 'text') return false;
           if (targetCategory === 'image' && sourceCategory !== 'image') return false;
       }
-      if (nodeHasMedia(source) && sourceCategory === 'video' && targetCategory !== 'video') return false;
+      if (nodeHasMedia(source) && sourceCategory === 'video' && targetCategory !== 'video' && targetCategory !== 'text') return false;
 
       return ALLOWED_SOURCE_CATEGORIES[targetCategory]?.includes(sourceCategory) ?? false;
   };
@@ -4057,7 +4072,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                             <Icons.Copy size={14}/> 复制节点
                         </button>
                         {isTextNode && (
-                            <button className={menuItemClass} onClick={() => { if (node?.prompt) navigator.clipboard?.writeText(node.prompt); setContextMenu(null); }}>
+                            <button className={menuItemClass} onClick={() => { const text = node ? getTextNodeOutput(node) : ''; if (text) navigator.clipboard?.writeText(text); setContextMenu(null); }}>
                                 <Icons.FileText size={14}/> 复制文本
                             </button>
                         )}

@@ -18,9 +18,12 @@ export const generateCreativeDescription = async (input: string, mode: 'IMAGE' |
        method: 'POST',
        body: JSON.stringify({ task: 'text', prompt, mode, modelName }),
      });
-     return res.text || input;
+     if (res.mock) throw new Error('MIMO_API_KEY 未配置');
+     if (!res.text) throw new Error('MIMO_TEXT_EMPTY_RESPONSE');
+     return res.text;
   } catch (e) {
-    return input;
+    console.error(`Error generating text with ${modelName || 'MiMo'}`, e);
+    throw e;
   }
 };
 
@@ -81,6 +84,7 @@ export const analyzeConnectedMedia = async (
             modelName,
         }),
     });
+    if (result.mock) throw new Error('MIMO_API_KEY 未配置');
     return result.text || '';
 };
 
@@ -93,6 +97,7 @@ export const analyzeScriptAssets = async (script: string, modelName?: string): P
             modelName,
         }),
     });
+    if (result.mock) throw new Error('MIMO_API_KEY 未配置');
     return result.text || '';
 };
 

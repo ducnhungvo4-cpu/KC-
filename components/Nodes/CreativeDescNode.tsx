@@ -39,6 +39,7 @@ export const CreativeDescNode: React.FC<CreativeDescNodeProps> = ({
         : 'border-gray-200 text-gray-600 hover:bg-gray-100 hover:text-gray-900';
     const disabledButton = 'opacity-45 cursor-not-allowed hover:bg-transparent';
     const mediaInputCount = inputMedia.filter(item => item.type === 'image' || item.type === 'video').length;
+    const bodyText = data.textContent ?? data.optimizedPrompt ?? '';
     const creditLabel = data.creditStatus === 'reserved'
         ? '已预扣'
         : data.creditStatus === 'confirmed'
@@ -83,9 +84,9 @@ export const CreativeDescNode: React.FC<CreativeDescNodeProps> = ({
                     <textarea
                         ref={bodyInputRef}
                         className={`w-full h-full resize-none bg-transparent px-10 py-10 text-3xl leading-relaxed outline-none no-scrollbar ${inputText}`}
-                        placeholder="双击开始编辑..."
-                        value={data.prompt || ''}
-                        onChange={(event) => updateData(data.id, { prompt: event.target.value })}
+                        placeholder="双击编辑输出内容..."
+                        value={bodyText}
+                        onChange={(event) => updateData(data.id, { textContent: event.target.value })}
                         onMouseDown={(event) => event.stopPropagation()}
                         onWheel={(event) => event.stopPropagation()}
                         onBlur={() => setIsEditingBody(false)}
@@ -97,13 +98,13 @@ export const CreativeDescNode: React.FC<CreativeDescNodeProps> = ({
                     />
                 ) : (
                     <div
-                        className={`w-full h-full px-10 py-10 text-3xl leading-relaxed whitespace-pre-wrap break-words select-none ${data.prompt ? inputText : isDark ? 'text-zinc-500' : 'text-gray-400'}`}
+                        className={`w-full h-full px-10 py-10 text-3xl leading-relaxed whitespace-pre-wrap break-words select-none ${bodyText ? inputText : isDark ? 'text-zinc-500' : 'text-gray-400'}`}
                         onDoubleClick={(event) => {
                             event.stopPropagation();
                             setIsEditingBody(true);
                         }}
                     >
-                        {data.prompt || '双击开始编辑...'}
+                        {bodyText || '双击编辑输出内容...'}
                     </div>
                 )}
 
@@ -121,7 +122,7 @@ export const CreativeDescNode: React.FC<CreativeDescNodeProps> = ({
                     <div className={`${panelBg} rounded-[22px] border p-4 flex flex-col gap-4`}>
                         <LocalPromptTextarea
                             className={`w-full min-h-[96px] resize-none bg-transparent text-base leading-relaxed outline-none ${inputText}`}
-                            placeholder="描述任何你想要生成的内容"
+                            placeholder="输入生成或分析指令"
                             value={data.prompt || ''}
                             onChange={(value) => updateData(data.id, { prompt: value })}
                             isDark={isDark}
@@ -200,12 +201,6 @@ export const CreativeDescNode: React.FC<CreativeDescNodeProps> = ({
                             </button>
                         </div>
                     </div>
-
-                    {data.optimizedPrompt && (
-                        <div className={`${panelBg} mt-3 rounded-2xl border p-4 text-sm leading-relaxed`}>
-                            {data.optimizedPrompt}
-                        </div>
-                    )}
                 </div>
             )}
         </>

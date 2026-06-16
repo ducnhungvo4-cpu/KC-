@@ -77,6 +77,7 @@ export interface NodeData {
   voiceVolume?: number;
   
   // Creative Desc specific
+  textContent?: string;
   optimizedPrompt?: string;
 
   // Project / linear shot context. These fields are optional so existing nodes
