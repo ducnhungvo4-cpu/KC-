@@ -23,6 +23,8 @@ const DEFAULT_NODE_HEIGHT = 240;
 const EMPTY_ARRAY: string[] = [];
 const IMAGE_NODE_BASE_SIZE = 400;
 const VIDEO_NODE_BASE_HEIGHT = 400;
+const CANVAS_MIN_SCALE = 0.4;
+const CANVAS_MAX_SCALE = 2;
 const IMAGE_ASPECT_RATIOS = ['1:1', '3:4', '4:3', '9:16', '16:9'];
 const VIDEO_ASPECT_RATIOS = ['1:1', '3:4', '4:3', '9:16', '16:9', '21:9', '9:21'];
 type LocalExportType = 'video' | 'image' | 'text' | 'audio' | 'all';
@@ -1256,13 +1258,13 @@ const CanvasWithSidebar: React.FC = () => {
       setQuickAddMenu(null);
   };
 
-  const focusNodeInViewport = (node: NodeData) => {
+  const focusNodeInViewport = (node: NodeData, targetScale = transform.k) => {
       const rect = containerRef.current?.getBoundingClientRect();
       if (!rect) return;
       setTransform({
-          x: rect.width / 2 - (node.x + node.width / 2) * transform.k,
-          y: rect.height / 2 - (node.y + node.height / 2) * transform.k,
-          k: transform.k,
+          x: rect.width / 2 - (node.x + node.width / 2) * targetScale,
+          y: rect.height / 2 - (node.y + node.height / 2) * targetScale,
+          k: targetScale,
       });
   };
 
@@ -3114,7 +3116,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
       setTransform(prev => {
         let { x, y, k } = prev;
         if (dZoom !== 1) {
-          const newK = Math.min(Math.max(0.4, k * dZoom), 2);
+          const newK = Math.min(Math.max(CANVAS_MIN_SCALE, k * dZoom), CANVAS_MAX_SCALE);
           const worldX = (ax - x) / k;
           const worldY = (ay - y) / k;
           x = ax - worldX * newK;
@@ -3160,7 +3162,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
   const zoomCanvas = (direction: 1 | -1) => {
       const rect = containerRef.current?.getBoundingClientRect();
       if (!rect) return;
-      const nextK = Math.min(Math.max(0.4, transform.k + direction * 0.1), 2);
+      const nextK = Math.min(Math.max(CANVAS_MIN_SCALE, transform.k + direction * 0.1), CANVAS_MAX_SCALE);
       const anchorX = rect.width / 2;
       const anchorY = rect.height / 2;
       const worldX = (anchorX - transform.x) / transform.k;
@@ -3354,6 +3356,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
   };
 
   const handleNodeDoubleClick = (e: React.MouseEvent, id: string) => {
+      if (e.button !== 0) return;
       const target = e.target as HTMLElement;
       if (target.closest('button, input, textarea, select, a, [contenteditable="true"], [role="textbox"]')) {
           return;
@@ -3366,7 +3369,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
       setSelectedNodeIds(new Set([id]));
       setSelectedConnectionId(null);
       setContextMenu(null);
-      focusNodeInViewport(node);
+      focusNodeInViewport(node, CANVAS_MAX_SCALE);
   };
 
   const handleNodeContextMenu = (e: React.MouseEvent, id: string, type: NodeType) => {
