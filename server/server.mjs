@@ -397,14 +397,15 @@ const buildMinimaxSpeechPayload = (body) => ({
 });
 
 const callModelApi = async ({ baseUrl, endpoint, apiKey, payload, timeoutMs = 300000 }) => {
-  if (!baseUrl || !apiKey) throw new Error('MODEL_API_NOT_CONFIGURED');
+  const cleanApiKey = String(apiKey || '').trim();
+  if (!baseUrl || !cleanApiKey) throw new Error('MODEL_API_NOT_CONFIGURED');
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(joinUrl(baseUrl, endpoint), {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Bearer ${cleanApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(payload),
@@ -467,6 +468,18 @@ const DEFAULT_TEXT_GENERATION_SYSTEM_PROMPT = [
   '如果用户要求写小说、文案、剧本、分镜、设定或分析，就直接写对应成品内容。',
   '除非用户明确要求解释过程，否则不要额外说明你将如何完成任务。'
 ].join('\n');
+
+const DEFAULT_MIMO_BASE_URL = 'https://api.xiaomimimo.com/v1';
+const DEFAULT_MIMO_TOKEN_PLAN_BASE_URL = 'https://token-plan-cn.xiaomimimo.com/v1';
+
+const resolveMimoBaseUrl = (apiKey) => {
+  const configuredBaseUrl = process.env.MIMO_BASE_URL || process.env.TEXT_BASE_URL || '';
+  const isTokenPlanKey = String(apiKey || '').trim().startsWith('tp-');
+  if (isTokenPlanKey && (!configuredBaseUrl || configuredBaseUrl.includes('api.xiaomimimo.com'))) {
+    return DEFAULT_MIMO_TOKEN_PLAN_BASE_URL;
+  }
+  return configuredBaseUrl || DEFAULT_MIMO_BASE_URL;
+};
 
 const normalizeInputMedia = (inputMedia = []) => inputMedia
   .filter(item => item?.url && (item.type === 'image' || item.type === 'video'))
@@ -910,7 +923,7 @@ const handleAudioGeneration = async (req, res) => {
 const handleTextGeneration = async (req, res) => {
   const body = await readBody(req);
   const apiKey = process.env.MIMO_API_KEY || process.env.TEXT_API_KEY;
-  const baseUrl = process.env.MIMO_BASE_URL || process.env.TEXT_BASE_URL || 'https://api.xiaomimimo.com/v1';
+  const baseUrl = resolveMimoBaseUrl(apiKey);
   const endpoint = process.env.MIMO_TEXT_ENDPOINT || process.env.TEXT_ENDPOINT || '/chat/completions';
   if (!apiKey) {
     return json(res, 200, { text: body.prompt || '' });

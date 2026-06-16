@@ -380,14 +380,15 @@ const buildMinimaxSpeechPayload = (body, env) => ({
 });
 
 const callModelApi = async ({ baseUrl, endpoint, apiKey, payload, timeoutMs = 300000 }) => {
-  if (!baseUrl || !apiKey) throw new Error('MODEL_API_NOT_CONFIGURED');
+  const cleanApiKey = String(apiKey || '').trim();
+  if (!baseUrl || !cleanApiKey) throw new Error('MODEL_API_NOT_CONFIGURED');
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(joinUrl(baseUrl, endpoint), {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Bearer ${cleanApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(payload),
@@ -450,6 +451,18 @@ const DEFAULT_TEXT_GENERATION_SYSTEM_PROMPT = [
   '如果用户要求写小说、文案、剧本、分镜、设定或分析，就直接写对应成品内容。',
   '除非用户明确要求解释过程，否则不要额外说明你将如何完成任务。'
 ].join('\n');
+
+const DEFAULT_MIMO_BASE_URL = 'https://api.xiaomimimo.com/v1';
+const DEFAULT_MIMO_TOKEN_PLAN_BASE_URL = 'https://token-plan-cn.xiaomimimo.com/v1';
+
+const resolveMimoBaseUrl = (apiKey, env) => {
+  const configuredBaseUrl = env.MIMO_BASE_URL || env.TEXT_BASE_URL || '';
+  const isTokenPlanKey = String(apiKey || '').trim().startsWith('tp-');
+  if (isTokenPlanKey && (!configuredBaseUrl || configuredBaseUrl.includes('api.xiaomimimo.com'))) {
+    return DEFAULT_MIMO_TOKEN_PLAN_BASE_URL;
+  }
+  return configuredBaseUrl || DEFAULT_MIMO_BASE_URL;
+};
 
 const normalizeInputMedia = (inputMedia = []) => inputMedia
   .filter(item => item?.url && (item.type === 'image' || item.type === 'video'))
@@ -640,7 +653,7 @@ const handleTextGeneration = async (request, env) => {
   if (!(await requireAuth(request, env))) return json({ error: 'UNAUTHORIZED' }, 401);
   const body = await request.json().catch(() => ({}));
   const apiKey = env.MIMO_API_KEY || env.TEXT_API_KEY;
-  const baseUrl = env.MIMO_BASE_URL || env.TEXT_BASE_URL || 'https://api.xiaomimimo.com/v1';
+  const baseUrl = resolveMimoBaseUrl(apiKey, env);
   const endpoint = env.MIMO_TEXT_ENDPOINT || env.TEXT_ENDPOINT || '/chat/completions';
   if (!apiKey) {
     return json({ text: body.prompt || '', mock: true });
@@ -931,6 +944,7 @@ const handleVideoPoll = async (request, env) => {
 
 const handleHealth = async (request, env) => {
   if (!(await requireAuth(request, env))) return json({ error: 'UNAUTHORIZED' }, 401);
+  const mimoApiKey = env.MIMO_API_KEY || env.TEXT_API_KEY;
   return json({
     ok: true,
     seedream: {
@@ -948,10 +962,10 @@ const handleHealth = async (request, env) => {
       watermark: env.QWEN_EDIT_WATERMARK === 'true',
     },
     mimo: {
-      hasApiKey: Boolean(env.MIMO_API_KEY || env.TEXT_API_KEY),
+      hasApiKey: Boolean(mimoApiKey),
       textModelId: env.MIMO_TEXT_MODEL_ID || env.TEXT_MODEL_ID || 'mimo-v2.5-pro',
       visionModelId: env.MIMO_VISION_MODEL_ID || 'mimo-v2.5',
-      endpoint: `${env.MIMO_BASE_URL || env.TEXT_BASE_URL || 'https://api.xiaomimimo.com/v1'}${env.MIMO_TEXT_ENDPOINT || env.TEXT_ENDPOINT || '/chat/completions'}`,
+      endpoint: `${resolveMimoBaseUrl(mimoApiKey, env)}${env.MIMO_TEXT_ENDPOINT || env.TEXT_ENDPOINT || '/chat/completions'}`,
     },
     minimaxAudio: {
       hasApiKey: Boolean(env.MINIMAX_TTS_API_KEY || env.MINIMAX_API_KEY || env.AUDIO_API_KEY),
