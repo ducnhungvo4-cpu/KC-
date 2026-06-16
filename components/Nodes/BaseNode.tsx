@@ -6,6 +6,7 @@ interface BaseNodeProps {
   data: NodeData;
   selected: boolean;
   onMouseDown: (e: React.MouseEvent) => void;
+  onDoubleClick?: (e: React.MouseEvent) => void;
   onContextMenu: (e: React.MouseEvent) => void;
   onConnectStart: (e: React.MouseEvent, type: 'source' | 'target') => void;
   onPortMouseUp?: (e: React.MouseEvent, nodeId: string, type: 'source' | 'target') => void;
@@ -71,7 +72,7 @@ const ConnectionPort: React.FC<{
 };
 
 const BaseNode: React.FC<BaseNodeProps> = ({
-  data, selected, onMouseDown, onContextMenu, onConnectStart, onPortMouseUp, children, onResizeStart, onAttachInput, onAddToAssetLibrary, isDark = true, auditState
+  data, selected, onMouseDown, onDoubleClick, onContextMenu, onConnectStart, onPortMouseUp, children, onResizeStart, onAttachInput, onAddToAssetLibrary, isDark = true, auditState
 }) => {
   const showInputPort = data.type !== NodeType.ORIGINAL_IMAGE;
   const hasContent = Boolean(data.imageSrc || data.videoSrc || data.audioSrc);
@@ -88,6 +89,7 @@ const BaseNode: React.FC<BaseNodeProps> = ({
         overflow: 'visible' 
       }}
       onMouseDown={onMouseDown}
+      onDoubleClick={onDoubleClick}
       onContextMenu={onContextMenu}
     >
       {/* Main Content Area */}

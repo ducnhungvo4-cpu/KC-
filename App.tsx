@@ -26,10 +26,10 @@ const VIDEO_NODE_BASE_HEIGHT = 400;
 const IMAGE_ASPECT_RATIOS = ['1:1', '3:4', '4:3', '9:16', '16:9'];
 const VIDEO_ASPECT_RATIOS = ['1:1', '3:4', '4:3', '9:16', '16:9', '21:9', '9:21'];
 type LocalExportType = 'video' | 'image' | 'text' | 'audio' | 'all';
-interface DeleteHistoryEntry {
-    nodes: NodeData[];
-    connections: Connection[];
-}
+type CanvasHistoryEntry =
+    | { type: 'delete'; label: string; nodes: NodeData[]; connections: Connection[] }
+    | { type: 'create'; label: string; nodes: NodeData[]; connections: Connection[] }
+    | { type: 'upload-update'; label: string; beforeNodes: NodeData[] };
 
 const createDemoAssetPreview = (label: string, accent: string, background: string) => {
     const svg = `
@@ -469,12 +469,12 @@ const CanvasWithSidebar: React.FC = () => {
   const [dragMode, setDragMode] = useState<DragMode | 'RESIZE_NODE' | 'SELECT'>('NONE');
   const dragModeRef = useRef(dragMode);
   const blockedSubCanvasStorageKeysRef = useRef<Set<string>>(new Set());
-  const deleteHistoryRef = useRef<DeleteHistoryEntry[]>([]);
-  const [deleteHistoryCount, setDeleteHistoryCount] = useState(0);
+  const canvasHistoryRef = useRef<CanvasHistoryEntry[]>([]);
+  const [canvasHistoryCount, setCanvasHistoryCount] = useState(0);
 
-  const clearDeleteHistory = useCallback(() => {
-      deleteHistoryRef.current = [];
-      setDeleteHistoryCount(0);
+  const clearCanvasHistory = useCallback(() => {
+      canvasHistoryRef.current = [];
+      setCanvasHistoryCount(0);
   }, []);
 
   const getEmptySubCanvasState = (): SubCanvasState => ({
@@ -485,7 +485,7 @@ const CanvasWithSidebar: React.FC = () => {
 
   const loadSubCanvasState = (state?: Partial<SubCanvasState>) => {
       const fallback = getEmptySubCanvasState();
-      clearDeleteHistory();
+      clearCanvasHistory();
       setNodes(Array.isArray(state?.nodes) ? state.nodes.map(normalizeTextNodeContent) : fallback.nodes);
       setConnections(Array.isArray(state?.connections) ? state.connections : fallback.connections);
       setTransform(state?.transform || fallback.transform);
@@ -802,6 +802,7 @@ const CanvasWithSidebar: React.FC = () => {
   const [isLocalExportMenuOpen, setIsLocalExportMenuOpen] = useState(false);
   const [isLocalExporting, setIsLocalExporting] = useState(false);
   const [isMiniMapOpen, setIsMiniMapOpen] = useState(false);
+  const [pendingDeleteRequest, setPendingDeleteRequest] = useState<{ nodeIds: string[]; connectionIds: string[] } | null>(null);
   const [frameExtractTarget, setFrameExtractTarget] = useState<{ nodeId: string; videoSrc: string } | null>(null);
   
   // Quick Add Menu State
@@ -836,39 +837,75 @@ const CanvasWithSidebar: React.FC = () => {
   const nodeToAttachInputRef = useRef<string | null>(null);
   const assetImportPositionRef = useRef<Point | null>(null);
   const assetImportConnectionRef = useRef<{ sourceId: string; direction?: 'forward' | 'backward' } | null>(null);
+  const miniMapDragRef = useRef<{
+      mapRect: DOMRect;
+      metrics: { minX: number; minY: number; scale: number; offsetX: number; offsetY: number };
+  } | null>(null);
 
   const spacePressed = useRef(false);
 
-  const recordDeleteHistory = useCallback((entry: DeleteHistoryEntry) => {
-      if (entry.nodes.length === 0 && entry.connections.length === 0) return;
-      deleteHistoryRef.current = [...deleteHistoryRef.current.slice(-49), entry];
-      setDeleteHistoryCount(deleteHistoryRef.current.length);
+  const recordCanvasHistory = useCallback((entry: CanvasHistoryEntry) => {
+      const isEmpty =
+          (entry.type === 'delete' || entry.type === 'create')
+              ? entry.nodes.length === 0 && entry.connections.length === 0
+              : entry.beforeNodes.length === 0;
+      if (isEmpty) return;
+      canvasHistoryRef.current = [...canvasHistoryRef.current.slice(-49), entry];
+      setCanvasHistoryCount(canvasHistoryRef.current.length);
   }, []);
 
-  const undoLastDelete = useCallback(() => {
-      const entry = deleteHistoryRef.current.pop();
+  const undoLastCanvasAction = useCallback(() => {
+      const entry = canvasHistoryRef.current.pop();
       if (!entry) return;
 
-      const restoredNodeIds = new Set(entry.nodes.map(node => node.id));
-      setNodes(prev => {
-          const existingIds = new Set(prev.map(node => node.id));
-          return [...prev, ...entry.nodes.filter(node => !existingIds.has(node.id))];
-      });
-      setConnections(prev => {
-          const existingIds = new Set(prev.map(connection => connection.id));
-          return [...prev, ...entry.connections.filter(connection => !existingIds.has(connection.id))];
-      });
-      if (restoredNodeIds.size > 0) {
-          setDeletedNodes(prev => prev.filter(node => !restoredNodeIds.has(node.id)));
-          setSelectedNodeIds(restoredNodeIds);
-          setSelectedConnectionId(null);
-      } else if (entry.connections.length > 0) {
+      if (entry.type === 'delete') {
+          const restoredNodeIds = new Set(entry.nodes.map(node => node.id));
+          setNodes(prev => {
+              const existingIds = new Set(prev.map(node => node.id));
+              return [...prev, ...entry.nodes.filter(node => !existingIds.has(node.id))];
+          });
+          setConnections(prev => {
+              const existingIds = new Set(prev.map(connection => connection.id));
+              return [...prev, ...entry.connections.filter(connection => !existingIds.has(connection.id))];
+          });
+          if (restoredNodeIds.size > 0) {
+              setDeletedNodes(prev => prev.filter(node => !restoredNodeIds.has(node.id)));
+              setSelectedNodeIds(restoredNodeIds);
+              setSelectedConnectionId(null);
+          } else if (entry.connections.length > 0) {
+              setSelectedNodeIds(new Set());
+              setSelectedConnectionId(entry.connections[0].id);
+          }
+      } else if (entry.type === 'create') {
+          const createdNodeIds = new Set(entry.nodes.map(node => node.id));
+          const createdConnectionIds = new Set(entry.connections.map(connection => connection.id));
+          setConnections(prev => prev.filter(connection =>
+              !createdConnectionIds.has(connection.id)
+              && !createdNodeIds.has(connection.sourceId)
+              && !createdNodeIds.has(connection.targetId)
+          ));
+          setNodes(prev => prev.filter(node => !createdNodeIds.has(node.id)));
           setSelectedNodeIds(new Set());
-          setSelectedConnectionId(entry.connections[0].id);
+          setSelectedConnectionId(null);
+      } else if (entry.type === 'upload-update') {
+          const beforeById = new Map(entry.beforeNodes.map(node => [node.id, node]));
+          setNodes(prev => prev.map(node => beforeById.get(node.id) || node));
+          setSelectedNodeIds(new Set(entry.beforeNodes.map(node => node.id)));
+          setSelectedConnectionId(null);
       }
       setContextMenu(null);
-      setDeleteHistoryCount(deleteHistoryRef.current.length);
+      setCanvasHistoryCount(canvasHistoryRef.current.length);
   }, []);
+
+  const addCreatedCanvasItems = useCallback((createdNodes: NodeData[], createdConnections: Connection[] = [], label = '新建节点') => {
+      if (createdNodes.length > 0) {
+          setNodes(prev => [...prev, ...createdNodes]);
+      }
+      if (createdConnections.length > 0) {
+          setConnections(prev => [...prev, ...createdConnections]);
+      }
+      recordCanvasHistory({ type: 'create', label, nodes: createdNodes, connections: createdConnections });
+  }, [recordCanvasHistory]);
 
   const screenToWorld = (x: number, y: number) => ({
     x: (x - transform.x) / transform.k,
@@ -963,8 +1000,7 @@ const CanvasWithSidebar: React.FC = () => {
           targetId: idMap.get(c.targetId)!
       }));
 
-      setNodes(prev => [...prev, ...newNodes]);
-      setConnections(prev => [...prev, ...newConnections]);
+      addCreatedCanvasItems(newNodes, newConnections, '新建节点');
       setSelectedNodeIds(new Set(newNodes.map(n => n.id)));
   };
 
@@ -1056,7 +1092,7 @@ const CanvasWithSidebar: React.FC = () => {
       });
   }, [selectedNodeIds]);
 
-  const addNode = (type: NodeType, x?: number, y?: number, dataOverride?: Partial<NodeData>) => {
+  const addNode = (type: NodeType, x?: number, y?: number, dataOverride?: Partial<NodeData>, recordHistory = true) => {
     if (x === undefined || y === undefined) {
       if (containerRef.current) {
         const rect = containerRef.current.getBoundingClientRect();
@@ -1135,7 +1171,11 @@ const CanvasWithSidebar: React.FC = () => {
       outputArtifacts: dataOverride?.outputArtifacts || (dataOverride?.imageSrc || dataOverride?.videoSrc ? [dataOverride.imageSrc || dataOverride.videoSrc!] : [])
     };
     
-    setNodes(prev => [...prev, newNode]);
+    if (recordHistory) {
+        addCreatedCanvasItems([newNode]);
+    } else {
+        setNodes(prev => [...prev, newNode]);
+    }
     setSelectedNodeIds(new Set([newNode.id]));
     return newNode.id;
   };
@@ -1212,8 +1252,7 @@ const CanvasWithSidebar: React.FC = () => {
           ? { id: generateId(), sourceId: newId, targetId: quickAddMenu.sourceId }
           : { id: generateId(), sourceId: quickAddMenu.sourceId, targetId: newId };
 
-      setNodes(prev => [...prev, newNode]);
-      setConnections(prev => [...prev, newConnection]);
+      addCreatedCanvasItems([newNode], [newConnection], '新建节点');
       setQuickAddMenu(null);
   };
 
@@ -1269,7 +1308,7 @@ const CanvasWithSidebar: React.FC = () => {
           creditStatus: DEMO_LINEAR_SHOT.creditStatus,
       };
 
-      setNodes(prev => [...prev, newNode]);
+      addCreatedCanvasItems([newNode]);
       setSelectedNodeIds(new Set([newNode.id]));
   };
 
@@ -1396,7 +1435,7 @@ const CanvasWithSidebar: React.FC = () => {
       projectId: currentProject?.id || DEMO_PROJECT_META.id,
     };
     
-    setNodes(prev => [...prev, videoNode]);
+    addCreatedCanvasItems([videoNode]);
   };
 
 const handlePaste = useCallback(async (e: ClipboardEvent) => {
@@ -1458,7 +1497,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
     return () => document.removeEventListener('paste', handlePaste);
   }, [handlePaste]);
 
-  const deleteCanvasItems = useCallback((nodeIds: Set<string>, connectionIds: Set<string>) => {
+  const executeDeleteCanvasItems = useCallback((nodeIds: Set<string>, connectionIds: Set<string>) => {
       const nodesToDelete = nodes.filter(node => nodeIds.has(node.id));
       const connectionsToDelete = connections.filter(connection =>
           connectionIds.has(connection.id)
@@ -1467,7 +1506,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
       );
       if (nodesToDelete.length === 0 && connectionsToDelete.length === 0) return;
 
-      recordDeleteHistory({ nodes: nodesToDelete, connections: connectionsToDelete });
+      recordCanvasHistory({ type: 'delete', label: '删除', nodes: nodesToDelete, connections: connectionsToDelete });
       const withContent = nodesToDelete.filter(node => node.imageSrc || node.videoSrc || node.audioSrc);
       if (withContent.length > 0) {
           setDeletedNodes(prev => [...prev, ...withContent]);
@@ -1481,7 +1520,24 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
       }
       setSelectedNodeIds(new Set());
       setSelectedConnectionId(null);
-  }, [connections, nodes, recordDeleteHistory]);
+  }, [connections, nodes, recordCanvasHistory]);
+
+  const deleteCanvasItems = useCallback((nodeIds: Set<string>, connectionIds: Set<string>) => {
+      if (nodeIds.size > 0) {
+          setPendingDeleteRequest({
+              nodeIds: Array.from(nodeIds),
+              connectionIds: Array.from(connectionIds),
+          });
+          return;
+      }
+      executeDeleteCanvasItems(nodeIds, connectionIds);
+  }, [executeDeleteCanvasItems]);
+
+  const confirmPendingDelete = useCallback(() => {
+      if (!pendingDeleteRequest) return;
+      executeDeleteCanvasItems(new Set(pendingDeleteRequest.nodeIds), new Set(pendingDeleteRequest.connectionIds));
+      setPendingDeleteRequest(null);
+  }, [executeDeleteCanvasItems, pendingDeleteRequest]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -1494,7 +1550,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
         if (!isInput) {
             if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z') {
                 e.preventDefault();
-                undoLastDelete();
+                undoLastCanvasAction();
                 return;
             }
             if (e.key === 'Delete' || e.key === 'Backspace') {
@@ -1514,6 +1570,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
         }
         
         if (e.key === 'Escape') {
+            if (pendingDeleteRequest) setPendingDeleteRequest(null);
             if (previewMedia) setPreviewMedia(null);
             if (previewText) setPreviewText(null);
             if (contextMenu) setContextMenu(null);
@@ -1531,7 +1588,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
         window.removeEventListener('keydown', handleKeyDown);
         window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [selectedNodeIds, selectedConnectionId, previewMedia, previewText, contextMenu, quickAddMenu, showNewWorkflowDialog, isStorageOpen, isExportImportOpen, handleAlign, deleteCanvasItems, undoLastDelete]);
+  }, [selectedNodeIds, selectedConnectionId, pendingDeleteRequest, previewMedia, previewText, contextMenu, quickAddMenu, showNewWorkflowDialog, isStorageOpen, isExportImportOpen, handleAlign, deleteCanvasItems, undoLastCanvasAction]);
 
   useEffect(() => {
     // Load storage directory name for the top-right indicator
@@ -1579,7 +1636,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
       const withContent = nodes.filter(n => n.imageSrc || n.videoSrc);
       if (withContent.length > 0) setDeletedNodes(prev => [...prev, ...withContent]);
 
-      clearDeleteHistory();
+      clearCanvasHistory();
       setNodes(data.nodes);
       setConnections(data.connections);
       if (data.transform) setTransform(data.transform);
@@ -2051,7 +2108,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
           directorGroupName: source.directorGroupName || currentProject?.directorGroup || DEMO_PROJECT_META.directorGroup,
       };
 
-      setNodes(prev => [...prev, newNode]);
+      addCreatedCanvasItems([newNode]);
       setSelectedNodeIds(new Set([newNode.id]));
   };
 
@@ -2082,7 +2139,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
           auditStatus: undefined,
       };
 
-      setNodes(prev => [...prev, newNode]);
+      addCreatedCanvasItems([newNode]);
       setSelectedNodeIds(new Set([newNode.id]));
   };
 
@@ -2127,10 +2184,8 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
           outputArtifacts: [croppedSrc]
       };
 
-      setNodes(prev => [...prev, newNode]);
-      if (source) {
-          setConnections(prev => [...prev, { id: generateId(), sourceId: source.id, targetId: newId }]);
-      }
+      const newConnection = source ? { id: generateId(), sourceId: source.id, targetId: newId } : null;
+      addCreatedCanvasItems([newNode], newConnection ? [newConnection] : [], '新建节点');
       setSelectedNodeIds(new Set([newId]));
       setCropTarget(null);
   };
@@ -2172,8 +2227,8 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
           creditStatus: 'reserved',
       };
 
-      setNodes(prev => [...prev, placeholderNode]);
-      setConnections(prev => [...prev, { id: generateId(), sourceId: source.id, targetId: placeholderId }]);
+      const placeholderConnection = { id: generateId(), sourceId: source.id, targetId: placeholderId };
+      addCreatedCanvasItems([placeholderNode], [placeholderConnection], '新建节点');
       setSelectedNodeIds(new Set([placeholderId]));
 
       try {
@@ -2260,6 +2315,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                   const aspectRatio = getClosestAspectRatio(video.videoWidth, video.videoHeight, VIDEO_ASPECT_RATIOS);
                   const nodeSize = getNodeSizeForAspectRatio(aspectRatio, VIDEO_NODE_BASE_HEIGHT);
                   const newArtifacts = mergeArtifactVersions(url, node.videoSrc, node.outputArtifacts || []);
+                  recordCanvasHistory({ type: 'upload-update', label: '上传文件', beforeNodes: [node] });
                   updateNodeData(nodeId, {
                       videoSrc: url,
                       title: node.shotId ? node.title : file.name,
@@ -2272,6 +2328,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
               video.src = url;
           } else if (file.type.startsWith('audio/') && NODE_MEDIA_CATEGORY[node.type] === 'text') {
               const url = URL.createObjectURL(file);
+              recordCanvasHistory({ type: 'upload-update', label: '上传文件', beforeNodes: [node] });
               updateNodeData(nodeId, {
                   audioSrc: url,
                   title: file.name || node.title,
@@ -2286,6 +2343,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                     const { width, height } = getNodeSizeForAspectRatio(aspectRatio);
                     const src = event.target?.result as string;
                     const newArtifacts = mergeArtifactVersions(src, node.imageSrc, node.outputArtifacts || []);
+                    recordCanvasHistory({ type: 'upload-update', label: '上传文件', beforeNodes: [node] });
                     updateNodeData(nodeId, {
                         imageSrc: src,
                         title: node.shotId ? node.title : (file.name || node.title),
@@ -2328,8 +2386,8 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
       const x = target ? target.x - source.width - 90 : source.x;
       const y = target ? target.y + upstreamCount * 80 : source.y;
       const sourceNode = { ...source, x, y };
-      setNodes(prev => [...prev, sourceNode]);
-      setConnections(prev => [...prev, { id: generateId(), sourceId: sourceNode.id, targetId }]);
+      const newConnection = { id: generateId(), sourceId: sourceNode.id, targetId };
+      addCreatedCanvasItems([sourceNode], [newConnection], '上传文件');
       setSelectedNodeIds(new Set([targetId]));
   };
 
@@ -2373,6 +2431,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                   const aspectRatio = getClosestAspectRatio(img.width, img.height, IMAGE_ASPECT_RATIOS);
                   const { width, height } = getNodeSizeForAspectRatio(aspectRatio);
                   const src = event.target?.result as string;
+                  recordCanvasHistory({ type: 'upload-update', label: '上传文件', beforeNodes: [target] });
                   updateNodeData(targetId, {
                       type: NodeType.TEXT_TO_IMAGE,
                       width,
@@ -2400,6 +2459,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
           video.onloadedmetadata = () => {
               const aspectRatio = getClosestAspectRatio(video.videoWidth, video.videoHeight, VIDEO_ASPECT_RATIOS);
               const { width, height } = getNodeSizeForAspectRatio(aspectRatio, VIDEO_NODE_BASE_HEIGHT);
+              recordCanvasHistory({ type: 'upload-update', label: '上传文件', beforeNodes: [target] });
               updateNodeData(targetId, {
                   type: NodeType.TEXT_TO_VIDEO,
                   width,
@@ -2421,6 +2481,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
           video.src = url;
       } else if (file.type.startsWith('audio/')) {
           const url = URL.createObjectURL(file);
+          recordCanvasHistory({ type: 'upload-update', label: '上传文件', beforeNodes: [target] });
           updateNodeData(targetId, {
               type: NodeType.TEXT_TO_AUDIO,
               width: 420,
@@ -2442,6 +2503,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
           const reader = new FileReader();
           reader.onload = (event) => {
               const text = String(event.target?.result || '');
+              recordCanvasHistory({ type: 'upload-update', label: '上传文件', beforeNodes: [target] });
               updateNodeData(targetId, {
                   type: target.type === NodeType.CREATIVE_DESC ? NodeType.CREATIVE_DESC : target.type,
                   title: target.shotId ? target.title : baseTitle,
@@ -2505,7 +2567,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
   const clearCanvasState = (nextProjectName = `${DEMO_PROJECT_META.name} 无限画布`) => {
       const withContent = nodes.filter(n => n.imageSrc || n.videoSrc);
       if (withContent.length > 0) setDeletedNodes(prev => [...prev, ...withContent]);
-      clearDeleteHistory();
+      clearCanvasHistory();
       setNodes([]);
       setConnections([]);
       setTransform({ x: 0, y: 0, k: 1 });
@@ -2516,7 +2578,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
   };
 
   const openProject = (project: ProjectDashboardItem) => {
-      clearDeleteHistory();
+      clearCanvasHistory();
       let loaded = false;
       try {
           const saved = localStorage.getItem(`${KC_PROJECT_STORAGE_PREFIX}${project.id}`);
@@ -2868,20 +2930,17 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
       // Placeholder: material library toggle favorite
   };
 
-  const connectImportedNodeIfNeeded = (nodeId: string) => {
+  const getImportedNodeConnection = (nodeId: string): Connection | null => {
       const connection = assetImportConnectionRef.current;
-      if (!connection) return;
+      if (!connection) return null;
 
       const isBackward = connection.direction === 'backward';
-      setConnections(prev => [
-          ...prev,
-          {
-              id: generateId(),
-              sourceId: isBackward ? nodeId : connection.sourceId,
-              targetId: isBackward ? connection.sourceId : nodeId,
-          },
-      ]);
       assetImportConnectionRef.current = null;
+      return {
+          id: generateId(),
+          sourceId: isBackward ? nodeId : connection.sourceId,
+          targetId: isBackward ? connection.sourceId : nodeId,
+      };
   };
 
   const addUploadedFileNode = (file: File, center: Point) => {
@@ -2893,7 +2952,12 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
               img.onload = () => {
                   const aspectRatio = getClosestAspectRatio(img.width, img.height, IMAGE_ASPECT_RATIOS);
                   const { width, height } = getNodeSizeForAspectRatio(aspectRatio);
-                  const nodeId = addNode(NodeType.TEXT_TO_IMAGE, center.x - width / 2, center.y - height / 2, {
+                  const nodeId = generateId();
+                  const newNode: NodeData = {
+                      id: nodeId,
+                      type: NodeType.TEXT_TO_IMAGE,
+                      x: center.x - width / 2,
+                      y: center.y - height / 2,
                       width,
                       height,
                       imageSrc: src,
@@ -2903,8 +2967,10 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                       resolution: '1k',
                       source: 'local_upload',
                       outputArtifacts: [src],
-                  });
-                  connectImportedNodeIfNeeded(nodeId);
+                  };
+                  const newConnection = getImportedNodeConnection(nodeId);
+                  addCreatedCanvasItems([newNode], newConnection ? [newConnection] : [], '上传文件');
+                  setSelectedNodeIds(new Set([nodeId]));
               };
               img.src = src;
           };
@@ -2919,7 +2985,12 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
           video.onloadedmetadata = () => {
               const aspectRatio = getClosestAspectRatio(video.videoWidth, video.videoHeight, VIDEO_ASPECT_RATIOS);
               const { width, height } = getNodeSizeForAspectRatio(aspectRatio, VIDEO_NODE_BASE_HEIGHT);
-              const nodeId = addNode(NodeType.TEXT_TO_VIDEO, center.x - width / 2, center.y - height / 2, {
+              const nodeId = generateId();
+              const newNode: NodeData = {
+                  id: nodeId,
+                  type: NodeType.TEXT_TO_VIDEO,
+                  x: center.x - width / 2,
+                  y: center.y - height / 2,
                   width,
                   height,
                   videoSrc: url,
@@ -2930,8 +3001,10 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                   duration: '5s',
                   source: 'local_upload',
                   outputArtifacts: [url],
-              });
-              connectImportedNodeIfNeeded(nodeId);
+              };
+              const newConnection = getImportedNodeConnection(nodeId);
+              addCreatedCanvasItems([newNode], newConnection ? [newConnection] : [], '上传文件');
+              setSelectedNodeIds(new Set([nodeId]));
           };
           video.src = url;
           return;
@@ -2941,7 +3014,12 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
           const reader = new FileReader();
           reader.onload = (event) => {
               const text = String(event.target?.result || '');
-              const nodeId = addNode(NodeType.CREATIVE_DESC, center.x - 260, center.y - 260, {
+              const nodeId = generateId();
+              const newNode: NodeData = {
+                  id: nodeId,
+                  type: NodeType.CREATIVE_DESC,
+                  x: center.x - 260,
+                  y: center.y - 260,
                   width: 520,
                   height: 520,
                   title: file.name,
@@ -2950,8 +3028,10 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                   optimizedPrompt: text,
                   model: 'Xiaomi MiMo 2.5 Pro',
                   source: 'local_upload',
-              });
-              connectImportedNodeIfNeeded(nodeId);
+              };
+              const newConnection = getImportedNodeConnection(nodeId);
+              addCreatedCanvasItems([newNode], newConnection ? [newConnection] : [], '上传文件');
+              setSelectedNodeIds(new Set([nodeId]));
           };
           reader.readAsText(file);
       }
@@ -3197,13 +3277,16 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
       };
   };
 
-  const jumpToMiniMapPoint = (event: React.MouseEvent<HTMLDivElement>) => {
+  const moveCanvasToMiniMapPoint = (
+      clientX: number,
+      clientY: number,
+      mapRect: DOMRect,
+      metrics: { minX: number; minY: number; scale: number; offsetX: number; offsetY: number }
+  ) => {
       const rect = containerRef.current?.getBoundingClientRect();
       if (!rect) return;
-      const mapRect = event.currentTarget.getBoundingClientRect();
-      const metrics = getMiniMapMetrics();
-      const localX = event.clientX - mapRect.left;
-      const localY = event.clientY - mapRect.top;
+      const localX = Math.max(0, Math.min(mapRect.width, clientX - mapRect.left));
+      const localY = Math.max(0, Math.min(mapRect.height, clientY - mapRect.top));
       const worldX = metrics.minX + (localX - metrics.offsetX) / metrics.scale;
       const worldY = metrics.minY + (localY - metrics.offsetY) / metrics.scale;
       setTransform({
@@ -3211,6 +3294,29 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
           y: rect.height / 2 - worldY * transform.k,
           k: transform.k,
       });
+  };
+
+  const handleMiniMapMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
+      event.stopPropagation();
+      event.preventDefault();
+      const mapRect = event.currentTarget.getBoundingClientRect();
+      const metrics = getMiniMapMetrics();
+      miniMapDragRef.current = { mapRect, metrics };
+      moveCanvasToMiniMapPoint(event.clientX, event.clientY, mapRect, metrics);
+
+      const handleMove = (moveEvent: MouseEvent) => {
+          const drag = miniMapDragRef.current;
+          if (!drag) return;
+          moveCanvasToMiniMapPoint(moveEvent.clientX, moveEvent.clientY, drag.mapRect, drag.metrics);
+      };
+      const handleUp = () => {
+          miniMapDragRef.current = null;
+          window.removeEventListener('mousemove', handleMove);
+          window.removeEventListener('mouseup', handleUp);
+      };
+
+      window.addEventListener('mousemove', handleMove);
+      window.addEventListener('mouseup', handleUp);
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -3245,6 +3351,22 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
         setSelectedNodeIds(newSelection);
         initialNodePositionsRef.current = nodes.map(n => ({ id: n.id, x: n.x, y: n.y }));
     }
+  };
+
+  const handleNodeDoubleClick = (e: React.MouseEvent, id: string) => {
+      const target = e.target as HTMLElement;
+      if (target.closest('button, input, textarea, select, a, [contenteditable="true"], [role="textbox"]')) {
+          return;
+      }
+      const node = nodes.find(item => item.id === id);
+      if (!node) return;
+      e.stopPropagation();
+      e.preventDefault();
+      setDragMode('NONE');
+      setSelectedNodeIds(new Set([id]));
+      setSelectedConnectionId(null);
+      setContextMenu(null);
+      focusNodeInViewport(node);
   };
 
   const handleNodeContextMenu = (e: React.MouseEvent, id: string, type: NodeType) => {
@@ -3367,7 +3489,8 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
 
   const createConnection = (sourceId: string, targetId: string) => {
       if (canConnectNodes(sourceId, targetId) && !connections.some(c => c.sourceId === sourceId && c.targetId === targetId)) {
-          setConnections(prev => [...prev, { id: generateId(), sourceId, targetId }]);
+          const newConnection = { id: generateId(), sourceId, targetId };
+          addCreatedCanvasItems([], [newConnection], '连接节点');
       }
       setDragMode('NONE'); setTempConnection(null); connectionStartRef.current = null; setSuggestedNodes([]);
   };
@@ -3408,6 +3531,51 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                 </div>
             </div>
         </div>
+      );
+  };
+
+  const renderDeleteConfirmDialog = () => {
+      if (!pendingDeleteRequest) return null;
+      const targetNodes = nodes.filter(node => pendingDeleteRequest.nodeIds.includes(node.id));
+      const affectedConnections = connections.filter(connection =>
+          pendingDeleteRequest.connectionIds.includes(connection.id)
+          || pendingDeleteRequest.nodeIds.includes(connection.sourceId)
+          || pendingDeleteRequest.nodeIds.includes(connection.targetId)
+      );
+      const title = targetNodes.length === 1 ? targetNodes[0].title : `${targetNodes.length} 个节点`;
+
+      return (
+          <div className="fixed inset-0 z-[320] flex items-center justify-center bg-black/70 backdrop-blur-sm" onMouseDown={(event) => event.stopPropagation()}>
+              <div className={`w-[min(420px,92vw)] rounded-2xl border p-5 shadow-2xl ${isDark ? 'border-red-500/30 bg-[#18181b] text-zinc-100' : 'border-red-200 bg-white text-gray-900'}`}>
+                  <div className="flex items-start gap-3">
+                      <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${isDark ? 'bg-red-500/15 text-red-300' : 'bg-red-50 text-red-600'}`}>
+                          <Icons.Trash2 size={22} />
+                      </div>
+                      <div className="min-w-0">
+                          <div className="text-base font-bold">确认删除节点</div>
+                          <p className={`mt-2 text-sm leading-6 ${isDark ? 'text-zinc-400' : 'text-gray-600'}`}>
+                              将删除「{title}」以及相关连线 {affectedConnections.length} 条。删除后可用 Ctrl/⌘+Z 撤回。
+                          </p>
+                      </div>
+                  </div>
+                  <div className={`mt-5 flex justify-end gap-2 border-t pt-4 ${isDark ? 'border-zinc-800' : 'border-gray-100'}`}>
+                      <button
+                          type="button"
+                          onClick={() => setPendingDeleteRequest(null)}
+                          className={`rounded-lg px-4 py-2 text-xs font-semibold transition-colors ${isDark ? 'text-zinc-300 hover:bg-zinc-800' : 'text-gray-600 hover:bg-gray-100'}`}
+                      >
+                          取消
+                      </button>
+                      <button
+                          type="button"
+                          onClick={confirmPendingDelete}
+                          className={`rounded-lg px-4 py-2 text-xs font-bold transition-colors ${isDark ? 'bg-red-500 text-white hover:bg-red-400' : 'bg-red-600 text-white hover:bg-red-500'}`}
+                      >
+                          确认删除
+                      </button>
+                  </div>
+              </div>
+          </div>
       );
   };
 
@@ -3983,13 +4151,10 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
               {isMiniMapOpen && (
                   <div className={`rounded-2xl border p-2 shadow-2xl backdrop-blur-xl ${panelClass}`}>
                       <div
-                          className={`relative overflow-hidden rounded-xl border cursor-crosshair ${isDark ? 'border-zinc-700 bg-zinc-950/70' : 'border-gray-200 bg-gray-50'}`}
+                          className={`relative overflow-hidden rounded-xl border cursor-grab active:cursor-grabbing ${isDark ? 'border-zinc-700 bg-zinc-950/70' : 'border-gray-200 bg-gray-50'}`}
                           style={{ width: metrics.miniWidth, height: metrics.miniHeight }}
-                          onMouseDown={(event) => {
-                              event.stopPropagation();
-                              jumpToMiniMapPoint(event);
-                          }}
-                          title="点击小地图快速移动画布"
+                          onMouseDown={handleMiniMapMouseDown}
+                          title="拖动小地图移动画布"
                       >
                           <svg width={metrics.miniWidth} height={metrics.miniHeight} className="absolute inset-0">
                               {metrics.nodeRects.map(rect => (
@@ -4047,15 +4212,15 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
         <div className={`fixed z-50 border rounded-xl shadow-2xl py-2 min-w-[180px] flex flex-col backdrop-blur-xl animate-in fade-in zoom-in-95 duration-100 ${isDark ? 'bg-zinc-900/95 border-zinc-700/80' : 'bg-white/95 border-gray-200'}`} style={{ left: contextMenu.x, top: contextMenu.y }} onMouseDown={(e) => e.stopPropagation()}>
             <button
                 className={`mx-1 flex items-center gap-2.5 rounded-md px-3 py-2 text-left text-xs transition-all duration-150 ${
-                    deleteHistoryCount > 0
+                    canvasHistoryCount > 0
                         ? (isDark ? 'text-gray-300 hover:bg-zinc-800/80 hover:text-white' : 'text-gray-700 hover:bg-gray-100 hover:text-black')
                         : (isDark ? 'cursor-not-allowed text-zinc-600' : 'cursor-not-allowed text-gray-300')
                 }`}
-                onClick={undoLastDelete}
-                disabled={deleteHistoryCount === 0}
+                onClick={undoLastCanvasAction}
+                disabled={canvasHistoryCount === 0}
             >
                 <Icons.RotateCcw size={14} />
-                <span className="flex-1">撤回删除</span>
+                <span className="flex-1">撤回上一步</span>
                 <span className={`text-[9px] ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>Ctrl/⌘+Z</span>
             </button>
             <div className={`h-px my-1.5 mx-2 ${isDark ? 'bg-zinc-700' : 'bg-gray-200'}`}></div>
@@ -4524,6 +4689,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                         data={node}
                         selected={selectedNodeIds.has(node.id)}
                         onMouseDown={(e) => handleNodeMouseDown(e, node.id)}
+                        onDoubleClick={(e) => handleNodeDoubleClick(e, node.id)}
                         onContextMenu={(e) => handleNodeContextMenu(e, node.id, node.type)}
                         onConnectStart={(e, type) => handleConnectStart(e, node.id, type)}
                         onPortMouseUp={handlePortMouseUp}
@@ -4867,9 +5033,10 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
           </div>
         </div>
       )}
-      {renderContextMenu()}
+            {renderContextMenu()}
             {renderQuickAddMenu()}
             {renderNewWorkflowDialog()}
+            {renderDeleteConfirmDialog()}
             {renderSaveResultModal()}
             {renderCreditDashboardV2()}
             {previewMedia && (
@@ -4968,7 +5135,7 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                             imageSrc: imageDataUrl,
                             source: 'canvas',
                         };
-                        setNodes(prev => [...prev, newNode]);
+                        addCreatedCanvasItems([newNode]);
                         setFrameExtractTarget(null);
                     }}
                 />
