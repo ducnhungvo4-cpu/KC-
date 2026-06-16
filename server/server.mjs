@@ -89,6 +89,18 @@ const joinUrl = (baseUrl, endpoint) => {
   return `${base}${pathPart}`;
 };
 
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+const isTimeoutLikeError = (error) => {
+  const message = String(error?.message || '').toLowerCase();
+  return error?.statusCode === 408
+    || error?.statusCode === 524
+    || error?.name === 'AbortError'
+    || message.includes('524')
+    || message.includes('timeout')
+    || message.includes('timed out');
+};
+
 const mediaExtension = (mimeType) => {
   const normalized = String(mimeType || '').toLowerCase();
   if (normalized === 'image/jpeg' || normalized === 'image/jpg') return 'jpg';
@@ -419,11 +431,43 @@ const callModelApi = async ({ baseUrl, endpoint, apiKey, payload, timeoutMs = 30
       data = { raw: text };
     }
     if (!response.ok) {
-      throw new Error(data?.error?.message || data?.message || data?.code || data?.raw || `MODEL_API_${response.status}`);
+      const error = new Error(data?.error?.message || data?.message || data?.code || data?.raw || `MODEL_API_${response.status}`);
+      error.statusCode = response.status;
+      throw error;
     }
     return data;
+  } catch (error) {
+    if (error?.name === 'AbortError' || controller.signal.aborted) {
+      const timeoutError = new Error(`MODEL_API_TIMEOUT_${Math.round(timeoutMs / 1000)}S`);
+      timeoutError.statusCode = 408;
+      throw timeoutError;
+    }
+    throw error;
   } finally {
     clearTimeout(timer);
+  }
+};
+
+const callTextModelApi = async ({ baseUrl, endpoint, apiKey, payload, timeoutMs = 600000 }) => {
+  try {
+    return await callModelApi({ baseUrl, endpoint, apiKey, payload, timeoutMs });
+  } catch (error) {
+    if (!isTimeoutLikeError(error)) throw error;
+    await sleep(1200);
+    const retryPayload = {
+      ...payload,
+      max_completion_tokens: Math.min(Number(payload.max_completion_tokens) || 2048, 2048),
+    };
+    try {
+      return await callModelApi({ baseUrl, endpoint, apiKey, payload: retryPayload, timeoutMs });
+    } catch (retryError) {
+      if (isTimeoutLikeError(retryError)) {
+        const timeoutError = new Error('MIMO_TEXT_TIMEOUT: 当前文本生成耗时过长，请缩短输入或拆分成多段生成。');
+        timeoutError.statusCode = 524;
+        throw timeoutError;
+      }
+      throw retryError;
+    }
   }
 };
 
@@ -929,7 +973,7 @@ const handleTextGeneration = async (req, res) => {
     return json(res, 200, { text: body.prompt || '' });
   }
 
-  const result = await callModelApi({
+  const result = await callTextModelApi({
     baseUrl,
     endpoint,
     apiKey,
