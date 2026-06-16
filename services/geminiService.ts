@@ -12,7 +12,8 @@ export type { ModelConfig };
 // --- Generators ---
 
 export const generateCreativeDescription = async (input: string, mode: 'IMAGE' | 'VIDEO', modelName?: string): Promise<string> => {
-  const prompt = `Optimize this ${mode.toLowerCase()} description for professional AI generation. Input: "${input}". Provide ONLY the optimized prompt text.`;
+  const prompt = input.trim();
+  if (!prompt) throw new Error('请输入文本生成指令');
   try {
      const res = await apiFetch('/api/generate/text', {
        method: 'POST',

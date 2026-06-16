@@ -444,6 +444,13 @@ const DEFAULT_SCRIPT_ASSET_SYSTEM_PROMPT = [
   '最终输出用 Markdown。先给“角色总览表”，再逐个角色输出完整资产卡。信息不足时可以基于剧情合理推断，但必须标注“推断”，不得违背剧本。'
 ].join('\n');
 
+const DEFAULT_TEXT_GENERATION_SYSTEM_PROMPT = [
+  '你是专业中文创作助手。',
+  '请严格按照用户输入的任务直接产出最终内容，不要把用户需求改写成提示词，不要输出“可用于生成的提示词”。',
+  '如果用户要求写小说、文案、剧本、分镜、设定或分析，就直接写对应成品内容。',
+  '除非用户明确要求解释过程，否则不要额外说明你将如何完成任务。'
+].join('\n');
+
 const normalizeInputMedia = (inputMedia = []) => inputMedia
   .filter(item => item?.url && (item.type === 'image' || item.type === 'video'))
   .slice(0, 6)
@@ -498,6 +505,7 @@ const buildMimoPayload = (body, env) => {
     baseMessages.push({ role: 'system', content: env.MIMO_SCRIPT_SYSTEM_PROMPT || DEFAULT_SCRIPT_ASSET_SYSTEM_PROMPT });
     baseMessages.push({ role: 'user', content: body.prompt || '' });
   } else {
+    baseMessages.push({ role: 'system', content: env.MIMO_TEXT_SYSTEM_PROMPT || DEFAULT_TEXT_GENERATION_SYSTEM_PROMPT });
     baseMessages.push({ role: 'user', content: body.prompt || '' });
   }
 
