@@ -427,7 +427,8 @@ export const LocalMediaStack: React.FC<{
     data, updateData, currentSrc, isDark = true, selected, onPreviewMedia, onSetImageVersion, onUseImageVersion, onUseVideoVersion
 }) => {
     const stackRef = useRef<HTMLDivElement>(null);
-    const [previewedVersion, setPreviewedVersion] = useState<ImageVersionSnapshot | null>(null);
+    const [selectedBatchKey, setSelectedBatchKey] = useState<string | null>(null);
+    const [hoveredBatchKey, setHoveredBatchKey] = useState<string | null>(null);
     const artifacts = data.outputArtifacts || [];
     const sortedArtifacts = currentSrc ? [currentSrc, ...artifacts.filter(a => a !== currentSrc)] : artifacts;
     const isImageHistory = data.type === NodeType.TEXT_TO_IMAGE;
@@ -450,7 +451,7 @@ export const LocalMediaStack: React.FC<{
     };
 
     const closeStack = () => {
-        setPreviewedVersion(null);
+        setHoveredBatchKey(null);
         updateData(data.id, { isStackOpen: false });
     };
 
@@ -459,7 +460,7 @@ export const LocalMediaStack: React.FC<{
             const target = event.target as Element;
             if (target.closest?.('[data-media-preview-overlay]')) return;
             if (data.isStackOpen && stackRef.current && !stackRef.current.contains(event.target as Node)) {
-                setPreviewedVersion(null);
+                setHoveredBatchKey(null);
                 updateData(data.id, { isStackOpen: false });
             }
         };
@@ -469,35 +470,39 @@ export const LocalMediaStack: React.FC<{
 
     useEffect(() => {
         if (!selected && data.isStackOpen) {
-            setPreviewedVersion(null);
+            setHoveredBatchKey(null);
             updateData(data.id, { isStackOpen: false });
         }
     }, [selected, data.isStackOpen, data.id, updateData]);
 
     if (isImageHistory) {
-        const currentIndex = Math.max(0, imageVersionUrls.findIndex(url => url === currentSrc));
-        const currentVersionNumber = Math.max(1, imageVersionUrls.length - currentIndex);
-        const displaySrc = previewedVersion?.url || currentSrc;
-        const previewIndex = previewedVersion
-            ? imageVersionUrls.findIndex(url => url === previewedVersion.url)
-            : -1;
-        const previewVersionNumber = previewIndex >= 0 ? imageVersionUrls.length - previewIndex : currentVersionNumber;
+        const imageUrlSet = new Set(imageVersionUrls);
+        const imageHistoryBatches = imageVersionUrls.reduce<Array<{ key: string; urls: string[] }>>((batches, url) => {
+            const version = getImageVersion(url);
+            const key = version.batchId || `single:${url}`;
+            if (batches.some(batch => batch.key === key)) return batches;
+            const urls = Array.from(new Set((version.batchUrls?.length ? version.batchUrls : [url])
+                .filter(batchUrl => batchUrl && (imageUrlSet.has(batchUrl) || batchUrl === currentSrc))));
+            batches.push({ key, urls: urls.length ? urls : [url] });
+            return batches;
+        }, []).filter(batch => batch.urls.some(url => url !== currentSrc) || batch.urls.length > 1);
+        const selectedBatch = imageHistoryBatches.find(batch => batch.key === selectedBatchKey) || imageHistoryBatches[0];
+        const previewBatch = imageHistoryBatches.find(batch => batch.key === hoveredBatchKey) || selectedBatch;
+        const activeBatchIndex = previewBatch ? imageHistoryBatches.findIndex(batch => batch.key === previewBatch.key) : -1;
+        const activeVersionNumber = activeBatchIndex >= 0 ? imageHistoryBatches.length - activeBatchIndex : 1;
+        const displaySrc = currentSrc;
+        const imageShowBadge = !!selected && !data.isStackOpen && imageHistoryBatches.length > 0;
         return (
             <>
                 {displaySrc && (
                     <img
                         src={displaySrc}
                         className={`h-full w-full object-contain pointer-events-none ${isDark ? 'bg-[#09090b]' : 'bg-gray-50'}`}
-                        alt={previewedVersion ? `正在预览 V${previewVersionNumber}` : 'Generated'}
+                        alt="Generated"
                         draggable={false}
                     />
                 )}
-                {previewedVersion && previewedVersion.url !== currentSrc && (
-                    <div className="absolute left-1/2 top-12 z-40 -translate-x-1/2 rounded-full border border-[#8F91F4]/40 bg-[#181818]/90 px-3 py-1.5 text-[11px] font-semibold text-[#E1E3FF] shadow-xl backdrop-blur-md">
-                        正在预览 V{previewVersionNumber}
-                    </div>
-                )}
-                {showBadge && (
+                {imageShowBadge && (
                     <button
                         type="button"
                         className="absolute bottom-3 right-3 z-[90] flex items-center gap-1.5 rounded-lg border border-white/10 bg-black/55 px-2.5 py-1.5 text-[10px] font-semibold text-white shadow-lg backdrop-blur-md hover:bg-black/75"
@@ -508,7 +513,7 @@ export const LocalMediaStack: React.FC<{
                     >
                         <Icons.Clock size={12} />
                         <span>历史记录</span>
-                        <span className="text-zinc-300">{imageVersionUrls.length}</span>
+                        <span className="text-zinc-300">{imageHistoryBatches.length}</span>
                         <Icons.ChevronRight size={11} className="text-zinc-400" />
                     </button>
                 )}
@@ -520,70 +525,116 @@ export const LocalMediaStack: React.FC<{
                         data-canvas-wheel-pass-through="true"
                         onMouseDown={(event) => event.stopPropagation()}
                         onWheelCapture={(event) => event.stopPropagation()}
-                        onMouseLeave={() => setPreviewedVersion(null)}
+                        onMouseLeave={() => setHoveredBatchKey(null)}
                     >
                         <div className={`flex items-start justify-between border-b px-4 py-4 ${isDark ? 'border-zinc-800' : 'border-gray-100'}`}>
                             <div>
                                 <div className="text-sm font-semibold">历史记录</div>
                             </div>
-                            <button
-                                type="button"
-                                className={`flex h-8 w-8 items-center justify-center rounded-lg ${isDark ? 'text-zinc-400 hover:bg-zinc-800 hover:text-white' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`}
-                                title="关闭历史记录"
-                                aria-label="关闭历史记录"
-                                onClick={(event) => {
-                                    event.stopPropagation();
-                                    closeStack();
-                                }}
-                            >
-                                <Icons.X size={17} />
-                            </button>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    className={`h-8 rounded-lg px-3 text-xs font-semibold transition-colors ${isDark ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900'}`}
+                                    onClick={(event) => {
+                                        event.stopPropagation();
+                                        closeStack();
+                                    }}
+                                >
+                                    收起
+                                </button>
+                                <button
+                                    type="button"
+                                    className={`flex h-8 w-8 items-center justify-center rounded-lg ${isDark ? 'text-zinc-400 hover:bg-zinc-800 hover:text-white' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`}
+                                    title="关闭历史记录"
+                                    aria-label="关闭历史记录"
+                                    onClick={(event) => {
+                                        event.stopPropagation();
+                                        closeStack();
+                                    }}
+                                >
+                                    <Icons.X size={17} />
+                                </button>
+                            </div>
                         </div>
-                        <div className="custom-scrollbar flex-1 space-y-3 overflow-y-auto overscroll-contain p-3">
-                            {imageVersionUrls.map((src, index) => {
-                                const version = getImageVersion(src);
-                                const versionNumber = imageVersionUrls.length - index;
-                                // History excludes the version currently shown on the node.
-                                if (src === currentSrc) return null;
-                                return (
-                                    <div
-                                        key={src + index}
-                                        className={`relative overflow-hidden rounded-xl border transition-colors ${isDark ? 'border-zinc-800 bg-black/20 hover:border-zinc-700 hover:bg-white/[0.04]' : 'border-gray-200 bg-gray-50/70 hover:border-gray-300 hover:bg-white'}`}
-                                        onMouseEnter={() => setPreviewedVersion(version)}
-                                        onMouseLeave={() => setPreviewedVersion(null)}
-                                    >
-                                        <div
-                                            className={`relative aspect-[4/3] w-full cursor-zoom-in ${isDark ? 'bg-black' : 'bg-gray-100'}`}
-                                            title="点击查看大图"
-                                            onClick={(event) => {
-                                                event.stopPropagation();
-                                                onPreviewMedia?.(src, 'image');
-                                            }}
-                                        >
-                                            <img src={src} className="h-full w-full object-contain" draggable={false} />
-                                            <div className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-black/70 to-transparent" />
-                                            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/80 to-transparent" />
-                                            <span className="absolute left-3 top-3 rounded-full border border-white/15 bg-black/55 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-md">
-                                                V{versionNumber}
-                                            </span>
-                                            <div className="absolute inset-x-3 bottom-3 flex items-center justify-end gap-2">
-                                                <button
-                                                    type="button"
-                                                    className="h-8 rounded-lg bg-[#4446CE] px-3.5 text-[11px] font-semibold text-white shadow-lg hover:bg-[#5557DB]"
-                                                    onClick={(event) => {
-                                                        event.stopPropagation();
-                                                        onUseImageVersion?.(data.id, version);
-                                                        closeStack();
-                                                    }}
-                                                >
-                                                    复制并新建
-                                                </button>
-                                            </div>
+                        {previewBatch && (
+                            <>
+                                <div className="flex-1 p-3">
+                                    <div className={`relative h-full overflow-hidden rounded-xl border ${isDark ? 'border-zinc-800 bg-black/20' : 'border-gray-200 bg-gray-50/70'}`}>
+                                        <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-16 bg-gradient-to-b from-black/70 to-transparent" />
+                                        <span className="absolute left-3 top-3 z-20 rounded-full border border-white/15 bg-black/55 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-md">
+                                            V{activeVersionNumber}
+                                            {previewBatch.urls.length > 1 && <span className="font-semibold text-white/75"> · {previewBatch.urls.length}张</span>}
+                                        </span>
+                                        <div className={`grid h-full gap-2 p-2 ${previewBatch.urls.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                                            {previewBatch.urls.map((url) => {
+                                                const version = getImageVersion(url);
+                                                return (
+                                                    <div
+                                                        key={url}
+                                                        className={`group/version relative min-h-0 overflow-hidden rounded-lg ${isDark ? 'bg-black' : 'bg-gray-100'}`}
+                                                        title="点击查看大图"
+                                                        onClick={(event) => {
+                                                            event.stopPropagation();
+                                                            onPreviewMedia?.(url, 'image');
+                                                        }}
+                                                    >
+                                                        <img src={url} className="h-full w-full object-contain" draggable={false} />
+                                                        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/75 to-transparent opacity-90" />
+                                                        <div className="absolute inset-x-2 bottom-2 flex justify-end">
+                                                            <button
+                                                                type="button"
+                                                                className="h-8 rounded-lg bg-[#4446CE] px-3 text-[11px] font-semibold text-white shadow-lg hover:bg-[#5557DB]"
+                                                                onClick={(event) => {
+                                                                    event.stopPropagation();
+                                                                    onUseImageVersion?.(data.id, version);
+                                                                    closeStack();
+                                                                }}
+                                                            >
+                                                                复制并新建
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
                                     </div>
-                                );
-                            })}
-                        </div>
+                                </div>
+                                {imageHistoryBatches.length > 1 && (
+                                    <div className={`flex items-center justify-center gap-3 border-t px-4 py-3 ${isDark ? 'border-zinc-800' : 'border-gray-100'}`}>
+                                        {imageHistoryBatches.map((batch, index) => {
+                                            const isSelected = batch.key === selectedBatch.key;
+                                            const isPreviewing = batch.key === hoveredBatchKey;
+                                            return (
+                                                <button
+                                                    key={batch.key}
+                                                    type="button"
+                                                    className={`h-4 w-4 rounded-full border transition duration-150 hover:scale-110 ${isSelected
+                                                        ? 'border-[#C7C8FF]/90 bg-[radial-gradient(circle_at_35%_30%,#FFFFFF_0%,#E7E8FF_34%,#4446CE_100%)] shadow-[inset_0_1px_2px_rgba(255,255,255,.85),0_0_0_4px_rgba(68,70,206,.18),0_4px_12px_rgba(68,70,206,.45)]'
+                                                        : isPreviewing
+                                                            ? 'border-[#C7C8FF]/80 bg-[radial-gradient(circle_at_35%_30%,#FFFFFF_0%,#EEF0FF_42%,#8F91F4_100%)] shadow-[inset_0_1px_2px_rgba(255,255,255,.8),0_3px_10px_rgba(143,145,244,.42)]'
+                                                            : 'border-white/45 bg-[radial-gradient(circle_at_35%_30%,rgba(255,255,255,.98)_0%,rgba(236,237,255,.88)_48%,rgba(143,145,244,.46)_100%)] shadow-[inset_0_1px_2px_rgba(255,255,255,.8),0_3px_9px_rgba(0,0,0,.35)]'
+                                                    }`}
+                                                    aria-label={`查看 V${imageHistoryBatches.length - index}`}
+                                                    onMouseEnter={(event) => {
+                                                        event.stopPropagation();
+                                                        setHoveredBatchKey(batch.key);
+                                                    }}
+                                                    onMouseLeave={(event) => {
+                                                        event.stopPropagation();
+                                                        setHoveredBatchKey(null);
+                                                    }}
+                                                    onClick={(event) => {
+                                                        event.stopPropagation();
+                                                        setSelectedBatchKey(batch.key);
+                                                        setHoveredBatchKey(null);
+                                                    }}
+                                                />
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </>
+                        )}
                     </div>
                 )}
             </>

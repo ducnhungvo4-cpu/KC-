@@ -378,7 +378,8 @@ const mergeArtifactVersions = (newArtifacts: string | string[], currentArtifact?
 const createImageVersionSnapshot = (
     url: string,
     node: Pick<NodeData, 'prompt' | 'model' | 'aspectRatio' | 'resolution' | 'count' | 'promptOptimize'>,
-    createdAt = Date.now()
+    createdAt = Date.now(),
+    batch?: Pick<ImageVersionSnapshot, 'batchId' | 'batchUrls' | 'batchIndex'>
 ): ImageVersionSnapshot => ({
     url,
     prompt: node.prompt || '',
@@ -388,6 +389,7 @@ const createImageVersionSnapshot = (
     count: node.count || 1,
     promptOptimize: !!node.promptOptimize,
     createdAt,
+    ...batch,
 });
 
 const mergeImageVersionSnapshots = (
@@ -1924,7 +1926,14 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
               if (node.type === NodeType.TEXT_TO_IMAGE) {
                   updates.imageSrc = results[0];
                   const generatedAt = Date.now();
-                  const generatedVersions = results.map((url, index) => createImageVersionSnapshot(url, node, generatedAt + index));
+                  const batchId = `${nodeId}-${generatedAt}`;
+                  const batchUrls = [...results];
+                  const generatedVersions = results.map((url, index) => createImageVersionSnapshot(
+                      url,
+                      node,
+                      generatedAt + index,
+                      { batchId, batchUrls, batchIndex: index }
+                  ));
                   updates.imageVersions = mergeImageVersionSnapshots(
                       newArtifacts,
                       generatedVersions,

@@ -33,6 +33,9 @@ export interface ImageVersionSnapshot {
   count: number;
   promptOptimize: boolean;
   createdAt: number;
+  batchId?: string;
+  batchUrls?: string[];
+  batchIndex?: number;
 }
 
 export interface NodeData {
