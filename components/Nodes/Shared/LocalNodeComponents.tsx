@@ -502,15 +502,15 @@ export const LocalMediaStack: React.FC<{
             const batchRatios = batchUrls.length ? batchUrls.map(getVersionAspectRatio) : [1];
             const averageBatchRatio = batchRatios.reduce((sum, ratio) => sum + ratio, 0) / batchRatios.length;
             const normalizedBatchRatio = clampNumber(averageBatchRatio, 0.65, 1.9);
-            const gridColumns = batchCount === 1 ? 1 : batchCount === 2 && averageBatchRatio < 0.85 ? 1 : 2;
+            const gridColumns = batchCount === 1 ? 1 : 2;
             const gridRows = Math.ceil(batchCount / gridColumns);
             const compositeRatio = (gridColumns * normalizedBatchRatio) / gridRows;
             const width = compositeRatio > 1.45
                 ? 760
                 : compositeRatio < 0.75
-                    ? 440
+                    ? 400
                     : clampNumber(Math.round(600 * compositeRatio), 520, 680);
-            const gridContentHeight = clampNumber(Math.round(width / compositeRatio), 320, 820) + 16;
+            const gridContentHeight = clampNumber(Math.round(width / compositeRatio), 320, 600) + 16;
             return {
                 width,
                 height: 65 + gridContentHeight + (imageHistoryBatches.length > 1 ? 49 : 0),
@@ -521,7 +521,7 @@ export const LocalMediaStack: React.FC<{
         const previewAverageRatio = previewBatchUrls.length
             ? previewBatchUrls.map(getVersionAspectRatio).reduce((sum, ratio) => sum + ratio, 0) / previewBatchUrls.length
             : 1;
-        const previewGridColumns = previewBatchUrls.length === 1 ? 1 : previewBatchUrls.length === 2 && previewAverageRatio < 0.85 ? 1 : 2;
+        const previewGridColumns = previewBatchUrls.length === 1 ? 1 : 2;
         const drawerWidth = drawerMetrics.width;
         const drawerHeight = drawerMetrics.height;
         const displaySrc = currentSrc;
