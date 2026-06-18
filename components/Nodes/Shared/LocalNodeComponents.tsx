@@ -490,6 +490,48 @@ export const LocalMediaStack: React.FC<{
         const previewBatch = imageHistoryBatches.find(batch => batch.key === hoveredBatchKey) || selectedBatch;
         const activeBatchIndex = previewBatch ? imageHistoryBatches.findIndex(batch => batch.key === previewBatch.key) : -1;
         const activeVersionNumber = activeBatchIndex >= 0 ? imageHistoryBatches.length - activeBatchIndex : 1;
+        const clampNumber = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+        const getVersionAspectRatio = (url: string) => {
+            const version = getImageVersion(url);
+            const [wRaw, hRaw] = (version.aspectRatio || data.aspectRatio || '1:1').split(':').map(Number);
+            return Number.isFinite(wRaw) && Number.isFinite(hRaw) && wRaw > 0 && hRaw > 0 ? wRaw / hRaw : 1;
+        };
+        const getBatchDrawerMetrics = (batch?: { urls: string[] }) => {
+            const batchUrls = batch?.urls || [];
+            const batchCount = Math.max(1, batchUrls.length);
+            const batchRatios = batchUrls.length ? batchUrls.map(getVersionAspectRatio) : [1];
+            const averageBatchRatio = batchRatios.reduce((sum, ratio) => sum + ratio, 0) / batchRatios.length;
+            const normalizedBatchRatio = clampNumber(averageBatchRatio, 0.65, 1.9);
+            const gridColumns = batchCount === 1 ? 1 : 2;
+            const gridRows = Math.ceil(batchCount / gridColumns);
+            const width = batchCount >= 4
+                ? (averageBatchRatio < 0.85 ? 560 : averageBatchRatio > 1.6 ? 720 : 640)
+                : batchCount === 2
+                    ? (averageBatchRatio < 0.85 ? 540 : averageBatchRatio > 1.6 ? 680 : 600)
+                    : clampNumber(Math.round(440 * normalizedBatchRatio), 460, 680);
+            const tileWidth = (width - 24 - (gridColumns - 1) * 8) / gridColumns;
+            const gridContentHeight = clampNumber(
+                Math.round((tileWidth / normalizedBatchRatio) * gridRows + (gridRows - 1) * 8 + 16),
+                batchCount >= 4 ? 500 : 360,
+                650
+            );
+            return {
+                width,
+                height: 65 + gridContentHeight + (imageHistoryBatches.length > 1 ? 49 : 0),
+            };
+        };
+        const drawerMetrics = imageHistoryBatches.reduce(
+            (largest, batch) => {
+                const metrics = getBatchDrawerMetrics(batch);
+                return {
+                    width: Math.max(largest.width, metrics.width),
+                    height: Math.max(largest.height, metrics.height),
+                };
+            },
+            getBatchDrawerMetrics(previewBatch)
+        );
+        const drawerWidth = drawerMetrics.width;
+        const drawerHeight = drawerMetrics.height;
         const displaySrc = currentSrc;
         const imageShowBadge = !!selected && !data.isStackOpen && imageHistoryBatches.length > 0;
         return (
@@ -520,8 +562,11 @@ export const LocalMediaStack: React.FC<{
                 {data.isStackOpen && (
                     <div
                         ref={stackRef}
-                        className={`history-version-drawer absolute left-[calc(100%+16px)] top-0 z-[120] flex w-[420px] max-w-[calc(100vw-48px)] flex-col overflow-hidden rounded-2xl border shadow-2xl backdrop-blur-xl ${isDark ? 'border-zinc-700 bg-[#181818]/97 text-zinc-100' : 'border-gray-200 bg-white/97 text-gray-900'}`}
-                        style={{ height: Math.max(440, data.height) }}
+                        className={`history-version-drawer absolute left-[calc(100%+16px)] top-0 z-[120] flex max-w-[calc(100vw-48px)] flex-col overflow-hidden rounded-2xl border shadow-2xl backdrop-blur-xl ${isDark ? 'border-zinc-700 bg-[#181818]/97 text-zinc-100' : 'border-gray-200 bg-white/97 text-gray-900'}`}
+                        style={{
+                            width: `min(${drawerWidth}px, calc(100vw - 48px))`,
+                            height: `min(${Math.max(drawerHeight, data.height)}px, calc(100vh - 48px))`,
+                        }}
                         data-canvas-wheel-pass-through="true"
                         onMouseDown={(event) => event.stopPropagation()}
                         onWheelCapture={(event) => event.stopPropagation()}
