@@ -76,6 +76,7 @@ const BaseNode: React.FC<BaseNodeProps> = ({
 }) => {
   const showInputPort = data.type !== NodeType.ORIGINAL_IMAGE;
   const hasContent = Boolean(data.imageSrc || data.videoSrc || data.audioSrc);
+  const editBadges = data.editBadges || [];
 
   return (
     <div 
@@ -94,6 +95,18 @@ const BaseNode: React.FC<BaseNodeProps> = ({
     >
       {/* Main Content Area */}
       <div className="relative w-full h-full">
+          {editBadges.length > 0 && (
+            <div className="absolute -top-3 left-6 z-[210] flex max-w-[calc(100%-48px)] flex-wrap gap-1.5 pointer-events-none">
+              {editBadges.map((badge, index) => (
+                <span
+                  key={`${badge}-${index}`}
+                  className="rounded-lg border border-[#8F91F4]/35 bg-[#4446CE]/85 px-2 py-1 text-[10px] font-bold leading-none text-white shadow-lg backdrop-blur-md"
+                >
+                  {badge}
+                </span>
+              ))}
+            </div>
+          )}
           {/* Seedance audit badge — top-left corner, outside the node */}
           {auditState && (
             <div className="absolute -top-2 -left-2 z-[200] group/audit pointer-events-auto">

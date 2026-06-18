@@ -427,8 +427,8 @@ export const LocalMediaStack: React.FC<{
     data, updateData, currentSrc, isDark = true, selected, onPreviewMedia, onSetImageVersion, onUseImageVersion, onUseVideoVersion
 }) => {
     const stackRef = useRef<HTMLDivElement>(null);
-    const [selectedBatchKey, setSelectedBatchKey] = useState<string | null>(null);
     const [hoveredBatchKey, setHoveredBatchKey] = useState<string | null>(null);
+    const [batchImageIndexes, setBatchImageIndexes] = useState<Record<string, number>>({});
     const artifacts = data.outputArtifacts || [];
     const sortedArtifacts = currentSrc ? [currentSrc, ...artifacts.filter(a => a !== currentSrc)] : artifacts;
     const isImageHistory = data.type === NodeType.TEXT_TO_IMAGE;
@@ -486,78 +486,18 @@ export const LocalMediaStack: React.FC<{
             batches.push({ key, urls: urls.length ? urls : [url] });
             return batches;
         }, []).filter(batch => batch.urls.some(url => url !== currentSrc) || batch.urls.length > 1);
-        const selectedBatch = imageHistoryBatches.find(batch => batch.key === selectedBatchKey) || imageHistoryBatches[0];
-        const previewBatch = selectedBatch;
-        const activeBatchIndex = previewBatch ? imageHistoryBatches.findIndex(batch => batch.key === previewBatch.key) : -1;
-        const activeVersionNumber = activeBatchIndex >= 0 ? imageHistoryBatches.length - activeBatchIndex : 1;
-        const clampNumber = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
-        const getVersionAspectRatio = (url: string) => {
-            const version = getImageVersion(url);
-            const [wRaw, hRaw] = (version.aspectRatio || data.aspectRatio || '1:1').split(':').map(Number);
-            return Number.isFinite(wRaw) && Number.isFinite(hRaw) && wRaw > 0 && hRaw > 0 ? wRaw / hRaw : 1;
-        };
-        const getBatchDrawerMetrics = (batch?: { urls: string[] }) => {
-            const batchUrls = batch?.urls || [];
-            const batchCount = Math.max(1, batchUrls.length);
-            const batchRatios = batchUrls.length ? batchUrls.map(getVersionAspectRatio) : [1];
-            const averageBatchRatio = batchRatios.reduce((sum, ratio) => sum + ratio, 0) / batchRatios.length;
-            const normalizedBatchRatio = clampNumber(averageBatchRatio, 0.65, 1.9);
-            const gridColumns = batchCount === 1 ? 1 : 2;
-            const gridRows = Math.ceil(batchCount / gridColumns);
-            const compositeRatio = (gridColumns * normalizedBatchRatio) / gridRows;
-            const preferredWidth = compositeRatio > 1.45
-                ? 760
-                : compositeRatio < 0.75
-                    ? 400
-                    : clampNumber(Math.round(600 * compositeRatio), 520, 680);
-            const headerHeight = imageHistoryBatches.length > 1 ? 90 : 65;
-            const gridGap = 8;
-            const gridPadding = 16;
-            const contentPadding = 24;
-            const getContentHeight = (panelWidth: number) => {
-                const tileWidth = Math.max(96, (panelWidth - contentPadding - gridPadding - ((gridColumns - 1) * gridGap)) / gridColumns);
-                const rowHeights = Array.from({ length: gridRows }, (_, rowIndex) => {
-                    const rowRatios = batchRatios.slice(rowIndex * gridColumns, (rowIndex + 1) * gridColumns);
-                    const rowMinRatio = Math.min(...(rowRatios.length ? rowRatios : [normalizedBatchRatio]));
-                    return tileWidth / clampNumber(rowMinRatio, 0.3, 3);
-                });
-                return Math.round(rowHeights.reduce((sum, rowHeight) => sum + rowHeight, 0) + ((gridRows - 1) * gridGap) + gridPadding + contentPadding);
-            };
-            const availableHeight = typeof window === 'undefined'
-                ? 760
-                : clampNumber(window.innerHeight - 72, 520, 920);
-            let width = preferredWidth;
-            let gridContentHeight = getContentHeight(width);
-            const maxContentHeight = availableHeight - headerHeight;
-            if (gridContentHeight > maxContentHeight) {
-                const scale = clampNumber(maxContentHeight / gridContentHeight, 0.64, 1);
-                width = Math.max(320, Math.round(width * scale));
-                gridContentHeight = getContentHeight(width);
-            }
-            if (batchCount === 4 && averageBatchRatio < 0.8) {
-                width = Math.max(340, width);
-                gridContentHeight = getContentHeight(width);
-                if (gridContentHeight > maxContentHeight) {
-                    const scale = clampNumber(maxContentHeight / gridContentHeight, 0.64, 1);
-                    width = Math.max(320, Math.round(width * scale));
-                    gridContentHeight = getContentHeight(width);
-                }
-            }
-            return {
-                width,
-                height: Math.min(headerHeight + gridContentHeight, availableHeight),
-            };
-        };
-        const drawerMetrics = getBatchDrawerMetrics(previewBatch);
-        const previewBatchUrls = previewBatch?.urls || [];
-        const previewAverageRatio = previewBatchUrls.length
-            ? previewBatchUrls.map(getVersionAspectRatio).reduce((sum, ratio) => sum + ratio, 0) / previewBatchUrls.length
-            : 1;
-        const previewGridColumns = previewBatchUrls.length === 1 ? 1 : 2;
-        const drawerWidth = drawerMetrics.width;
-        const drawerHeight = drawerMetrics.height;
+        const drawerWidth = 420;
+        const drawerHeight = typeof window === 'undefined'
+            ? Math.max(520, data.height)
+            : Math.min(Math.max(520, data.height), window.innerHeight - 48);
         const displaySrc = currentSrc;
         const imageShowBadge = !!selected && !data.isStackOpen && imageHistoryBatches.length > 0;
+        const shiftBatchImage = (batchKey: string, total: number, direction: -1 | 1) => {
+            setBatchImageIndexes(prev => {
+                const current = prev[batchKey] || 0;
+                return { ...prev, [batchKey]: (current + direction + total) % total };
+            });
+        };
         return (
             <>
                 {displaySrc && (
@@ -597,36 +537,8 @@ export const LocalMediaStack: React.FC<{
                         onMouseLeave={() => setHoveredBatchKey(null)}
                     >
                         <div className={`flex items-start justify-between border-b px-4 py-4 ${isDark ? 'border-zinc-800' : 'border-gray-100'}`}>
-                            <div className="min-w-0">
-                                <div className="text-sm font-semibold">历史记录</div>
-                                {imageHistoryBatches.length > 1 && (
-                                    <div className="mt-2 flex items-center gap-2">
-                                        {imageHistoryBatches.map((batch, index) => {
-                                            const versionNumber = imageHistoryBatches.length - index;
-                                            const isSelected = batch.key === selectedBatch.key;
-                                            return (
-                                                <button
-                                                    key={batch.key}
-                                                    type="button"
-                                                    className={`h-6 min-w-8 rounded-lg border px-2 text-[11px] font-bold leading-none transition duration-150 hover:-translate-y-0.5 ${isSelected
-                                                        ? 'border-[#C7C8FF]/80 bg-[#4446CE] text-white shadow-[inset_0_1px_0_rgba(255,255,255,.35),0_6px_14px_rgba(68,70,206,.38)]'
-                                                        : isDark
-                                                            ? 'border-white/10 bg-white/[0.06] text-zinc-300 shadow-[inset_0_1px_0_rgba(255,255,255,.08),0_4px_10px_rgba(0,0,0,.25)] hover:border-[#8F91F4]/45 hover:bg-[#4446CE]/20 hover:text-white'
-                                                            : 'border-gray-200 bg-white text-gray-600 shadow-sm hover:border-[#8F91F4]/40 hover:bg-[#F0F1FF] hover:text-[#4446CE]'
-                                                    }`}
-                                                    aria-label={`查看 V${versionNumber}`}
-                                                    onClick={(event) => {
-                                                        event.stopPropagation();
-                                                        setSelectedBatchKey(batch.key);
-                                                        setHoveredBatchKey(null);
-                                                    }}
-                                                >
-                                                    V{versionNumber}
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                )}
+                            <div>
+                                <div className="text-sm font-semibold">历史版本</div>
                             </div>
                             <div className="flex items-center gap-2">
                                 <button
@@ -653,56 +565,79 @@ export const LocalMediaStack: React.FC<{
                                 </button>
                             </div>
                         </div>
-                        {previewBatch && (
-                            <>
-                                <div className="flex-1 p-3">
-                                    <div className={`relative h-full overflow-hidden rounded-xl border ${isDark ? 'border-zinc-800 bg-black/20' : 'border-gray-200 bg-gray-50/70'}`}>
-                                        <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-16 bg-gradient-to-b from-black/70 to-transparent" />
-                                        <span className="absolute left-3 top-3 z-20 rounded-full border border-white/15 bg-black/55 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-md">
-                                            V{activeVersionNumber}
-                                            {previewBatch.urls.length > 1 && <span className="font-semibold text-white/75"> · {previewBatch.urls.length}张</span>}
-                                        </span>
+                        <div className="custom-scrollbar flex-1 space-y-4 overflow-y-auto overscroll-contain p-4">
+                            {imageHistoryBatches.map((batch, index) => {
+                                const versionNumber = imageHistoryBatches.length - index;
+                                const activeIndex = Math.min(batchImageIndexes[batch.key] || 0, batch.urls.length - 1);
+                                const activeUrl = batch.urls[activeIndex];
+                                const version = getImageVersion(activeUrl);
+                                const hasMultipleImages = batch.urls.length > 1;
+                                return (
+                                    <div
+                                        key={batch.key}
+                                        className={`group/version relative overflow-hidden rounded-xl border ${isDark ? 'border-zinc-800 bg-black/25' : 'border-gray-200 bg-gray-50/80'}`}
+                                        onMouseEnter={() => setHoveredBatchKey(batch.key)}
+                                        onMouseLeave={() => setHoveredBatchKey(null)}
+                                    >
                                         <div
-                                            className={`grid h-full gap-2 p-2 ${previewGridColumns === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}
-                                            style={{
-                                                gridTemplateRows: `repeat(${Math.ceil(previewBatchUrls.length / previewGridColumns)}, minmax(0, 1fr))`,
+                                            className="relative aspect-video overflow-hidden rounded-xl"
+                                            title="点击查看大图"
+                                            onClick={(event) => {
+                                                event.stopPropagation();
+                                                onPreviewMedia?.(activeUrl, 'image');
                                             }}
                                         >
-                                            {previewBatch.urls.map((url) => {
-                                                const version = getImageVersion(url);
-                                                return (
-                                                    <div
-                                                        key={url}
-                                                        className={`group/version relative min-h-0 overflow-hidden rounded-lg ${isDark ? 'bg-black' : 'bg-gray-100'}`}
-                                                        title="点击查看大图"
+                                            <img src={activeUrl} className="h-full w-full object-cover" draggable={false} />
+                                            <div className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-black/65 to-transparent" />
+                                            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/75 to-transparent" />
+                                            <span className="absolute left-3 top-3 z-20 rounded-full border border-white/15 bg-black/55 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-md">
+                                                V{versionNumber}
+                                            </span>
+                                            <button
+                                                type="button"
+                                                className="absolute right-3 bottom-3 z-30 h-8 rounded-lg bg-[#4446CE] px-3 text-[11px] font-semibold text-white shadow-lg hover:bg-[#5557DB]"
+                                                onClick={(event) => {
+                                                    event.stopPropagation();
+                                                    onUseImageVersion?.(data.id, version);
+                                                    closeStack();
+                                                }}
+                                            >
+                                                复制并新建
+                                            </button>
+                                            {hasMultipleImages && hoveredBatchKey === batch.key && (
+                                                <>
+                                                    <button
+                                                        type="button"
+                                                        className="absolute left-3 top-1/2 z-30 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-white/15 bg-black/45 text-white shadow-lg backdrop-blur-md hover:bg-black/70"
+                                                        aria-label={`查看 V${versionNumber} 上一张`}
                                                         onClick={(event) => {
                                                             event.stopPropagation();
-                                                            onPreviewMedia?.(url, 'image');
+                                                            shiftBatchImage(batch.key, batch.urls.length, -1);
                                                         }}
                                                     >
-                                                        <img src={url} className="h-full w-full object-contain" draggable={false} />
-                                                        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/75 to-transparent opacity-90" />
-                                                        <div className="absolute inset-x-2 bottom-2 flex justify-end">
-                                                            <button
-                                                                type="button"
-                                                                className="h-8 rounded-lg bg-[#4446CE] px-3 text-[11px] font-semibold text-white shadow-lg hover:bg-[#5557DB]"
-                                                                onClick={(event) => {
-                                                                    event.stopPropagation();
-                                                                    onUseImageVersion?.(data.id, version);
-                                                                    closeStack();
-                                                                }}
-                                                            >
-                                                                复制并新建
-                                                            </button>
-                                                        </div>
+                                                        <Icons.ChevronLeft size={18} />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className="absolute right-3 top-1/2 z-30 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-white/15 bg-black/45 text-white shadow-lg backdrop-blur-md hover:bg-black/70"
+                                                        aria-label={`查看 V${versionNumber} 下一张`}
+                                                        onClick={(event) => {
+                                                            event.stopPropagation();
+                                                            shiftBatchImage(batch.key, batch.urls.length, 1);
+                                                        }}
+                                                    >
+                                                        <Icons.ChevronRight size={18} />
+                                                    </button>
+                                                    <div className="pointer-events-none absolute bottom-3 left-1/2 z-20 -translate-x-1/2 rounded-full border border-white/15 bg-black/45 px-2.5 py-1 text-[11px] font-semibold text-white shadow-lg backdrop-blur-md">
+                                                        {activeIndex + 1}/{batch.urls.length}
                                                     </div>
-                                                );
-                                            })}
+                                                </>
+                                            )}
                                         </div>
                                     </div>
-                                </div>
-                            </>
-                        )}
+                                );
+                            })}
+                        </div>
                     </div>
                 )}
             </>

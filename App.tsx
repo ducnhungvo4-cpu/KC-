@@ -2067,6 +2067,107 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
   
   const handleHistoryPreview = (url: string, type: 'image' | 'video') => setPreviewMedia({ url, type });
 
+  const resolveSecondaryEditSource = (node: NodeData) => {
+      if (node.errorMessage && node.editRootNodeId) {
+          return nodes.find(candidate => candidate.id === node.editRootNodeId) || node;
+      }
+      return node;
+  };
+
+  const getDerivedNodePosition = (source: NodeData, width = source.width, height = source.height) => {
+      let x = source.x + source.width + 90;
+      let y = source.y;
+      while (nodes.some(node =>
+          Math.abs(node.x - x) < Math.max(48, Math.min(width, node.width) * 0.18) &&
+          Math.abs(node.y - y) < Math.max(48, Math.min(height, node.height) * 0.18)
+      )) {
+          y += 64;
+      }
+      return { x, y };
+  };
+
+  const getStackedEditBadges = (source: NodeData, badge: string) => (
+      Array.from(new Set([...(source.editBadges || []), badge]))
+  );
+
+  const createDerivedConnection = (source: NodeData, targetId: string): Connection => ({
+      id: generateId(),
+      sourceId: source.id,
+      targetId,
+  });
+
+  const buildImageEditNode = (
+      sourceNode: NodeData,
+      badge: string,
+      title: string,
+      overrides: Partial<NodeData> = {}
+  ): NodeData => {
+      const source = resolveSecondaryEditSource(sourceNode);
+      const aspectRatio = overrides.aspectRatio || source.aspectRatio || '1:1';
+      const size = getNodeSizeForAspectRatio(aspectRatio);
+      const width = overrides.width || size.width;
+      const height = overrides.height || size.height;
+      const position = getDerivedNodePosition(source, width, height);
+      return {
+          id: generateId(),
+          type: NodeType.TEXT_TO_IMAGE,
+          x: position.x,
+          y: position.y,
+          width,
+          height,
+          title: title.slice(0, 24),
+          aspectRatio,
+          model: overrides.model || source.model || 'Seedream 5.0',
+          resolution: overrides.resolution || source.resolution || '1k',
+          count: overrides.count || 1,
+          prompt: overrides.prompt ?? source.prompt ?? '',
+          imageSrc: overrides.imageSrc,
+          outputArtifacts: overrides.outputArtifacts || (overrides.imageSrc ? [overrides.imageSrc] : []),
+          imageVersions: overrides.imageVersions,
+          isLoading: overrides.isLoading,
+          errorMessage: overrides.errorMessage,
+          creditEstimate: overrides.creditEstimate,
+          creditStatus: overrides.creditStatus,
+          editBadges: getStackedEditBadges(source, badge),
+          editRootNodeId: source.editRootNodeId || source.id,
+          editParentNodeId: source.id,
+          source: 'canvas',
+          projectId: source.projectId || currentProject?.id || DEMO_PROJECT_META.id,
+          canvasId: source.canvasId,
+          directorGroupName: source.directorGroupName || currentProject?.directorGroup || DEMO_PROJECT_META.directorGroup,
+      };
+  };
+
+  const buildVideoEditNode = (
+      sourceNode: NodeData,
+      badge: string,
+      title: string,
+      overrides: Partial<NodeData> = {}
+  ): NodeData => {
+      const source = resolveSecondaryEditSource(sourceNode);
+      const width = overrides.width || source.width;
+      const height = overrides.height || source.height;
+      const position = getDerivedNodePosition(source, width, height);
+      return {
+          ...source,
+          ...overrides,
+          id: generateId(),
+          x: position.x,
+          y: position.y,
+          width,
+          height,
+          title: title.slice(0, 24),
+          outputArtifacts: overrides.outputArtifacts || [],
+          isStackOpen: false,
+          auditStatus: undefined,
+          auditFailureReason: undefined,
+          auditErrorDetail: undefined,
+          editBadges: getStackedEditBadges(source, badge),
+          editRootNodeId: source.editRootNodeId || source.id,
+          editParentNodeId: source.id,
+      };
+  };
+
   const handleSetImageVersion = (nodeId: string, version: ImageVersionSnapshot) => {
       const { width, height } = getNodeSizeForAspectRatio(version.aspectRatio);
       updateNodeData(nodeId, {
@@ -2154,6 +2255,46 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
       setSelectedNodeIds(new Set([newNode.id]));
   };
 
+  const createPrototypeVideoEdit = (nodeId: string, badge: string, titlePrefix: string, creditEstimate = 4) => {
+      const requestedSource = nodes.find(n => n.id === nodeId);
+      const source = requestedSource ? resolveSecondaryEditSource(requestedSource) : undefined;
+      if (!source?.videoSrc) {
+          alert("当前节点没有可编辑的视频");
+          return;
+      }
+      const editNode = buildVideoEditNode(source, badge, `${titlePrefix}_${source.title}`, {
+          videoSrc: undefined,
+          outputArtifacts: [],
+          isLoading: true,
+          errorMessage: undefined,
+          creditEstimate,
+          creditStatus: 'reserved',
+      });
+      addCreatedCanvasItems([editNode], [createDerivedConnection(source, editNode.id)], '新建节点');
+      setSelectedNodeIds(new Set([editNode.id]));
+      window.setTimeout(() => {
+          updateNodeData(editNode.id, {
+              videoSrc: source.videoSrc,
+              outputArtifacts: [source.videoSrc!],
+              isLoading: false,
+              errorMessage: undefined,
+              creditStatus: 'confirmed',
+          });
+      }, 450);
+  };
+
+  const handleRemoveSubtitlesEdit = (nodeId: string) => {
+      createPrototypeVideoEdit(nodeId, '去字幕', '去字幕', 4);
+  };
+
+  const handleEnhanceVideoEdit = (nodeId: string) => {
+      createPrototypeVideoEdit(nodeId, '高清修复', '高清修复', 6);
+  };
+
+  const handleRemoveBGMEdit = (nodeId: string) => {
+      createPrototypeVideoEdit(nodeId, '去BGM', '去BGM', 4);
+  };
+
   const handlePreviewReference = (item: InputMedia) => {
       if (item.type === 'text') {
           setPreviewText({ title: item.title || '参考文本', text: item.text || '' });
@@ -2164,11 +2305,12 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
 
   const handleCropStart = (nodeId: string) => {
       const node = nodes.find(n => n.id === nodeId);
-      if (!node?.imageSrc) {
+      const source = node ? resolveSecondaryEditSource(node) : undefined;
+      if (!source?.imageSrc) {
           alert("当前节点没有可裁剪的图片");
           return;
       }
-      setCropTarget({ nodeId, imageSrc: node.imageSrc, title: node.title, aspectRatio: node.aspectRatio || '1:1' });
+      setCropTarget({ nodeId: source.id, imageSrc: source.imageSrc, title: source.title, aspectRatio: source.aspectRatio || '1:1' });
   };
 
   const handleCropConfirm = (croppedSrc: string, naturalWidth: number, naturalHeight: number, aspectRatio: string) => {
@@ -2176,33 +2318,24 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
       void naturalHeight;
       if (!cropTarget) return;
       const source = nodes.find(n => n.id === cropTarget.nodeId);
-      const { width, height } = getNodeSizeForAspectRatio(aspectRatio);
-      const newId = generateId();
-      const newNode: NodeData = {
-          id: newId,
-          type: NodeType.TEXT_TO_IMAGE,
-          x: source ? source.x + source.width + 80 : 80,
-          y: source ? source.y : 80,
-          width,
-          height,
-          title: `裁剪_${cropTarget.title}`.slice(0, 24),
+      if (!source) {
+          setCropTarget(null);
+          return;
+      }
+      const newNode = buildImageEditNode(source, '裁剪', `裁剪_${cropTarget.title}`, {
           imageSrc: croppedSrc,
           aspectRatio,
-          model: source?.model || 'Seedream 5.0',
-          resolution: source?.resolution || '1k',
-          count: 1,
-          prompt: source?.prompt || '',
-          outputArtifacts: [croppedSrc]
-      };
+          outputArtifacts: [croppedSrc],
+      });
 
-      const newConnection = source ? { id: generateId(), sourceId: source.id, targetId: newId } : null;
-      addCreatedCanvasItems([newNode], newConnection ? [newConnection] : [], '新建节点');
-      setSelectedNodeIds(new Set([newId]));
+      addCreatedCanvasItems([newNode], [createDerivedConnection(resolveSecondaryEditSource(source), newNode.id)], '新建节点');
+      setSelectedNodeIds(new Set([newNode.id]));
       setCropTarget(null);
   };
 
   const handleMultiAngleGenerate = async (nodeId: string, options: MultiAngleOptions) => {
-      const source = nodes.find(n => n.id === nodeId);
+      const requestedSource = nodes.find(n => n.id === nodeId);
+      const source = requestedSource ? resolveSecondaryEditSource(requestedSource) : undefined;
       if (!source?.imageSrc) {
           alert("当前节点没有可用于多角度控制的图片");
           return;
@@ -2215,30 +2348,19 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
       const baseAspectRatio = options.aspectRatio && options.aspectRatio !== 'source'
           ? options.aspectRatio
           : (source.aspectRatio || '1:1');
-      const { width, height } = getNodeSizeForAspectRatio(baseAspectRatio);
-      const placeholderId = generateId();
       const placeholderTitle = `多角度_${source.title}`.slice(0, 24);
-      const placeholderNode: NodeData = {
-          id: placeholderId,
-          type: NodeType.TEXT_TO_IMAGE,
-          x: source.x + source.width + 90,
-          y: source.y,
-          width,
-          height,
-          title: placeholderTitle,
+      const placeholderNode = buildImageEditNode(source, '多角度', placeholderTitle, {
           aspectRatio: baseAspectRatio,
-          model: source.model || 'Seedream 5.0',
-          resolution: source.resolution || '1k',
-          count: 1,
           prompt: options.prompt || source.prompt || '',
           outputArtifacts: [],
           isLoading: true,
           errorMessage: undefined,
           creditEstimate: 4,
           creditStatus: 'reserved',
-      };
+      });
 
-      const placeholderConnection = { id: generateId(), sourceId: source.id, targetId: placeholderId };
+      const placeholderId = placeholderNode.id;
+      const placeholderConnection = createDerivedConnection(source, placeholderId);
       addCreatedCanvasItems([placeholderNode], [placeholderConnection], '新建节点');
       setSelectedNodeIds(new Set([placeholderId]));
 
@@ -2270,6 +2392,46 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
               creditStatus: 'refunded',
           });
       }
+  };
+
+  const createPrototypeImageEdit = (nodeId: string, badge: string, titlePrefix: string, updates: Partial<NodeData> = {}) => {
+      const requestedSource = nodes.find(n => n.id === nodeId);
+      const source = requestedSource ? resolveSecondaryEditSource(requestedSource) : undefined;
+      if (!source?.imageSrc) {
+          alert("当前节点没有可编辑的图片");
+          return;
+      }
+      const editNode = buildImageEditNode(source, badge, `${titlePrefix}_${source.title}`, {
+          ...updates,
+          imageSrc: undefined,
+          outputArtifacts: [],
+          isLoading: true,
+          errorMessage: undefined,
+          creditEstimate: updates.creditEstimate || 2,
+          creditStatus: 'reserved',
+      });
+      addCreatedCanvasItems([editNode], [createDerivedConnection(source, editNode.id)], '新建节点');
+      setSelectedNodeIds(new Set([editNode.id]));
+      window.setTimeout(() => {
+          updateNodeData(editNode.id, {
+              imageSrc: source.imageSrc,
+              outputArtifacts: [source.imageSrc!],
+              isLoading: false,
+              errorMessage: undefined,
+              creditStatus: 'confirmed',
+          });
+      }, 450);
+  };
+
+  const handleLightingEdit = (nodeId: string) => {
+      createPrototypeImageEdit(nodeId, '打光', '打光', { creditEstimate: 2 });
+  };
+
+  const handleEnhanceImageEdit = (nodeId: string, resolution: '2K' | '4K') => {
+      createPrototypeImageEdit(nodeId, '高清', `${resolution}高清`, {
+          resolution,
+          creditEstimate: resolution === '4K' ? 8 : 4,
+      });
   };
 
   const copyImageToClipboard = async (nodeId: string) => {
@@ -4731,10 +4893,15 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                             onSaveResult={openSaveResultModal}
                             onCrop={handleCropStart}
                             onMultiAngle={handleMultiAngleGenerate}
+                            onLighting={handleLightingEdit}
+                            onEnhanceImage={handleEnhanceImageEdit}
                             onExtractFrames={(nodeId: string) => {
                                 const n = nodes.find(nd => nd.id === nodeId);
                                 if (n?.videoSrc) setFrameExtractTarget({ nodeId, videoSrc: n.videoSrc });
                             }}
+                            onRemoveSubtitles={handleRemoveSubtitlesEdit}
+                            onEnhanceVideo={handleEnhanceVideoEdit}
+                            onRemoveBGM={handleRemoveBGMEdit}
                             onAnalyzeMedia={handleAnalyzeMedia}
                             onAnalyzeScript={handleAnalyzeScript}
                             isSelecting={dragMode === 'SELECT'}
@@ -5135,19 +5302,31 @@ const handlePaste = useCallback(async (e: ClipboardEvent) => {
                         const baseSize = 480;
                         const nodeW = ratio >= 1 ? baseSize : Math.round(baseSize * ratio);
                         const nodeH = ratio >= 1 ? Math.round(baseSize / ratio) : baseSize;
-                        const newId = `node_${Date.now()}`;
+                        const aspectRatio = getClosestAspectRatio(videoWidth || 16, videoHeight || 9, IMAGE_ASPECT_RATIOS);
+                        const source = resolveSecondaryEditSource(sourceNode);
+                        const position = getDerivedNodePosition(source, nodeW, nodeH);
                         const newNode: NodeData = {
-                            id: newId,
+                            id: generateId(),
                             type: NodeType.TEXT_TO_IMAGE,
-                            x: sourceNode.x + sourceNode.width + 60,
-                            y: sourceNode.y,
+                            x: position.x,
+                            y: position.y,
                             width: nodeW,
                             height: nodeH,
                             title: `截帧_${String(Math.floor(timeSeconds / 60)).padStart(2, '0')}:${String(Math.floor(timeSeconds % 60)).padStart(2, '0')}_${sourceNode.title}`.slice(0, 30),
                             imageSrc: imageDataUrl,
+                            aspectRatio,
+                            model: sourceNode.model || 'Seedream 5.0',
+                            resolution: sourceNode.resolution || '1k',
+                            count: 1,
+                            prompt: sourceNode.prompt || '',
+                            outputArtifacts: [imageDataUrl],
+                            editBadges: getStackedEditBadges(source, '截帧'),
+                            editRootNodeId: source.editRootNodeId || source.id,
+                            editParentNodeId: source.id,
                             source: 'canvas',
                         };
-                        addCreatedCanvasItems([newNode]);
+                        addCreatedCanvasItems([newNode], [createDerivedConnection(source, newNode.id)], '新建节点');
+                        setSelectedNodeIds(new Set([newNode.id]));
                         setFrameExtractTarget(null);
                     }}
                 />

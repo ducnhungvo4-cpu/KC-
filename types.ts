@@ -61,6 +61,9 @@ export interface NodeData {
   auditStatus?: 'auditing' | 'passed' | 'failed'; // Seedance 2.0 compliance audit status
   auditFailureReason?: string; // Short user-facing reason shown beside the node
   auditErrorDetail?: string; // Full provider error retained for support/debug copy
+  editBadges?: string[]; // Secondary edit status badges stacked on derived nodes
+  editRootNodeId?: string; // Original source node for retrying failed secondary edits
+  editParentNodeId?: string; // Immediate parent node that spawned this edit
   
   // Configs
   aspectRatio?: string;

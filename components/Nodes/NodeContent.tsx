@@ -34,6 +34,7 @@ interface NodeContentProps {
   onMultiGrid?: (nodeId: string, preset: string) => void;
   onRepaint?: (nodeId: string) => void;
   onLighting?: (nodeId: string) => void;
+  onEnhanceImage?: (nodeId: string, resolution: '2K' | '4K') => void;
   onPanorama?: (nodeId: string) => void;
   onToggleFavoriteArtifact?: (nodeId: string, url: string, type: 'image' | 'video') => void;
   isArtifactFavorited?: (nodeId: string, url: string) => boolean;

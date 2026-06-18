@@ -27,6 +27,7 @@ interface TextToImageNodeProps {
   onMultiGrid?: (id: string, preset: string) => void;
   onRepaint?: (id: string) => void;
   onLighting?: (id: string) => void;
+  onEnhanceImage?: (id: string, resolution: '2K' | '4K') => void;
   onPanorama?: (id: string) => void;
   onToggleFavoriteArtifact?: (nodeId: string, url: string, type: 'image' | 'video') => void;
   isArtifactFavorited?: (nodeId: string, url: string) => boolean;
@@ -36,7 +37,7 @@ interface TextToImageNodeProps {
 }
 
 export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
-    data, updateData, onGenerate, selected, showControls, inputs = [], inputMedia = [], onPreviewReference, onMaximize, onPreviewMedia, onSetImageVersion, onUseImageVersion, onDownload, onUpload, onSaveResult, onCrop, onMultiAngle, onMultiGrid, onRepaint, onLighting, onPanorama, onToggleFavoriteArtifact, isArtifactFavorited, onAddToAssetLibrary, isDark = true, isSelecting, canvasScale = 1
+    data, updateData, onGenerate, selected, showControls, inputs = [], inputMedia = [], onPreviewReference, onMaximize, onPreviewMedia, onSetImageVersion, onUseImageVersion, onDownload, onUpload, onSaveResult, onCrop, onMultiAngle, onMultiGrid, onRepaint, onLighting, onEnhanceImage, onPanorama, onToggleFavoriteArtifact, isArtifactFavorited, onAddToAssetLibrary, isDark = true, isSelecting, canvasScale = 1
 }) => {
     const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
     const [deferredInputs, setDeferredInputs] = useState(false);
@@ -232,7 +233,7 @@ export const TextToImageNode: React.FC<TextToImageNodeProps> = ({
     const handleHdRestoreGenerate = (resolution: '2K' | '4K') => {
         if (!data.imageSrc || data.isLoading) return;
         setIsHdRestoreOpen(false);
-        window.alert(`${resolution} 一键高清前端入口已就绪，等待后端高清接口接入。`);
+        onEnhanceImage?.(data.id, resolution);
     };
 
     const resetLighting = () => {
