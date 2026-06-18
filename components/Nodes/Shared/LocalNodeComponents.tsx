@@ -487,7 +487,7 @@ export const LocalMediaStack: React.FC<{
             return batches;
         }, []).filter(batch => batch.urls.some(url => url !== currentSrc) || batch.urls.length > 1);
         const selectedBatch = imageHistoryBatches.find(batch => batch.key === selectedBatchKey) || imageHistoryBatches[0];
-        const previewBatch = imageHistoryBatches.find(batch => batch.key === hoveredBatchKey) || selectedBatch;
+        const previewBatch = selectedBatch;
         const activeBatchIndex = previewBatch ? imageHistoryBatches.findIndex(batch => batch.key === previewBatch.key) : -1;
         const activeVersionNumber = activeBatchIndex >= 0 ? imageHistoryBatches.length - activeBatchIndex : 1;
         const clampNumber = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
@@ -502,34 +502,26 @@ export const LocalMediaStack: React.FC<{
             const batchRatios = batchUrls.length ? batchUrls.map(getVersionAspectRatio) : [1];
             const averageBatchRatio = batchRatios.reduce((sum, ratio) => sum + ratio, 0) / batchRatios.length;
             const normalizedBatchRatio = clampNumber(averageBatchRatio, 0.65, 1.9);
-            const gridColumns = batchCount === 1 ? 1 : 2;
+            const gridColumns = batchCount === 1 ? 1 : batchCount === 2 && averageBatchRatio < 0.85 ? 1 : 2;
             const gridRows = Math.ceil(batchCount / gridColumns);
-            const width = batchCount >= 4
-                ? (averageBatchRatio < 0.85 ? 560 : averageBatchRatio > 1.6 ? 720 : 640)
-                : batchCount === 2
-                    ? (averageBatchRatio < 0.85 ? 540 : averageBatchRatio > 1.6 ? 680 : 600)
-                    : clampNumber(Math.round(440 * normalizedBatchRatio), 460, 680);
-            const tileWidth = (width - 24 - (gridColumns - 1) * 8) / gridColumns;
-            const gridContentHeight = clampNumber(
-                Math.round((tileWidth / normalizedBatchRatio) * gridRows + (gridRows - 1) * 8 + 16),
-                batchCount >= 4 ? 500 : 360,
-                650
-            );
+            const compositeRatio = (gridColumns * normalizedBatchRatio) / gridRows;
+            const width = compositeRatio > 1.45
+                ? 760
+                : compositeRatio < 0.75
+                    ? 440
+                    : clampNumber(Math.round(600 * compositeRatio), 520, 680);
+            const gridContentHeight = clampNumber(Math.round(width / compositeRatio), 320, 820) + 16;
             return {
                 width,
                 height: 65 + gridContentHeight + (imageHistoryBatches.length > 1 ? 49 : 0),
             };
         };
-        const drawerMetrics = imageHistoryBatches.reduce(
-            (largest, batch) => {
-                const metrics = getBatchDrawerMetrics(batch);
-                return {
-                    width: Math.max(largest.width, metrics.width),
-                    height: Math.max(largest.height, metrics.height),
-                };
-            },
-            getBatchDrawerMetrics(previewBatch)
-        );
+        const drawerMetrics = getBatchDrawerMetrics(previewBatch);
+        const previewBatchUrls = previewBatch?.urls || [];
+        const previewAverageRatio = previewBatchUrls.length
+            ? previewBatchUrls.map(getVersionAspectRatio).reduce((sum, ratio) => sum + ratio, 0) / previewBatchUrls.length
+            : 1;
+        const previewGridColumns = previewBatchUrls.length === 1 ? 1 : previewBatchUrls.length === 2 && previewAverageRatio < 0.85 ? 1 : 2;
         const drawerWidth = drawerMetrics.width;
         const drawerHeight = drawerMetrics.height;
         const displaySrc = currentSrc;
@@ -610,7 +602,7 @@ export const LocalMediaStack: React.FC<{
                                             V{activeVersionNumber}
                                             {previewBatch.urls.length > 1 && <span className="font-semibold text-white/75"> · {previewBatch.urls.length}张</span>}
                                         </span>
-                                        <div className={`grid h-full gap-2 p-2 ${previewBatch.urls.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                                        <div className={`grid h-full gap-2 p-2 ${previewGridColumns === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
                                             {previewBatch.urls.map((url) => {
                                                 const version = getImageVersion(url);
                                                 return (
@@ -648,26 +640,15 @@ export const LocalMediaStack: React.FC<{
                                     <div className={`flex items-center justify-center gap-3 border-t px-4 py-3 ${isDark ? 'border-zinc-800' : 'border-gray-100'}`}>
                                         {imageHistoryBatches.map((batch, index) => {
                                             const isSelected = batch.key === selectedBatch.key;
-                                            const isPreviewing = batch.key === hoveredBatchKey;
                                             return (
                                                 <button
                                                     key={batch.key}
                                                     type="button"
                                                     className={`h-4 w-4 rounded-full border transition duration-150 hover:scale-110 ${isSelected
                                                         ? 'border-[#C7C8FF]/90 bg-[radial-gradient(circle_at_35%_30%,#FFFFFF_0%,#E7E8FF_34%,#4446CE_100%)] shadow-[inset_0_1px_2px_rgba(255,255,255,.85),0_0_0_4px_rgba(68,70,206,.18),0_4px_12px_rgba(68,70,206,.45)]'
-                                                        : isPreviewing
-                                                            ? 'border-[#C7C8FF]/80 bg-[radial-gradient(circle_at_35%_30%,#FFFFFF_0%,#EEF0FF_42%,#8F91F4_100%)] shadow-[inset_0_1px_2px_rgba(255,255,255,.8),0_3px_10px_rgba(143,145,244,.42)]'
-                                                            : 'border-white/45 bg-[radial-gradient(circle_at_35%_30%,rgba(255,255,255,.98)_0%,rgba(236,237,255,.88)_48%,rgba(143,145,244,.46)_100%)] shadow-[inset_0_1px_2px_rgba(255,255,255,.8),0_3px_9px_rgba(0,0,0,.35)]'
+                                                        : 'border-white/45 bg-[radial-gradient(circle_at_35%_30%,rgba(255,255,255,.98)_0%,rgba(236,237,255,.88)_48%,rgba(143,145,244,.46)_100%)] shadow-[inset_0_1px_2px_rgba(255,255,255,.8),0_3px_9px_rgba(0,0,0,.35)] hover:border-[#C7C8FF]/80 hover:bg-[radial-gradient(circle_at_35%_30%,#FFFFFF_0%,#EEF0FF_42%,#8F91F4_100%)] hover:shadow-[inset_0_1px_2px_rgba(255,255,255,.8),0_3px_10px_rgba(143,145,244,.42)]'
                                                     }`}
                                                     aria-label={`查看 V${imageHistoryBatches.length - index}`}
-                                                    onMouseEnter={(event) => {
-                                                        event.stopPropagation();
-                                                        setHoveredBatchKey(batch.key);
-                                                    }}
-                                                    onMouseLeave={(event) => {
-                                                        event.stopPropagation();
-                                                        setHoveredBatchKey(null);
-                                                    }}
                                                     onClick={(event) => {
                                                         event.stopPropagation();
                                                         setSelectedBatchKey(batch.key);
