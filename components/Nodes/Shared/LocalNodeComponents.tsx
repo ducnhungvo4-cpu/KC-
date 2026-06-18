@@ -510,10 +510,16 @@ export const LocalMediaStack: React.FC<{
                 : compositeRatio < 0.75
                     ? 400
                     : clampNumber(Math.round(600 * compositeRatio), 520, 680);
-            const gridContentHeight = clampNumber(Math.round(width / compositeRatio), 320, 600) + 16;
+            const tileWidth = Math.max(120, (width - 40 - ((gridColumns - 1) * 8)) / gridColumns);
+            const rowHeights = Array.from({ length: gridRows }, (_, rowIndex) => {
+                const rowRatios = batchRatios.slice(rowIndex * gridColumns, (rowIndex + 1) * gridColumns);
+                const rowMinRatio = Math.min(...(rowRatios.length ? rowRatios : [normalizedBatchRatio]));
+                return tileWidth / clampNumber(rowMinRatio, 0.3, 3);
+            });
+            const gridContentHeight = Math.round(rowHeights.reduce((sum, rowHeight) => sum + rowHeight, 0) + ((gridRows - 1) * 8) + 40);
             return {
                 width,
-                height: 65 + gridContentHeight + (imageHistoryBatches.length > 1 ? 49 : 0),
+                height: (imageHistoryBatches.length > 1 ? 84 : 65) + gridContentHeight,
             };
         };
         const drawerMetrics = getBatchDrawerMetrics(previewBatch);
@@ -565,8 +571,31 @@ export const LocalMediaStack: React.FC<{
                         onMouseLeave={() => setHoveredBatchKey(null)}
                     >
                         <div className={`flex items-start justify-between border-b px-4 py-4 ${isDark ? 'border-zinc-800' : 'border-gray-100'}`}>
-                            <div>
+                            <div className="min-w-0">
                                 <div className="text-sm font-semibold">历史记录</div>
+                                {imageHistoryBatches.length > 1 && (
+                                    <div className="mt-2 flex items-center gap-3">
+                                        {imageHistoryBatches.map((batch, index) => {
+                                            const isSelected = batch.key === selectedBatch.key;
+                                            return (
+                                                <button
+                                                    key={batch.key}
+                                                    type="button"
+                                                    className={`h-4 w-4 rounded-full border transition duration-150 hover:scale-110 ${isSelected
+                                                        ? 'border-[#C7C8FF]/90 bg-[radial-gradient(circle_at_35%_30%,#FFFFFF_0%,#E7E8FF_34%,#4446CE_100%)] shadow-[inset_0_1px_2px_rgba(255,255,255,.85),0_0_0_4px_rgba(68,70,206,.18),0_4px_12px_rgba(68,70,206,.45)]'
+                                                        : 'border-white/45 bg-[radial-gradient(circle_at_35%_30%,rgba(255,255,255,.98)_0%,rgba(236,237,255,.88)_48%,rgba(143,145,244,.46)_100%)] shadow-[inset_0_1px_2px_rgba(255,255,255,.8),0_3px_9px_rgba(0,0,0,.35)] hover:border-[#C7C8FF]/80 hover:bg-[radial-gradient(circle_at_35%_30%,#FFFFFF_0%,#EEF0FF_42%,#8F91F4_100%)] hover:shadow-[inset_0_1px_2px_rgba(255,255,255,.8),0_3px_10px_rgba(143,145,244,.42)]'
+                                                    }`}
+                                                    aria-label={`查看 V${imageHistoryBatches.length - index}`}
+                                                    onClick={(event) => {
+                                                        event.stopPropagation();
+                                                        setSelectedBatchKey(batch.key);
+                                                        setHoveredBatchKey(null);
+                                                    }}
+                                                />
+                                            );
+                                        })}
+                                    </div>
+                                )}
                             </div>
                             <div className="flex items-center gap-2">
                                 <button
@@ -602,7 +631,12 @@ export const LocalMediaStack: React.FC<{
                                             V{activeVersionNumber}
                                             {previewBatch.urls.length > 1 && <span className="font-semibold text-white/75"> · {previewBatch.urls.length}张</span>}
                                         </span>
-                                        <div className={`grid h-full gap-2 p-2 ${previewGridColumns === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                                        <div
+                                            className={`grid h-full gap-2 p-2 ${previewGridColumns === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}
+                                            style={{
+                                                gridTemplateRows: `repeat(${Math.ceil(previewBatchUrls.length / previewGridColumns)}, minmax(0, 1fr))`,
+                                            }}
+                                        >
                                             {previewBatch.urls.map((url) => {
                                                 const version = getImageVersion(url);
                                                 return (
@@ -636,29 +670,6 @@ export const LocalMediaStack: React.FC<{
                                         </div>
                                     </div>
                                 </div>
-                                {imageHistoryBatches.length > 1 && (
-                                    <div className={`flex items-center justify-center gap-3 border-t px-4 py-3 ${isDark ? 'border-zinc-800' : 'border-gray-100'}`}>
-                                        {imageHistoryBatches.map((batch, index) => {
-                                            const isSelected = batch.key === selectedBatch.key;
-                                            return (
-                                                <button
-                                                    key={batch.key}
-                                                    type="button"
-                                                    className={`h-4 w-4 rounded-full border transition duration-150 hover:scale-110 ${isSelected
-                                                        ? 'border-[#C7C8FF]/90 bg-[radial-gradient(circle_at_35%_30%,#FFFFFF_0%,#E7E8FF_34%,#4446CE_100%)] shadow-[inset_0_1px_2px_rgba(255,255,255,.85),0_0_0_4px_rgba(68,70,206,.18),0_4px_12px_rgba(68,70,206,.45)]'
-                                                        : 'border-white/45 bg-[radial-gradient(circle_at_35%_30%,rgba(255,255,255,.98)_0%,rgba(236,237,255,.88)_48%,rgba(143,145,244,.46)_100%)] shadow-[inset_0_1px_2px_rgba(255,255,255,.8),0_3px_9px_rgba(0,0,0,.35)] hover:border-[#C7C8FF]/80 hover:bg-[radial-gradient(circle_at_35%_30%,#FFFFFF_0%,#EEF0FF_42%,#8F91F4_100%)] hover:shadow-[inset_0_1px_2px_rgba(255,255,255,.8),0_3px_10px_rgba(143,145,244,.42)]'
-                                                    }`}
-                                                    aria-label={`查看 V${imageHistoryBatches.length - index}`}
-                                                    onClick={(event) => {
-                                                        event.stopPropagation();
-                                                        setSelectedBatchKey(batch.key);
-                                                        setHoveredBatchKey(null);
-                                                    }}
-                                                />
-                                            );
-                                        })}
-                                    </div>
-                                )}
                             </>
                         )}
                     </div>
