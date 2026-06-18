@@ -505,21 +505,47 @@ export const LocalMediaStack: React.FC<{
             const gridColumns = batchCount === 1 ? 1 : 2;
             const gridRows = Math.ceil(batchCount / gridColumns);
             const compositeRatio = (gridColumns * normalizedBatchRatio) / gridRows;
-            const width = compositeRatio > 1.45
+            const preferredWidth = compositeRatio > 1.45
                 ? 760
                 : compositeRatio < 0.75
                     ? 400
                     : clampNumber(Math.round(600 * compositeRatio), 520, 680);
-            const tileWidth = Math.max(120, (width - 40 - ((gridColumns - 1) * 8)) / gridColumns);
-            const rowHeights = Array.from({ length: gridRows }, (_, rowIndex) => {
-                const rowRatios = batchRatios.slice(rowIndex * gridColumns, (rowIndex + 1) * gridColumns);
-                const rowMinRatio = Math.min(...(rowRatios.length ? rowRatios : [normalizedBatchRatio]));
-                return tileWidth / clampNumber(rowMinRatio, 0.3, 3);
-            });
-            const gridContentHeight = Math.round(rowHeights.reduce((sum, rowHeight) => sum + rowHeight, 0) + ((gridRows - 1) * 8) + 40);
+            const headerHeight = imageHistoryBatches.length > 1 ? 90 : 65;
+            const gridGap = 8;
+            const gridPadding = 16;
+            const contentPadding = 24;
+            const getContentHeight = (panelWidth: number) => {
+                const tileWidth = Math.max(96, (panelWidth - contentPadding - gridPadding - ((gridColumns - 1) * gridGap)) / gridColumns);
+                const rowHeights = Array.from({ length: gridRows }, (_, rowIndex) => {
+                    const rowRatios = batchRatios.slice(rowIndex * gridColumns, (rowIndex + 1) * gridColumns);
+                    const rowMinRatio = Math.min(...(rowRatios.length ? rowRatios : [normalizedBatchRatio]));
+                    return tileWidth / clampNumber(rowMinRatio, 0.3, 3);
+                });
+                return Math.round(rowHeights.reduce((sum, rowHeight) => sum + rowHeight, 0) + ((gridRows - 1) * gridGap) + gridPadding + contentPadding);
+            };
+            const availableHeight = typeof window === 'undefined'
+                ? 760
+                : clampNumber(window.innerHeight - 72, 520, 920);
+            let width = preferredWidth;
+            let gridContentHeight = getContentHeight(width);
+            const maxContentHeight = availableHeight - headerHeight;
+            if (gridContentHeight > maxContentHeight) {
+                const scale = clampNumber(maxContentHeight / gridContentHeight, 0.64, 1);
+                width = Math.max(320, Math.round(width * scale));
+                gridContentHeight = getContentHeight(width);
+            }
+            if (batchCount === 4 && averageBatchRatio < 0.8) {
+                width = Math.max(340, width);
+                gridContentHeight = getContentHeight(width);
+                if (gridContentHeight > maxContentHeight) {
+                    const scale = clampNumber(maxContentHeight / gridContentHeight, 0.64, 1);
+                    width = Math.max(320, Math.round(width * scale));
+                    gridContentHeight = getContentHeight(width);
+                }
+            }
             return {
                 width,
-                height: (imageHistoryBatches.length > 1 ? 84 : 65) + gridContentHeight,
+                height: Math.min(headerHeight + gridContentHeight, availableHeight),
             };
         };
         const drawerMetrics = getBatchDrawerMetrics(previewBatch);
@@ -563,7 +589,7 @@ export const LocalMediaStack: React.FC<{
                         className={`history-version-drawer absolute left-[calc(100%+16px)] top-0 z-[120] flex max-w-[calc(100vw-48px)] flex-col overflow-hidden rounded-2xl border shadow-2xl backdrop-blur-xl ${isDark ? 'border-zinc-700 bg-[#181818]/97 text-zinc-100' : 'border-gray-200 bg-white/97 text-gray-900'}`}
                         style={{
                             width: `min(${drawerWidth}px, calc(100vw - 48px))`,
-                            height: `min(${Math.max(drawerHeight, data.height)}px, calc(100vh - 48px))`,
+                            height: `${drawerHeight}px`,
                         }}
                         data-canvas-wheel-pass-through="true"
                         onMouseDown={(event) => event.stopPropagation()}
@@ -574,24 +600,29 @@ export const LocalMediaStack: React.FC<{
                             <div className="min-w-0">
                                 <div className="text-sm font-semibold">历史记录</div>
                                 {imageHistoryBatches.length > 1 && (
-                                    <div className="mt-2 flex items-center gap-3">
+                                    <div className="mt-2 flex items-center gap-2">
                                         {imageHistoryBatches.map((batch, index) => {
+                                            const versionNumber = imageHistoryBatches.length - index;
                                             const isSelected = batch.key === selectedBatch.key;
                                             return (
                                                 <button
                                                     key={batch.key}
                                                     type="button"
-                                                    className={`h-4 w-4 rounded-full border transition duration-150 hover:scale-110 ${isSelected
-                                                        ? 'border-[#C7C8FF]/90 bg-[radial-gradient(circle_at_35%_30%,#FFFFFF_0%,#E7E8FF_34%,#4446CE_100%)] shadow-[inset_0_1px_2px_rgba(255,255,255,.85),0_0_0_4px_rgba(68,70,206,.18),0_4px_12px_rgba(68,70,206,.45)]'
-                                                        : 'border-white/45 bg-[radial-gradient(circle_at_35%_30%,rgba(255,255,255,.98)_0%,rgba(236,237,255,.88)_48%,rgba(143,145,244,.46)_100%)] shadow-[inset_0_1px_2px_rgba(255,255,255,.8),0_3px_9px_rgba(0,0,0,.35)] hover:border-[#C7C8FF]/80 hover:bg-[radial-gradient(circle_at_35%_30%,#FFFFFF_0%,#EEF0FF_42%,#8F91F4_100%)] hover:shadow-[inset_0_1px_2px_rgba(255,255,255,.8),0_3px_10px_rgba(143,145,244,.42)]'
+                                                    className={`h-6 min-w-8 rounded-lg border px-2 text-[11px] font-bold leading-none transition duration-150 hover:-translate-y-0.5 ${isSelected
+                                                        ? 'border-[#C7C8FF]/80 bg-[#4446CE] text-white shadow-[inset_0_1px_0_rgba(255,255,255,.35),0_6px_14px_rgba(68,70,206,.38)]'
+                                                        : isDark
+                                                            ? 'border-white/10 bg-white/[0.06] text-zinc-300 shadow-[inset_0_1px_0_rgba(255,255,255,.08),0_4px_10px_rgba(0,0,0,.25)] hover:border-[#8F91F4]/45 hover:bg-[#4446CE]/20 hover:text-white'
+                                                            : 'border-gray-200 bg-white text-gray-600 shadow-sm hover:border-[#8F91F4]/40 hover:bg-[#F0F1FF] hover:text-[#4446CE]'
                                                     }`}
-                                                    aria-label={`查看 V${imageHistoryBatches.length - index}`}
+                                                    aria-label={`查看 V${versionNumber}`}
                                                     onClick={(event) => {
                                                         event.stopPropagation();
                                                         setSelectedBatchKey(batch.key);
                                                         setHoveredBatchKey(null);
                                                     }}
-                                                />
+                                                >
+                                                    V{versionNumber}
+                                                </button>
                                             );
                                         })}
                                     </div>
