@@ -429,6 +429,7 @@ export const LocalMediaStack: React.FC<{
     const stackRef = useRef<HTMLDivElement>(null);
     const [hoveredBatchKey, setHoveredBatchKey] = useState<string | null>(null);
     const [batchImageIndexes, setBatchImageIndexes] = useState<Record<string, number>>({});
+    const [imageNaturalRatios, setImageNaturalRatios] = useState<Record<string, string>>({});
     const artifacts = data.outputArtifacts || [];
     const sortedArtifacts = currentSrc ? [currentSrc, ...artifacts.filter(a => a !== currentSrc)] : artifacts;
     const isImageHistory = data.type === NodeType.TEXT_TO_IMAGE;
@@ -443,12 +444,16 @@ export const LocalMediaStack: React.FC<{
         url,
         prompt: data.prompt || '',
         model: data.model || 'Seedream 5.0',
-        aspectRatio: data.aspectRatio || '1:1',
+        aspectRatio: imageNaturalRatios[url] || data.aspectRatio || '1:1',
         resolution: data.resolution || '1k',
         count: data.count || 1,
         promptOptimize: !!data.promptOptimize,
         createdAt: 0,
     };
+    const withNaturalRatio = (version: ImageVersionSnapshot): ImageVersionSnapshot => ({
+        ...version,
+        aspectRatio: imageNaturalRatios[version.url] || version.aspectRatio,
+    });
 
     const closeStack = () => {
         setHoveredBatchKey(null);
@@ -497,6 +502,11 @@ export const LocalMediaStack: React.FC<{
                 const current = prev[batchKey] || 0;
                 return { ...prev, [batchKey]: (current + direction + total) % total };
             });
+        };
+        const recordNaturalRatio = (url: string, image: HTMLImageElement) => {
+            if (!image.naturalWidth || !image.naturalHeight) return;
+            const ratio = `${image.naturalWidth}:${image.naturalHeight}`;
+            setImageNaturalRatios(prev => prev[url] === ratio ? prev : { ...prev, [url]: ratio });
         };
         return (
             <>
@@ -587,7 +597,12 @@ export const LocalMediaStack: React.FC<{
                                                 onPreviewMedia?.(activeUrl, 'image');
                                             }}
                                         >
-                                            <img src={activeUrl} className="h-full w-full object-cover" draggable={false} />
+                                            <img
+                                                src={activeUrl}
+                                                className="h-full w-full object-cover"
+                                                draggable={false}
+                                                onLoad={(event) => recordNaturalRatio(activeUrl, event.currentTarget)}
+                                            />
                                             <div className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-black/65 to-transparent" />
                                             <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/75 to-transparent" />
                                             <span className="absolute left-3 top-3 z-20 rounded-full border border-white/15 bg-black/55 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-md">
@@ -598,7 +613,7 @@ export const LocalMediaStack: React.FC<{
                                                 className="absolute right-3 bottom-3 z-30 h-8 rounded-lg bg-[#4446CE] px-3 text-[11px] font-semibold text-white shadow-lg hover:bg-[#5557DB]"
                                                 onClick={(event) => {
                                                     event.stopPropagation();
-                                                    onUseImageVersion?.(data.id, version);
+                                                    onUseImageVersion?.(data.id, withNaturalRatio(version));
                                                     closeStack();
                                                 }}
                                             >
